@@ -1,0 +1,5 @@
+/dist/
+/dist-dev/
+/dist-installed/
+/node_modules/
+/.cst/events.lock

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://effect-ecosystem-skill.local/evidence-schema.json",
+  "title": "Spike evidence record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "friction",
+    "owner",
+    "runtimeFacts",
+    "verdict",
+    "validUnder",
+    "proofCommand",
+    "negativeCase",
+    "artifactChanges",
+    "removalCondition"
+  ],
+  "properties": {
+    "friction": { "type": "string", "minLength": 1 },
+    "owner": {
+      "enum": ["reference", "scanner", "rule", "fixture", "project-cst"]
+    },
+    "runtimeFacts": { "$ref": "runtime-facts.schema.json" },
+    "verdict": {
+      "enum": ["supported", "unsupported", "project-only", "unknown"]
+    },
+    "validUnder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatDate", "flags"],
+      "properties": {
+        "compatDate": { "type": ["string", "null"] },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "proofCommand": { "type": "string", "minLength": 1 },
+    "negativeCase": { "type": "string", "minLength": 1 },
+    "artifactChanges": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "removalCondition": { "type": "string", "minLength": 1 }
+  }
+}

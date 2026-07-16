@@ -1,0 +1,4 @@
+interface:
+  display_name: "Effect Ecosystem"
+  short_description: "Run strict Effect ecosystem compliance checks"
+  default_prompt: "Use $effect-ecosystem to review or refactor an Effect TypeScript project with strict scanner output and profile-guided references."

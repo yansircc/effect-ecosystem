@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://effect-ecosystem-skill.local/scan-evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "target", "resolution", "capabilities", "references", "toolchain", "compiler", "scanner"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "target": { "type": "object" },
+    "resolution": { "type": "object" },
+    "capabilities": { "type": "object" },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required"],
+      "properties": {
+        "required": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effectVersion", "typescriptVersion", "tsgoVersion", "verified"],
+      "properties": {
+        "effectVersion": { "type": ["string", "null"] },
+        "typescriptVersion": { "type": ["string", "null"] },
+        "tsgoVersion": { "type": ["string", "null"] },
+        "verified": { "type": "boolean" }
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "transactionCount"],
+      "properties": {
+        "fingerprint": { "type": ["string", "null"] },
+        "transactionCount": { "const": 1 }
+      }
+    },
+    "scanner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buildInfo"],
+      "properties": {
+        "buildInfo": { "type": "object" }
+      }
+    }
+  }
+}

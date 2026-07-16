@@ -1,0 +1,22 @@
+{
+  "shape": ["library"],
+  "generatedPaths": [
+    {
+      "glob": "references/snippets/**",
+      "owner": "@effect-ecosystem-skill",
+      "reason": "typechecked documentation snippets, not application library exports"
+    }
+  ],
+  "hostTooling": [
+    {
+      "path": "validator/**",
+      "owner": "@effect-ecosystem-skill",
+      "reason": "Node scanner implementation for target repositories; target Effect application rules do not claim this host tooling."
+    },
+    {
+      "path": "scripts/**",
+      "owner": "@effect-ecosystem-skill",
+      "reason": "Registry generation and verification scripts for the skill itself."
+    }
+  ]
+}
