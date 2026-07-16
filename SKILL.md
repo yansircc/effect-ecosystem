@@ -13,15 +13,10 @@ Generated summaries live in `references/generated/rules-summary.md` and
 
 ## Invariant
 
-One Effect semantic rule has one owner. Do not hand-edit the same rule into
-`SKILL.md`, scanner rules, and checklist text. Update the owner contract first:
-`contracts/rules.json`, `contracts/signals.schema.json`, or
-`contracts/effect-capabilities.json`. Then run:
-
-```bash
-make build
-node dist-dev/scripts/generate-derived-docs.js
-```
+One Effect semantic rule has one owner. The contracts and generated references
+in this published skill are read-only build artifacts. Maintainers change their
+owners in the `effect-ecosystem` generator repository and republish the whole
+skill; consumers do not patch projected copies.
 
 Fast fail instead of fallback. If required substrate is missing or ambiguous,
 stop and repair the owner input; do not load broad references or continue with a
@@ -35,7 +30,7 @@ compatibility guess.
    Effect failure; it is not a mandatory opening step:
 
    ```bash
-   effect-scan <repo> --strict --output gate-json --evidence <dir>
+   node <skill-root>/runtime/validator/scan.js <repo> --strict --output gate-json --evidence <dir>
    ```
 
 3. Record `<dir>/gate-summary.json` as the Effect mechanical compliance gate.
@@ -50,8 +45,8 @@ compatibility guess.
 7. Read `.effect-skill.json` only when a finding concerns manifest ownership,
    runtime facts, profiles, or suppressions.
 8. If `effect.requiredReferences` is missing, the installed scanner is stale;
-   run `make install` for release and `make verify`. If Effect support is
-   unresolved, repair declared intent or installed reality before continuing.
+   republish the generator artifact. If Effect support is unresolved, repair
+   declared intent or installed reality before continuing.
 9. If the same friction class lands in project evidence twice, graduate it into
    a skill artifact instead of leaving another project-only note.
 10. Before delivery, run the verification gates below.

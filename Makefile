@@ -2,10 +2,12 @@ PREFIX ?= $(HOME)/.local
 BIN ?= $(PREFIX)/bin/effect-scan
 CODEX_SKILLS_DIR ?= $(HOME)/.codex/skills
 SKILL_NAME ?= effect-ecosystem
+SM ?= sm
+SM_REPO ?= $(HOME)/.sm
 BUILD_DIR ?= dist-dev
 INSTALL_ROOT ?= dist-installed
 
-.PHONY: build install skill verify verify-acceptance verify-performance
+.PHONY: build install package skill verify verify-acceptance verify-performance
 
 build:
 	rm -rf "$(BUILD_DIR)"
@@ -31,9 +33,17 @@ install:
 	if [ -e "$$target" ]; then rm -rf "$$tmp"; else mv "$$tmp" "$$target"; fi; \
 	ln -sfn "$(CURDIR)/$$target/validator/scan.js" "$(BIN)"
 
-skill:
-	mkdir -p "$(CODEX_SKILLS_DIR)"
-	ln -sfn "$(CURDIR)" "$(CODEX_SKILLS_DIR)/$(SKILL_NAME)"
+package:
+	$(MAKE) build BUILD_DIR=dist/build
+	mkdir -p dist/deps dist/skill/runtime
+	cp package.json bun.lock dist/deps/
+	cd dist/deps && bun install --production --frozen-lockfile
+	rsync -a --delete --exclude node_modules dist/build/ dist/skill/runtime/
+	rsync -a --delete --exclude .bin dist/deps/node_modules/ dist/skill/runtime/node_modules/
+	rsync -a --delete SKILL.md agents dist/skill/
+
+skill: package
+	$(SM) publish --repo "$(SM_REPO)" --id "$(SKILL_NAME)" dist/skill
 
 verify:
 	@set -eu; \
