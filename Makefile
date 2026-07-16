@@ -35,11 +35,21 @@ install:
 
 package:
 	$(MAKE) build BUILD_DIR=dist/build
-	mkdir -p dist/deps dist/skill/runtime
-	cp package.json bun.lock dist/deps/
-	cd dist/deps && bun install --production --frozen-lockfile
-	rsync -a --delete --exclude node_modules dist/build/ dist/skill/runtime/
-	rsync -a --delete --exclude .bin dist/deps/node_modules/ dist/skill/runtime/node_modules/
+	mkdir -p dist/empty dist/skill
+	rsync -a --delete dist/empty/ dist/skill/
+	mkdir -p dist/skill/runtime/validator dist/skill/runtime/fixtures dist/skill/runtime/node_modules
+	bun build validator/scan.ts --target=node --external jsonc-parser --outfile dist/skill/runtime/validator/scan.js
+	rsync -a --delete dist/build/contracts/ dist/skill/contracts/
+	rsync -a --delete dist/build/references/ dist/skill/references/
+	rsync -a --delete node_modules/jsonc-parser/ dist/skill/runtime/node_modules/jsonc-parser/
+	platform="typescript-$$(node -p process.platform)-$$(node -p process.arch)"; \
+		mkdir -p "dist/skill/runtime/node_modules/@typescript/$$platform/lib"; \
+		cp "node_modules/@typescript/$$platform/package.json" "dist/skill/runtime/node_modules/@typescript/$$platform/"; \
+		cp "node_modules/@typescript/$$platform/lib/tsc" "dist/skill/runtime/node_modules/@typescript/$$platform/lib/"
+	cp packaging/typescript-runtime.package.json dist/skill/runtime/package.json
+	cp dist/build/build-info.json dist/skill/
+	cp validator/manifest.schema.json dist/skill/runtime/
+	cp validator/fixtures/fixtures.config.json dist/skill/runtime/fixtures/
 	rsync -a --delete SKILL.md agents dist/skill/
 
 skill: package
