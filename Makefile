@@ -1,9 +1,5 @@
 PREFIX ?= $(HOME)/.local
 BIN ?= $(PREFIX)/bin/effect-scan
-CODEX_SKILLS_DIR ?= $(HOME)/.codex/skills
-SKILL_NAME ?= effect-ecosystem
-SM ?= sm
-SM_REPO ?= $(HOME)/.sm
 BUILD_DIR ?= dist-dev
 INSTALL_ROOT ?= dist-installed
 
@@ -53,7 +49,6 @@ package:
 	rsync -a --delete SKILL.md agents dist/skill/
 
 skill: package
-	$(SM) publish --repo "$(SM_REPO)" --id "$(SKILL_NAME)" dist/skill
 
 verify:
 	@set -eu; \
