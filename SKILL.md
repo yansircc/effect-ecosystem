@@ -1,6 +1,8 @@
 ---
 name: effect-ecosystem
 description: Use when a task directly changes or reviews Effect v4 code, Effect configuration, Layers, runtimes, Schema, or Effect ecosystem APIs, or explicitly requests an Effect compliance scan. Do not trigger merely because a repository depends on Effect or for unrelated UI, prose, CSS, or ordinary TypeScript changes.
+executables:
+  effect-scan: runtime/validator/scan.js
 ---
 
 # Effect Ecosystem Executor
