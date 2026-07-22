@@ -1,0 +1,306 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+concurrency:
+  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && 'release-main' || format('{0}-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]') }}
+
+jobs:
+  candidate:
+    name: Verify release candidate
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    outputs:
+      name: ${{ steps.release.outputs.name }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      mode: ${{ steps.release.outputs.mode }}
+      bump: ${{ steps.release.outputs.bump }}
+      source_sha: ${{ steps.release.outputs.sourceSha }}
+      release_files: ${{ steps.release.outputs.releaseFiles }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      - name: Select npm from the repository toolchain
+        run: npm --version
+
+      - name: Check out the event source
+        run: |
+          git fetch origin main --tags
+          git checkout --detach "${GITHUB_SHA}"
+
+      - name: Prepare release version
+        id: release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/release/prepare.mjs "${GITHUB_SHA}"
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Verify source
+        run: |
+          npm run verify
+
+      - name: Pack candidate once
+        shell: bash
+        run: |
+          mkdir -p release
+          npm pack --pack-destination release
+          mapfile -t archives < <(find release -maxdepth 1 -type f -name '*.tgz')
+          if [[ "${#archives[@]}" -ne 1 ]]; then
+            echo "Expected one npm archive, found ${#archives[@]}." >&2
+            exit 1
+          fi
+          mv "${archives[0]}" release/package.tgz
+
+      - name: Install candidate
+        shell: bash
+        run: |
+          install_root="$(mktemp -d)"
+          trap 'rm -rf "${install_root}"' EXIT
+          npm install ./release/package.tgz \
+            --prefix "${install_root}" \
+            --ignore-scripts=false \
+            --no-audit \
+            --no-fund
+
+      - name: Upload verified candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-${{ github.sha }}
+          path: release/package.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  commit_release:
+    name: Commit and tag release
+    needs:
+      - candidate
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      - name: Reproduce release version
+        id: release
+        env:
+          SOURCE_SHA: ${{ needs.candidate.outputs.source_sha }}
+        run: |
+          git fetch origin main --tags
+          git checkout --detach "${SOURCE_SHA}"
+          node scripts/release/prepare.mjs "${SOURCE_SHA}"
+
+      - name: Require the reproduced release identity
+        shell: bash
+        env:
+          ACTUAL_NAME: ${{ steps.release.outputs.name }}
+          ACTUAL_VERSION: ${{ steps.release.outputs.version }}
+          ACTUAL_TAG: ${{ steps.release.outputs.tag }}
+          ACTUAL_MODE: ${{ steps.release.outputs.mode }}
+          ACTUAL_BUMP: ${{ steps.release.outputs.bump }}
+          ACTUAL_SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
+          ACTUAL_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
+          EXPECTED_NAME: ${{ needs.candidate.outputs.name }}
+          EXPECTED_VERSION: ${{ needs.candidate.outputs.version }}
+          EXPECTED_TAG: ${{ needs.candidate.outputs.tag }}
+          EXPECTED_MODE: ${{ needs.candidate.outputs.mode }}
+          EXPECTED_BUMP: ${{ needs.candidate.outputs.bump }}
+          EXPECTED_SOURCE_SHA: ${{ needs.candidate.outputs.source_sha }}
+          EXPECTED_RELEASE_FILES: ${{ needs.candidate.outputs.release_files }}
+        run: |
+          test "${ACTUAL_NAME}" = "${EXPECTED_NAME}"
+          test "${ACTUAL_VERSION}" = "${EXPECTED_VERSION}"
+          test "${ACTUAL_TAG}" = "${EXPECTED_TAG}"
+          test "${ACTUAL_MODE}" = "${EXPECTED_MODE}"
+          test "${ACTUAL_BUMP}" = "${EXPECTED_BUMP}"
+          test "${ACTUAL_SOURCE_SHA}" = "${EXPECTED_SOURCE_SHA}"
+          test "${ACTUAL_RELEASE_FILES}" = "${EXPECTED_RELEASE_FILES}"
+
+      - name: Commit and tag release
+        if: steps.release.outputs.mode == 'new'
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          BUMP: ${{ steps.release.outputs.bump }}
+          SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
+          RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
+        run: |
+          IFS=, read -r -a release_files <<< "${RELEASE_FILES}"
+          actual="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' "${release_files[@]}" | sort)"
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "Release preparation changed unexpected files." >&2
+            diff -u <(printf '%s\n' "${expected}") <(printf '%s\n' "${actual}") || true
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${release_files[@]}"
+          git commit \
+            -m "chore(release): v${VERSION}" \
+            -m "Release-Source: ${SOURCE_SHA}" \
+            -m "Release-Bump: ${BUMP}"
+          git tag -a "${TAG}" -m "${TAG}"
+          git push --atomic origin HEAD:main "refs/tags/${TAG}"
+
+  publish:
+    name: Publish npm package
+    needs:
+      - candidate
+
+      - commit_release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      - name: Download verified candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: npm-package-${{ github.sha }}
+          path: release
+
+      - name: Publish verified candidate
+        shell: bash
+        run: |
+          archive="./release/package.tgz"
+          view_error="$(mktemp)"
+          trap 'rm -f "${view_error}"' EXIT
+
+          read_field() {
+            tar -xOf "${archive}" package/package.json | node -e '
+              let input = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { input += chunk; });
+              process.stdin.on("end", () => { process.stdout.write(String(JSON.parse(input)[process.argv[1]])); });
+            ' "$1"
+          }
+          package_name="$(read_field name)"
+          package_version="$(read_field version)"
+          package_spec="${package_name}@${package_version}"
+          local_integrity="sha512-$(openssl dgst -sha512 -binary "${archive}" | openssl base64 -A)"
+
+          if remote_json="$(npm view "${package_spec}" dist.integrity --json --registry=https://registry.npmjs.org/ 2>"${view_error}")"; then
+            remote_integrity="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]))' "${remote_json}")"
+            if [[ "${remote_integrity}" != "${local_integrity}" ]]; then
+              echo "Published ${package_spec} does not match the verified candidate." >&2
+              exit 1
+            fi
+            echo "${package_spec} is already published with the verified candidate."
+            exit 0
+          fi
+          if ! grep -q 'E404' "${view_error}"; then
+            cat "${view_error}" >&2
+            echo "Could not determine whether ${package_spec} is published." >&2
+            exit 1
+          fi
+          npm publish "${archive}" --access public --provenance --registry=https://registry.npmjs.org/
+
+  verify-public:
+    name: Verify public projection
+    needs:
+      - candidate
+      - publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      - name: Download verified candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: npm-package-${{ github.sha }}
+          path: release
+
+      - name: Verify registry integrity and public installation
+        shell: bash
+        env:
+          NPM_CONFIG_USERCONFIG: /dev/null
+          PACKAGE_SPEC: ${{ needs.candidate.outputs.name }}@${{ needs.candidate.outputs.version }}
+        run: |
+          local_integrity="sha512-$(openssl dgst -sha512 -binary ./release/package.tgz | openssl base64 -A)"
+          remote_integrity=""
+          for attempt in {1..60}; do
+            if remote_json="$(npm view "${PACKAGE_SPEC}" dist.integrity --json --registry=https://registry.npmjs.org/ 2>/dev/null)"; then
+              remote_integrity="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]))' "${remote_json}")"
+              break
+            fi
+            sleep 5
+          done
+          if [[ -z "${remote_integrity}" ]]; then
+            echo "${PACKAGE_SPEC} did not become publicly visible." >&2
+            exit 1
+          fi
+          if [[ "${remote_integrity}" != "${local_integrity}" ]]; then
+            echo "Public ${PACKAGE_SPEC} does not match the verified candidate." >&2
+            exit 1
+          fi
+          install_root="$(mktemp -d)"
+          trap 'rm -rf "${install_root}"' EXIT
+          npm install "${PACKAGE_SPEC}" \
+            --prefix "${install_root}" \
+            --ignore-scripts=false \
+            --no-audit \
+            --no-fund \
+            --registry=https://registry.npmjs.org/

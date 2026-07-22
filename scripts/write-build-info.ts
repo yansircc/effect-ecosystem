@@ -9,7 +9,7 @@ const SOURCE_PATHS = [
   "LICENSE",
   "Makefile",
   "SKILL.md",
-  "bun.lock",
+  "package-lock.json",
   "package.json",
   "tsconfig.json",
   "contracts",

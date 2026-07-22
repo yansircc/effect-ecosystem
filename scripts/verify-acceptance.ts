@@ -22,7 +22,7 @@ for (const peer of Object.keys(otel.peerDependencies ?? {})) {
 const node = run("node", ["src/node-basic.ts"])
 assertIncludes(node.stdout, "node-ok", "node runtime")
 
-const bun = run("bun", ["src/node-basic.ts"])
+const bun = run(resolve(process.cwd(), "node_modules/.bin/bun"), ["src/node-basic.ts"])
 assertIncludes(bun.stdout, "node-ok", "bun runtime")
 
 runBin("tsc", ["--noEmit", "--pretty", "false", "-p", "tsconfig.valid.json"])
