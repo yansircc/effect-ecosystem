@@ -12,6 +12,7 @@ export function validateRegistry(registry) {
   const errors = []
   if (registry.schemaVersion !== 2) errors.push("schemaVersion must be 2")
   if (!Array.isArray(registry.rules)) errors.push("rules must be an array")
+  if (!Array.isArray(registry.retiredRuleIds)) errors.push("retiredRuleIds must be an array")
   const ids = new Set()
   for (const [index, rule] of (registry.rules ?? []).entries()) {
     const at = `rules[${index}]`
@@ -32,6 +33,13 @@ export function validateRegistry(registry) {
     if (["line-regex", "source-import"].includes(rule.scanner?.kind) && (typeof rule.scanner.pattern !== "string" || rule.scanner.pattern.length === 0)) {
       errors.push(`${rule.id}.scanner.pattern is required`)
     }
+  }
+  const retiredIds = new Set()
+  for (const [index, ruleId] of (registry.retiredRuleIds ?? []).entries()) {
+    if (!/^EFF\d{3}$/.test(ruleId)) errors.push(`retiredRuleIds[${index}] must be EFFNNN`)
+    if (retiredIds.has(ruleId)) errors.push(`${ruleId} is retired more than once`)
+    if (ids.has(ruleId)) errors.push(`${ruleId} cannot be both active and retired`)
+    retiredIds.add(ruleId)
   }
   if (errors.length > 0) throw new Error(errors.join("\n"))
 }

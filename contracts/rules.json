@@ -1,5 +1,10 @@
 {
   "schemaVersion": 2,
+  "retiredRuleIds": [
+    "EFF017",
+    "EFF018",
+    "EFF019"
+  ],
   "defaults": {
     "include": [
       "**/*.ts",
@@ -320,66 +325,6 @@
       },
       "family": "source",
       "message": "禁用 jotai。改用 effect-atom",
-      "facts": [
-        "source.imports"
-      ]
-    },
-    {
-      "id": "EFF017",
-      "name": "import-react-hook-form",
-      "severity": "error",
-      "profiles": [
-        "frontend"
-      ],
-      "references": [
-        "references/effect-form.md §Reference: `@lucas-barake/effect-form` 最佳实践指南"
-      ],
-      "scanner": {
-        "kind": "source-import",
-        "pattern": "from\\s+['\"]react-hook-form['\"]"
-      },
-      "family": "source",
-      "message": "禁用 react-hook-form。改用 @lucas-barake/effect-form",
-      "facts": [
-        "source.imports"
-      ]
-    },
-    {
-      "id": "EFF018",
-      "name": "import-formik",
-      "severity": "error",
-      "profiles": [
-        "frontend"
-      ],
-      "references": [
-        "references/effect-form.md §Reference: `@lucas-barake/effect-form` 最佳实践指南"
-      ],
-      "scanner": {
-        "kind": "source-import",
-        "pattern": "from\\s+['\"]formik['\"]"
-      },
-      "family": "source",
-      "message": "禁用 formik。改用 @lucas-barake/effect-form",
-      "facts": [
-        "source.imports"
-      ]
-    },
-    {
-      "id": "EFF019",
-      "name": "import-tanstack-form",
-      "severity": "error",
-      "profiles": [
-        "frontend"
-      ],
-      "references": [
-        "references/effect-form.md §Reference: `@lucas-barake/effect-form` 最佳实践指南"
-      ],
-      "scanner": {
-        "kind": "source-import",
-        "pattern": "from\\s+['\"]@tanstack/react-form['\"]"
-      },
-      "family": "source",
-      "message": "禁用 @tanstack/react-form。改用 @lucas-barake/effect-form",
       "facts": [
         "source.imports"
       ]

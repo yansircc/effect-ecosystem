@@ -3,7 +3,7 @@ BIN ?= $(PREFIX)/bin/effect-scan
 BUILD_DIR ?= dist-dev
 INSTALL_ROOT ?= dist-installed
 
-.PHONY: build install package skill verify verify-acceptance verify-performance
+.PHONY: build install package skill verify verify-acceptance verify-performance verify-performance-realworld
 
 build:
 	rm -rf "$(BUILD_DIR)"
@@ -70,7 +70,7 @@ verify:
 	node "$(BUILD_DIR)/scripts/self-test.js" --contract && \
 	node "$(BUILD_DIR)/validator/scan.js" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json && \
 	node "$(BUILD_DIR)/scripts/verify-acceptance.js" && \
-	node "$(BUILD_DIR)/scripts/benchmark-scan.js" "$(abspath ../../../../../pi-chrome)"; \
+	node "$(BUILD_DIR)/scripts/benchmark-scan.js"; \
 	} || status=$$?; \
 	after=$$(snapshot); \
 	if [ "$$before" != "$$after" ]; then echo "installed scanner changed during make verify: $$before -> $$after" >&2; exit 1; fi; \
@@ -80,4 +80,7 @@ verify-acceptance: build
 	node "$(BUILD_DIR)/scripts/verify-acceptance.js"
 
 verify-performance: build
-	node "$(BUILD_DIR)/scripts/benchmark-scan.js" "$(abspath ../../../../../pi-chrome)"
+	node "$(BUILD_DIR)/scripts/benchmark-scan.js"
+
+verify-performance-realworld: build
+	node "$(BUILD_DIR)/scripts/benchmark-scan.js" --github

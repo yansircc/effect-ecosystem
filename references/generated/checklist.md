@@ -19,9 +19,6 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF014 禁用 @tanstack/react-query。改用 effect-atom (@effect-atom/atom-react) + Result 状态机
 - [ ] EFF015 禁用 zustand。改用 effect-atom (Atom.make)
 - [ ] EFF016 禁用 jotai。改用 effect-atom
-- [ ] EFF017 禁用 react-hook-form。改用 @lucas-barake/effect-form
-- [ ] EFF018 禁用 formik。改用 @lucas-barake/effect-form
-- [ ] EFF019 禁用 @tanstack/react-form。改用 @lucas-barake/effect-form
 - [ ] EFF020 禁用 node 原生 fs。改用 @effect/platform/FileSystem (Context 注入)
 - [ ] EFF021 禁用 node 原生 path。改用 @effect/platform/Path
 - [ ] EFF022 禁用 setTimeout。改用 Effect.sleep(Duration 字面量)

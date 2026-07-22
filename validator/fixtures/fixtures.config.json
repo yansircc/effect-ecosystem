@@ -8,6 +8,7 @@
     "manifest-schema",
     "rule-registry",
     "policy-docs-schema-sync",
+    "form-library-neutrality",
     "suppression",
     "suppression-drift",
     "edge-rules",
@@ -96,6 +97,7 @@
     "workspace-root-leak",
     "ai-missing-provider-or-transport-red",
     "line-rule-comment-literal-green",
+    "form-library-imports-green",
     "signal-comment-literal-green",
     "resilience-comment-literal-green",
     "pubsub-comment-literal-green",
@@ -189,6 +191,23 @@
       ],
       "files": {
         "src/a.ts": "// throw new Error(\"comment only\")\nconst quoted = \"process.env.SECRET\"\nconst templ = `${value}#process.env.SECRET`\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "form-library-imports-green",
+      "suites": [
+        "form-library-neutrality",
+        "red-green-fixtures",
+        "cheapest-plausible-lies"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\",\"@effect-atom/atom-react\":\"1.0.0\",\"@tanstack/react-form\":\"1.33.2\",\"react-hook-form\":\"7.0.0\",\"formik\":\"2.0.0\"}}",
+        "src/forms.ts": "import { Schema } from \"effect\"\nimport { useForm } from \"@tanstack/react-form\"\nimport { useForm as useReactHookForm } from \"react-hook-form\"\nimport { useFormik } from \"formik\"\nexport const formFacts = { Schema, useForm, useReactHookForm, useFormik }\n"
       },
       "expectExit": 0,
       "expectRules": [],

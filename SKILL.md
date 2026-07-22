@@ -74,12 +74,14 @@ make verify
 artifact and updates the local bin symlink. Do not run it during development
 unless releasing the scanner.
 
-The Effect v4 / TypeScript 7 acceptance and pi-chrome performance gates are
-part of default `make verify`. They are also available independently:
+The Effect v4 / TypeScript 7 acceptance and repository-owned deterministic
+performance gate are part of default `make verify`. They are also available
+independently. The pinned GitHub pressure target is a separate networked gate:
 
 ```bash
 make verify-acceptance
 make verify-performance
+make verify-performance-realworld
 ```
 
 For a target project, run its normal tests plus

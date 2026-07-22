@@ -21,9 +21,6 @@ Source of truth: `contracts/rules.json`.
 | EFF014 | import-tanstack-query | error | frontend | 禁用 @tanstack/react-query。改用 effect-atom (@effect-atom/atom-react) + Result 状态机 |
 | EFF015 | import-zustand | error | frontend | 禁用 zustand。改用 effect-atom (Atom.make) |
 | EFF016 | import-jotai | error | frontend | 禁用 jotai。改用 effect-atom |
-| EFF017 | import-react-hook-form | error | frontend | 禁用 react-hook-form。改用 @lucas-barake/effect-form |
-| EFF018 | import-formik | error | frontend | 禁用 formik。改用 @lucas-barake/effect-form |
-| EFF019 | import-tanstack-form | error | frontend | 禁用 @tanstack/react-form。改用 @lucas-barake/effect-form |
 | EFF020 | import-node-fs | error | node | 禁用 node 原生 fs。改用 @effect/platform/FileSystem (Context 注入) |
 | EFF021 | import-node-path | error | node | 禁用 node 原生 path。改用 @effect/platform/Path |
 | EFF022 | set-timeout | error | core | 禁用 setTimeout。改用 Effect.sleep(Duration 字面量) |
@@ -168,24 +165,6 @@ Rule: 禁用 zustand。改用 effect-atom (Atom.make)
 Profiles: frontend
 
 Rule: 禁用 jotai。改用 effect-atom
-
-## EFF017 import-react-hook-form
-
-Profiles: frontend
-
-Rule: 禁用 react-hook-form。改用 @lucas-barake/effect-form
-
-## EFF018 import-formik
-
-Profiles: frontend
-
-Rule: 禁用 formik。改用 @lucas-barake/effect-form
-
-## EFF019 import-tanstack-form
-
-Profiles: frontend
-
-Rule: 禁用 @tanstack/react-form。改用 @lucas-barake/effect-form
 
 ## EFF020 import-node-fs
 

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "local": {
+    "name": "generated-effect-v4-strict-scan",
+    "sourceFiles": 96
+  },
+  "github": {
+    "owner": "yansircc",
+    "repo": "pipee",
+    "commit": "28c1beb04a1944afc24bc6d199b43336a00445f5",
+    "subdirectory": "extensions/chrome",
+    "archiveSha256": "26c9b971df644bd07f65a07ceeb5b3be0469fd1f0a1768c693dd44c10eb55e03",
+    "workspaceFilter": "@yansircc/pi-chrome",
+    "minimumSourceFiles": 140
+  }
+}

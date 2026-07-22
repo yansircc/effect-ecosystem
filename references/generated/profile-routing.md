@@ -12,7 +12,7 @@ Rules: EFF030
 
 ## frontend
 
-Rules: EFF014, EFF015, EFF016, EFF017, EFF018, EFF019
+Rules: EFF014, EFF015, EFF016
 
 ## http-client
 
