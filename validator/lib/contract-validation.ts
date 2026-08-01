@@ -162,15 +162,19 @@ function effectCapabilitiesShapeSchema() {
     properties: {
       $schema: { type: "string" },
       $id: { type: "string" },
-      schemaVersion: { const: 2 },
+      schemaVersion: { const: 3 },
       support: {
-        type: "object",
-        additionalProperties: false,
-        required: ["effect", "typescript", "diagnostics"],
-        properties: {
-          effect: { type: "object", additionalProperties: false, required: ["major", "range"], properties: { major: { const: 4 }, range: { type: "string" } } },
-          typescript: { type: "object", additionalProperties: false, required: ["major", "version"], properties: { major: { const: 7 }, version: { const: "7.0.2" } } },
-          diagnostics: { type: "object", additionalProperties: false, required: ["package", "version", "compilerMarker"], properties: { package: { const: "@effect/tsgo" }, version: { const: "0.21.0" }, compilerMarker: { const: "+effect-tsgo." } } }
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["effect", "typescript", "diagnostics"],
+          properties: {
+            effect: { type: "object", additionalProperties: false, required: ["major", "range", "minimum"], properties: { major: { enum: [3, 4] }, range: { type: "string" }, minimum: { type: "string" } } },
+            typescript: { type: "object", additionalProperties: false, required: ["major", "version"], properties: { major: { enum: [6, 7] }, version: { type: "string" } } },
+            diagnostics: { type: "object", additionalProperties: false, required: ["required", "package", "version", "compilerMarker"], properties: { required: { type: "boolean" }, package: { type: ["string", "null"] }, version: { type: ["string", "null"] }, compilerMarker: { type: "string" } } }
+          }
         }
       },
       references: {

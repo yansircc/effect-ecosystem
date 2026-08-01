@@ -63,7 +63,7 @@ function runCases(config: any, options: any) {
     const root = mkdtempSync(resolve(tmpdir(), "effect-skill-fixture-"))
     try {
       writeFiles(root, fixtureFiles(testCase))
-      linkFixtureNodeModules(root)
+      linkFixtureNodeModules(root, testCase)
       const scanRoot = resolve(root, testCase.scanPath ?? ".")
       const rulesPath = testCase.rulesJsonl ? resolve(root, "fixture-rules.jsonl") : undefined
       if (testCase.rulesJsonl) writeFileSync(rulesPath, fixtureRuleContract(testCase.rulesJsonl))
@@ -249,7 +249,13 @@ function validateEvidenceHashAxes(testCase, root, result, rulesPath) {
   return failures
 }
 
-function linkFixtureNodeModules(root) {
+function linkFixtureNodeModules(root, testCase: any = {}) {
+  if (testCase.toolchain === "effect-v3") {
+    const tsc = resolve(root, "node_modules", "typescript", "bin", "tsc")
+    mkdirSync(dirname(tsc), { recursive: true })
+    writeFileSync(tsc, 'console.log("Version 6.0.3")\n')
+    return
+  }
   const source = findAncestorNodeModules(__dirname)
   const target = resolve(root, "node_modules")
   if (source && !existsSync(target)) symlinkSync(source, target, "dir")
@@ -262,22 +268,23 @@ function fixtureFiles(testCase) {
     const pkg = JSON.parse(files[path])
     pkg.dependencies ??= {}
     pkg.devDependencies ??= {}
-    pkg.dependencies.effect = testCase.toolchain === "effect-v3"
-      ? "3.21.2"
+    const isEffectV3 = typeof testCase.toolchain === "string" && testCase.toolchain.startsWith("effect-v3")
+    pkg.dependencies.effect = isEffectV3
+      ? "3.21.4"
       : testCase.toolchain === "effect-before-floor" ? "4.0.0-beta.84" : "4.0.0-beta.97"
     for (const name of Object.keys(pkg.dependencies).filter((name) => name.startsWith("@effect/"))) {
       pkg.dependencies[name] = "4.0.0-beta.97"
     }
-    pkg.devDependencies["@effect/vitest"] = testCase.expectRules?.includes("EFF321") ? undefined : "4.0.0-beta.97"
+    pkg.devDependencies["@effect/vitest"] = testCase.expectRules?.includes("EFF321") ? undefined : isEffectV3 ? "0.29.0" : "4.0.0-beta.97"
     if (pkg.devDependencies["@effect/vitest"] === undefined) delete pkg.devDependencies["@effect/vitest"]
     if (pkg.dependencies["@effect/opentelemetry"] && !testCase.expectRules?.includes("EFF323")) {
       for (const [name, version] of Object.entries(otelPackage.peerDependencies ?? {})) pkg.dependencies[name] ??= version
     }
     if (path === "package.json") {
       const catalog = testCase.toolchain === "catalog" ? "catalog:" : testCase.toolchain === "named-catalog" ? "catalog:toolchain" : null
-      pkg.devDependencies.typescript = catalog ?? (testCase.toolchain === "typescript-v6" ? "6.0.3" : "7.0.2")
+      pkg.devDependencies.typescript = catalog ?? (testCase.toolchain === "typescript-v6" || testCase.toolchain === "effect-v3" ? "6.0.3" : "7.0.2")
       pkg.devDependencies["@effect/tsgo"] = catalog ?? (testCase.toolchain === "wrong-tsgo" ? "0.20.0" : "0.21.0")
-      if (testCase.toolchain === "missing-tsgo") delete pkg.devDependencies["@effect/tsgo"]
+      if (testCase.toolchain === "missing-tsgo" || isEffectV3) delete pkg.devDependencies["@effect/tsgo"]
     }
     files[path] = JSON.stringify(pkg)
   }
@@ -927,9 +934,14 @@ function validateEffectCapabilitiesContract() {
   for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312", "EFF315"]) {
     if (!requirementRuleIds.has(ruleId)) failures.push(`effect-capabilities: missing ${ruleId}`)
   }
-  if (contract.support.effect.major !== 4) failures.push("effect-capabilities: Effect v4 is not the only supported major")
-  if (contract.support.typescript.version !== "7.0.2") failures.push("effect-capabilities: TypeScript is not pinned to 7.0.2")
-  if (contract.support.diagnostics.package !== "@effect/tsgo") failures.push("effect-capabilities: diagnostics provider is not @effect/tsgo")
+  const support = new Map<number, any>(contract.support.map((entry: any): [number, any] => [entry.effect.major, entry]))
+  if (support.size !== contract.support.length) failures.push("effect-capabilities: Effect major support must be unique")
+  if (support.get(3)?.typescript.version !== "6.0.3" || support.get(3)?.diagnostics.required !== false) {
+    failures.push("effect-capabilities: Effect v3 TypeScript 6 contract is missing")
+  }
+  if (support.get(4)?.typescript.version !== "7.0.2" || support.get(4)?.diagnostics.package !== "@effect/tsgo") {
+    failures.push("effect-capabilities: Effect v4 TypeScript 7 diagnostics contract is missing")
+  }
   return failures
 }
 

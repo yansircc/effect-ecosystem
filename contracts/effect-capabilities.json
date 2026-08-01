@@ -1,22 +1,43 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://effect-ecosystem-skill.local/effect-capabilities.json",
-  "schemaVersion": 2,
-  "support": {
-    "effect": {
-      "major": 4,
-      "range": ">=4.0.0-beta.97 <5.0.0-0"
+  "schemaVersion": 3,
+  "support": [
+    {
+      "effect": {
+        "major": 3,
+        "range": ">=3.21.4 <4.0.0-0",
+        "minimum": "3.21.4"
+      },
+      "typescript": {
+        "major": 6,
+        "version": "6.0.3"
+      },
+      "diagnostics": {
+        "required": false,
+        "package": null,
+        "version": null,
+        "compilerMarker": ""
+      }
     },
-    "typescript": {
-      "major": 7,
-      "version": "7.0.2"
-    },
-    "diagnostics": {
-      "package": "@effect/tsgo",
-      "version": "0.21.0",
-      "compilerMarker": "+effect-tsgo."
+    {
+      "effect": {
+        "major": 4,
+        "range": ">=4.0.0-beta.97 <5.0.0-0",
+        "minimum": "4.0.0-beta.97"
+      },
+      "typescript": {
+        "major": 7,
+        "version": "7.0.2"
+      },
+      "diagnostics": {
+        "required": true,
+        "package": "@effect/tsgo",
+        "version": "0.21.0",
+        "compilerMarker": "+effect-tsgo."
+      }
     }
-  },
+  ],
   "references": [
     {
       "owner": "Contract Owner: effect-capabilities",
@@ -25,6 +46,10 @@
     {
       "owner": "Capability: effect-v4",
       "ref": "references/effect-v4.md §Effect v4 Notes"
+    },
+    {
+      "owner": "Capability: effect-v3",
+      "ref": "references/effect-v3.md §Effect v3 Notes"
     }
   ],
   "importRoots": [

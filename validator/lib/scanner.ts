@@ -8,7 +8,7 @@ import { scanEdgeRules } from "./edge-rules.js"
 import { scanPackageRules } from "./package-rules.js"
 import { scanFilePairRules } from "./file-pair.js"
 import { applySuppressions, validateSuppressionDrift } from "./suppression.js"
-import { runLocalTsc, strictPrerequisites } from "./toolchain.js"
+import { runLocalTsc, strictPrerequisites, supportForScanState } from "./toolchain.js"
 import { activeProfilesFor, buildProfile, buildSignals, requiredReferencesFor } from "./profile.js"
 import { scanRuntimeFactRules } from "./runtime-facts.js"
 import { resolveScanState } from "./resolver.js"
@@ -58,9 +58,10 @@ export function runScan(inputRoot: string, options: any = {}) {
     findings.push(...timings.measure("runtimeFactRules", () => scanRuntimeFactRules(root, manifest)))
   }
 
-  if (strict && manifest) {
-    findings.push(...timings.measure("strictPrerequisites", () => strictPrerequisites(root, manifest, { toolingRoot: context.workspaceRoot })))
-  }
+  const strictToolchainFindings = strict && manifest
+    ? timings.measure("strictPrerequisites", () => strictPrerequisites(root, manifest, { toolingRoot: context.workspaceRoot, scanState }))
+    : []
+  findings.push(...strictToolchainFindings)
 
   if (strict && manifest) findings.push(...findingsFromCompilerFacts(root, compiler))
 
@@ -74,9 +75,9 @@ export function runScan(inputRoot: string, options: any = {}) {
   const summary = timings.measure("summarize", () => summarize(findings))
   const tscVersion = timings.measure("tscVersion", () => runLocalTsc(context.workspaceRoot, ["--version"]))
   const toolchainMeta = {
-    available: tscVersion.status === 0,
+    available: tscVersion.status === 0 && (!strict || strictToolchainFindings.length === 0),
     tscVersion: tscVersion.status === 0 ? tscVersion.stdout.trim() : null,
-    tsgoVersion: "0.21.0",
+    tsgoVersion: supportForScanState(scanState)?.diagnostics.version ?? null,
     fingerprint: compiler.fingerprint,
     transactionCount: compiler.transactionCount,
   }

@@ -218,8 +218,9 @@ fact schemas, `skill_ref`, and `agent_action`.
 
 ### Contract Owner: effect-capabilities
 
-`contracts/effect-capabilities.json` owns the Effect v4, TypeScript 7, patched
-`@effect/tsgo`, package requirement, import-root, and runtime-adapter boundary.
+`contracts/effect-capabilities.json` owns the version-indexed Effect target
+capability, its exact TypeScript and diagnostics prerequisite, package
+requirement, import-root, and runtime-adapter boundary.
 
 ### Contract Owner: scan-evidence
 
@@ -249,13 +250,15 @@ Invalid manifest JSON or schema shape is an infra error.
 
 ### EFF901 missing-tsc
 
-Strict mode requires exact project-local TypeScript 7.0.2 patched by
-`@effect/tsgo@0.21.0`.
+Strict mode requires the exact project-local TypeScript version selected by the
+resolved Effect major. Effect 3 requires TypeScript 6.0.3; Effect 4 requires
+TypeScript 7.0.2 patched by `@effect/tsgo@0.21.0`.
 
 ### EFF902 missing-effect-diagnostics-provider
 
-Strict mode requires project-local `@effect/tsgo@0.21.0`. There is no provider
-fallback or legacy language-service branch.
+Effect 4 strict mode requires project-local `@effect/tsgo@0.21.0`. Effect 3 has
+no diagnostics-provider prerequisite. The selected major contract has no
+fallback to another toolchain.
 
 ### EFF903 empty-shape
 
@@ -339,8 +342,8 @@ declared intent.
 
 ### EFF908 unsupported-effect-version
 
-Effect must satisfy the supported v4 range. Effect v3 and future unverified
-majors fail closed before semantic rule projection.
+Effect must satisfy the range declared for its major. Unknown majors, ambiguous
+ranges, and unverified future lines fail closed before semantic rule projection.
 
 ## Executable And Adapter Rules
 

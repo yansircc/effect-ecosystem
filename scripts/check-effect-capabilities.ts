@@ -17,8 +17,15 @@ for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311"
   if (!requirementRuleIds.has(ruleId)) throw new Error(`capability contract does not cover ${ruleId}`)
 }
 
-if (contract.support.effect.major !== 4) throw new Error("Effect v4 must be the only supported major")
-if (contract.support.typescript.version !== "7.0.2") throw new Error("TypeScript must be pinned to 7.0.2")
-if (contract.support.diagnostics.version !== "0.21.0") throw new Error("@effect/tsgo must be pinned to 0.21.0")
+const support = new Map<number, any>(contract.support.map((entry: any): [number, any] => [entry.effect.major, entry]))
+if (support.size !== contract.support.length) throw new Error("Effect major support must be unique")
+const v3 = support.get(3)
+const v4 = support.get(4)
+if (v3?.typescript.version !== "6.0.3" || v3.diagnostics.required !== false) {
+  throw new Error("Effect v3 must require TypeScript 6.0.3 without a diagnostics provider")
+}
+if (v4?.typescript.version !== "7.0.2" || v4.diagnostics.package !== "@effect/tsgo" || v4.diagnostics.version !== "0.21.0") {
+  throw new Error("Effect v4 must require TypeScript 7.0.2 with @effect/tsgo@0.21.0")
+}
 
 console.log(`effect capabilities ok (${requirementRuleIds.size} package rules)`)

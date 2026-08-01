@@ -4,6 +4,7 @@ import { cloudflareRuntimeFacts } from "./runtime-facts.js"
 import { semanticFactsForFile } from "./compiler-facts.js"
 import { assertRuntimeFacts, compileContractValidators, signalDefinitionsByKind } from "./contract-validation.js"
 import { effectVersionFromResolution } from "./resolver.js"
+import { supportForEffectMajor } from "./effect-capabilities.js"
 
 const SHAPE_PROFILES = {
   "http-server": ["http-server"],
@@ -25,12 +26,14 @@ const SIGNAL_DEFINITIONS = signalDefinitionsByKind(SIGNAL_VALIDATORS.signalsCont
 
 export function buildProfile(root, manifest, files, toolchain, scanState = null, requiredReferences = []) {
   const activeProfiles = activeProfilesFor(manifest)
-  const effectVersion = effectVersionFromResolution(scanState)
+  const resolvedEffectVersion = effectVersionFromResolution(scanState)
+  const effectVersion = typeof resolvedEffectVersion === "string" ? resolvedEffectVersion : null
+  const effectMajor = effectVersion ? Number(effectVersion.match(/^\d+/)?.[0]) : null
   return {
     manifestPath: manifest ? ".effect-skill.json" : null,
     activeProfiles,
     effectVersion,
-    effectSupport: effectVersion && scanState?.resolution?.effect?.comparison !== "conflict" ? "verified" : "unresolved",
+    effectSupport: supportForEffectMajor(effectMajor) && scanState?.resolution?.effect?.comparison !== "conflict" ? "verified" : "unresolved",
     requiredReferences,
     packages: manifest?.packages.map((pkg) => ({
       path: pkg.path,
