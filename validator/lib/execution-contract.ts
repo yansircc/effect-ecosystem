@@ -268,11 +268,16 @@ function verifyWranglerWorker(model, execution, context) {
   }
   const runtime = localWranglerMain(model, context, "wrangler-worker")
   if (runtime.ok === false) return runtime
-  const worker = defaultExportObject(model)
-  if (!worker) return mismatch(model.file, "wrangler-worker requires one direct default object export")
+  const worker = defaultExportObject(model) ?? sentryWrappedWorkerObject(model)
+  if (!worker) {
+    return mismatch(
+      model.file,
+      "wrangler-worker requires one direct default object export or an exact @sentry/cloudflare withSentry wrapper around one",
+    )
+  }
   const roots = []
   for (const method of execution.worker.methods) {
-    const callable = objectCallableMember(worker, method)
+    const callable = objectCallableMember(model, worker, method)
     if (!callable) return mismatch(model.file, `wrangler-worker default export has no direct callable ${method} method`)
     roots.push({ label: `default.${method}`, node: callable })
   }
@@ -501,19 +506,61 @@ function optionPropertyCallbacks(input, propertyName, checker) {
 }
 
 function defaultExportObject(model) {
-  const defaults = model.sourceFile.statements.filter((statement) => ts.isExportAssignment(statement))
-  if (defaults.length !== 1) return null
-  const expression = unwrapExpression(defaults[0].expression)
-  return ts.isObjectLiteralExpression(expression) ? expression : null
+  const expression = defaultExportExpression(model)
+  return expression && ts.isObjectLiteralExpression(expression) ? expression : null
 }
 
-function objectCallableMember(object, name) {
+function sentryWrappedWorkerObject(model) {
+  const expression = defaultExportExpression(model)
+  if (!ts.isCallExpression(expression) || expression.arguments.length !== 2) return null
+  if (!isSentryWithSentryCall(model, expression)) return null
+  if (!callbackArgument(expression.arguments[0], model.checker)) return null
+  const handler = unwrapExpression(expression.arguments[1])
+  return ts.isObjectLiteralExpression(handler) ? handler : null
+}
+
+function defaultExportExpression(model) {
+  const defaults = model.sourceFile.statements.filter((statement) => ts.isExportAssignment(statement))
+  if (defaults.length !== 1) return null
+  return unwrapExpression(defaults[0].expression)
+}
+
+function isSentryWithSentryCall(model, node) {
+  const imported = importedPath(node.expression, model.checker, model.imports, model.aliases)
+  if (!imported?.bindingVerified || imported.origin.module !== "@sentry/cloudflare") return false
+  return (imported.origin.kind === "named"
+    && imported.origin.export === "withSentry"
+    && imported.members.length === 0)
+    || (imported.origin.kind === "namespace"
+      && imported.members.length === 1
+      && imported.members[0] === "withSentry")
+}
+
+function objectCallableMember(model, object, name) {
   const member = objectLiteralMember(object, name)
   if (!member) return null
   if (ts.isMethodDeclaration(member)) return member
+  if (ts.isShorthandPropertyAssignment(member)) {
+    const localName = declarationName(member.name)
+    return localName ? topLevelCallableNamed(model, localName) : null
+  }
   if (!ts.isPropertyAssignment(member)) return null
-  const expression = unwrapExpression(member.initializer)
-  return ts.isArrowFunction(expression) || ts.isFunctionExpression(expression) ? expression : null
+  return callbackArgument(member.initializer, model.checker)
+}
+
+function topLevelCallableNamed(model, name) {
+  for (const statement of model.sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.body && statement.name?.text === name) {
+      return statement
+    }
+    if (!ts.isVariableStatement(statement)) continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name || !declaration.initializer) continue
+      const initializer = unwrapExpression(declaration.initializer)
+      if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) return initializer
+    }
+  }
+  return null
 }
 
 function extendsImportedClass(model, classDeclaration, module, exportedName) {
@@ -775,7 +822,9 @@ function referenceSymbol(checker, identifier) {
 
 function objectLiteralMember(object, name) {
   const matches = object.properties.filter((property) =>
-    (ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property))
+    (ts.isPropertyAssignment(property)
+      || ts.isMethodDeclaration(property)
+      || ts.isShorthandPropertyAssignment(property))
     && declarationName(property.name) === name
   )
   return matches.length === 1 ? matches[0] : null

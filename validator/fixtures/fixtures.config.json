@@ -141,6 +141,7 @@
     "wrangler-do-external-script-red",
     "wrangler-do-bare-class-red",
     "wrangler-do-undeclared-method-red",
+    "wrangler-worker-sentry-wrapper-spoof-red",
     "wrangler-worker-unreachable-run-red",
     "wrangler-workflow-main-export-red",
     "tanstack-server-fn-module-run-red",
@@ -1254,6 +1255,41 @@
       },
       "expectExit": 0,
       "expectRules": []
+    },
+    {
+      "name": "wrangler-worker-sentry-wrapper-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler Sentry-wrapped dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"scheduled\",\"queue\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
+        "src/worker.ts": "import * as SentryCloudflare from \"@sentry/cloudflare\"\nimport { Effect } from \"effect\"\nconst scheduled = () => Effect.runPromise(scheduledProgram)\nfunction queue() { return Effect.runPromise(queueProgram) }\nexport default SentryCloudflare.withSentry((env) => ({ dsn: env.DSN }), { scheduled, queue })\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "wrangler-worker-sentry-wrapper-spoof-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "cheapest-plausible-lies",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler dispatch must reject a spoofed Sentry wrapper\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"scheduled\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
+        "src/worker.ts": "import * as SentryCloudflare from \"@fake/cloudflare\"\nimport { Effect } from \"effect\"\nconst scheduled = () => Effect.runPromise(program)\nexport default SentryCloudflare.withSentry(() => ({}), { scheduled })\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ]
     },
     {
       "name": "wrangler-worker-unreachable-run-red",

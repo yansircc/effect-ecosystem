@@ -396,7 +396,10 @@ handler callbacks.
 `package-facade` proves the package manifest subpath, exported object factory,
 and its direct runner-owning members. `wrangler-do` proves JSONC `main`, Durable
 Object `class_name`, exported class, and direct public method ownership.
-`wrangler-worker` proves JSONC `main` and its default dispatch graph.
+`wrangler-worker` proves JSONC `main` and its default dispatch graph. Its
+default export must be either a direct handler object or exactly
+`@sentry/cloudflare.withSentry(optionsCallback, handlerObject)` with a direct
+options callback and direct handler object; other wrappers are not admitted.
 Host-managed runner sets must exactly equal the bound calls, with complete unique
 coverage. Duplicate contracts for one path are invalid. EFF401 cannot be
 suppressed.
