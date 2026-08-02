@@ -2017,7 +2017,6 @@
         "red-green-fixtures",
         "fixture-coverage"
       ],
-      "toolchain": "effect-v3",
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
