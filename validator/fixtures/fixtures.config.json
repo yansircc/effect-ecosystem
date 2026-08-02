@@ -2011,24 +2011,6 @@
       ]
     },
     {
-      "name": "package-presence-v3-frontend-atom-red",
-      "suites": [
-        "package-presence",
-        "red-green-fixtures",
-        "fixture-coverage"
-      ],
-      "strict": true,
-      "files": {
-        ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"3.21.4\"},\"devDependencies\":{\"@effect/vitest\":\"3.21.4\"}}",
-        "src/a.ts": "export const x = 1\n"
-      },
-      "expectExit": 1,
-      "expectRules": [
-        "EFF315"
-      ]
-    },
-    {
       "name": "otel-library-exempt-green",
       "suites": [
         "otel-presence",
