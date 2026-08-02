@@ -22,8 +22,8 @@ const outDir = resolve(process.argv[2] ?? "dist-dev")
 const sourceRoot = process.cwd()
 const gitRoot = git(["rev-parse", "--show-toplevel"]) ?? sourceRoot
 const gitCommit = git(["rev-parse", "HEAD"]) ?? "unknown"
-const status = git(["status", "--porcelain=v1", "--untracked-files=all", "--", ...SOURCE_PATHS]) ?? "unknown"
-const diff = git(["diff", "--binary", "HEAD", "--", ...SOURCE_PATHS]) ?? ""
+const status = gitRaw(["status", "--porcelain=v1", "--untracked-files=all", "--", ...SOURCE_PATHS]) ?? "unknown"
+const diff = gitRaw(["diff", "--binary", "HEAD", "--", ...SOURCE_PATHS]) ?? ""
 const buildInfo = {
   ...deriveBuildInfo({
     gitCommit,
@@ -39,8 +39,12 @@ mkdirSync(outDir, { recursive: true })
 writeFileSync(resolve(outDir, "build-info.json"), `${stableJson(buildInfo)}\n`)
 
 function git(args: string[]) {
+  return gitRaw(args)?.trim() ?? null
+}
+
+function gitRaw(args: string[]) {
   try {
-    return execFileSync("git", args, { cwd: sourceRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()
+    return execFileSync("git", args, { cwd: sourceRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
   } catch {
     return null
   }
