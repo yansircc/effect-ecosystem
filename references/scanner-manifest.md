@@ -335,13 +335,6 @@ HTTP client libraries.
 AI capability must be owned by `@effect/ai` in v3 or the v4 capability
 contract. Provider SDKs are terminal adapters only.
 
-### EFF315 frontend-without-effect-atom
-
-Effect v3 frontend React state integration requires the proven
-`@effect-atom/atom-react` adapter. Effect v4 has no compatible released React
-adapter yet, so this is not a v4 package requirement; the scanner retains the
-frontend shape as a review surface without inventing an incompatible peer.
-
 ### EFF321 missing-effect-vitest
 
 Any non-empty shape requires `@effect/vitest` in `devDependencies`.

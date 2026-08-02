@@ -3,7 +3,8 @@
   "retiredRuleIds": [
     "EFF017",
     "EFF018",
-    "EFF019"
+    "EFF019",
+    "EFF315"
   ],
   "defaults": {
     "include": [
@@ -711,25 +712,6 @@
       "message": "shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.",
       "references": [
         "references/scanner-manifest.md §EFF312 ai-without-effect-ai"
-      ],
-      "facts": [
-        "package"
-      ],
-      "scanner": {
-        "kind": "projection"
-      }
-    },
-    {
-      "id": "EFF315",
-      "name": "frontend-without-effect-atom",
-      "family": "package",
-      "severity": "error",
-      "profiles": [
-        "core"
-      ],
-      "message": "Effect v3 frontend requires @effect-atom/atom-react.",
-      "references": [
-        "references/scanner-manifest.md §EFF315 frontend-without-effect-atom"
       ],
       "facts": [
         "package"

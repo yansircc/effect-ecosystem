@@ -47,7 +47,6 @@ export function scanPackageRules(root, manifest, scanState = null) {
     }
     for (const requirement of packageRequirements()) {
       if (!requirement.shapes.some((shape) => pkg.shape.includes(shape))) continue
-      if (requirement.effectMajors && !requirement.effectMajors.includes(effectMajor)) continue
       const missing = missingRequirement(pkg.deps, requirement, {
         hasDeclaredAiProviderTransport: aiProviderTransportsFor(manifest, pkg).length > 0,
       })

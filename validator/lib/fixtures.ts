@@ -924,7 +924,7 @@ function validateEffectCapabilitiesContract() {
     if (!RULES[requirement.ruleId]) failures.push(`effect-capabilities: unknown rule ${requirement.ruleId}`)
     requirementRuleIds.add(requirement.ruleId)
   }
-  for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312", "EFF315"]) {
+  for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312"]) {
     if (!requirementRuleIds.has(ruleId)) failures.push(`effect-capabilities: missing ${ruleId}`)
   }
   if (contract.support.effect.major !== 4) failures.push("effect-capabilities: Effect v4 is not the only supported major")

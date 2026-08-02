@@ -42,7 +42,6 @@ Source of truth: `contracts/rules.json`.
 | EFF310 | http-server-without-effect-platform | error | core | shape http-server requires @effect/platform and a platform runtime adapter. |
 | EFF311 | http-client-without-effect-platform | error | core | shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies. |
 | EFF312 | ai-without-effect-ai | error | core | shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden. |
-| EFF315 | frontend-without-effect-atom | error | core | Effect v3 frontend requires @effect-atom/atom-react. |
 | EFF321 | missing-effect-vitest | error | core | non-empty shape requires @effect/vitest in devDependencies. |
 | EFF323 | v4-opentelemetry-missing-peer | error | core | Effect v4 @effect/opentelemetry requires the full @opentelemetry/* peer closure. |
 | EFF324 | effect-version-conflict | error | core | Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent. |
@@ -291,12 +290,6 @@ Rule: shape http-client requires @effect/platform and forbids direct axios/got/n
 Profiles: core
 
 Rule: shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.
-
-## EFF315 frontend-without-effect-atom
-
-Profiles: core
-
-Rule: Effect v3 frontend requires @effect-atom/atom-react.
 
 ## EFF321 missing-effect-vitest
 
