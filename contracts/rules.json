@@ -727,7 +727,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape frontend requires @effect-atom/atom-react.",
+      "message": "Effect v3 frontend requires @effect-atom/atom-react.",
       "references": [
         "references/scanner-manifest.md §EFF315 frontend-without-effect-atom"
       ],

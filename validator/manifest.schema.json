@@ -138,6 +138,7 @@
           "oneOf": [
             { "$ref": "#/$defs/processMainExecution" },
             { "$ref": "#/$defs/hostCallbackExecution" },
+            { "$ref": "#/$defs/tanstackServerFnExecution" },
             { "$ref": "#/$defs/packageFacadeExecution" },
             { "$ref": "#/$defs/wranglerDoExecution" },
             { "$ref": "#/$defs/wranglerWorkerExecution" },
@@ -188,6 +189,15 @@
         "module": { "$ref": "#/$defs/nonBlankString" },
         "export": { "$ref": "#/$defs/nonBlankString" },
         "callbackArgument": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tanstackServerFnExecution": {
+      "type": "object",
+      "required": ["lifecycle", "runners"],
+      "additionalProperties": false,
+      "properties": {
+        "lifecycle": { "const": "tanstack-server-fn" },
+        "runners": { "$ref": "#/$defs/effectRunnerSet" }
       }
     },
     "packageFacadeExecution": {

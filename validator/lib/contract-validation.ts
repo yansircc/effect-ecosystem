@@ -152,7 +152,13 @@ function effectCapabilitiesShapeSchema() {
       anyOf: packageNames(),
       prefixAnyOf: packageNames(),
       providerPrefixAnyOf: packageNames(),
-      forbidden: packageNames()
+      forbidden: packageNames(),
+      effectMajors: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        items: { enum: [3, 4] }
+      }
     }
   }
   return {
@@ -162,7 +168,7 @@ function effectCapabilitiesShapeSchema() {
     properties: {
       $schema: { type: "string" },
       $id: { type: "string" },
-      schemaVersion: { const: 3 },
+      schemaVersion: { const: 4 },
       support: {
         type: "array",
         minItems: 1,

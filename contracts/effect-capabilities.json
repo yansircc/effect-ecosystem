@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://effect-ecosystem-skill.local/effect-capabilities.json",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "support": [
     {
       "effect": {
@@ -170,6 +170,9 @@
       "ruleId": "EFF315",
       "shapes": [
         "frontend"
+      ],
+      "effectMajors": [
+        3
       ],
       "anyOf": [
         "@effect-atom/atom-react"

@@ -17,6 +17,11 @@ for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311"
   if (!requirementRuleIds.has(ruleId)) throw new Error(`capability contract does not cover ${ruleId}`)
 }
 
+const frontendRequirement = contract.packageRequirements.find((requirement: any) => requirement.ruleId === "EFF315")
+if (frontendRequirement?.effectMajors?.join(",") !== "3") {
+  throw new Error("EFF315 must apply only to Effect v3 until a compatible v4 React adapter is proven")
+}
+
 const support = new Map<number, any>(contract.support.map((entry: any): [number, any] => [entry.effect.major, entry]))
 if (support.size !== contract.support.length) throw new Error("Effect major support must be unique")
 const v3 = support.get(3)

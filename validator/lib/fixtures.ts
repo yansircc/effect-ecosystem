@@ -934,6 +934,10 @@ function validateEffectCapabilitiesContract() {
   for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312", "EFF315"]) {
     if (!requirementRuleIds.has(ruleId)) failures.push(`effect-capabilities: missing ${ruleId}`)
   }
+  const frontendRequirement = contract.packageRequirements.find((requirement: any) => requirement.ruleId === "EFF315")
+  if (frontendRequirement?.effectMajors?.join(",") !== "3") {
+    failures.push("effect-capabilities: EFF315 must apply only to Effect v3 until a compatible v4 React adapter is proven")
+  }
   const support = new Map<number, any>(contract.support.map((entry: any): [number, any] => [entry.effect.major, entry]))
   if (support.size !== contract.support.length) failures.push("effect-capabilities: Effect major support must be unique")
   if (support.get(3)?.typescript.version !== "6.0.3" || support.get(3)?.diagnostics.required !== false) {

@@ -40,7 +40,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF310 shape http-server requires @effect/platform and a platform runtime adapter.
 - [ ] EFF311 shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies.
 - [ ] EFF312 shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.
-- [ ] EFF315 shape frontend requires @effect-atom/atom-react.
+- [ ] EFF315 Effect v3 frontend requires @effect-atom/atom-react.
 - [ ] EFF321 non-empty shape requires @effect/vitest in devDependencies.
 - [ ] EFF323 Effect v4 @effect/opentelemetry requires the full @opentelemetry/* peer closure.
 - [ ] EFF324 Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent.

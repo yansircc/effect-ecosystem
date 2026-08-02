@@ -26,6 +26,7 @@ const RUNTIME_MODULES = new Map([
 const EXECUTION_VERIFIERS = new Map([
   ["process-main", (model, execution) => verifyProcessMain(model, execution)],
   ["host-callback", (model, execution) => verifyHostCallback(model, execution)],
+  ["tanstack-server-fn", (model, execution) => verifyTanStackServerFn(model, execution)],
   ["package-facade", (model, execution) => verifyPackageFacade(model, execution)],
   ["wrangler-do", (model, execution, context) => verifyWranglerDo(model, execution, context)],
   ["wrangler-worker", (model, execution, context) => verifyWranglerWorker(model, execution, context)],
@@ -102,6 +103,26 @@ function verifyHostCallback(model, execution) {
     return mismatch(model.file, `declared host ${host.module}:${host.export}[${host.callbackArgument}] owns no terminal runner`)
   }
   return result
+}
+
+function verifyTanStackServerFn(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "tanstack-server-fn cannot own process-main calls")
+  }
+  const roots = model.calls
+    .filter((call) => isTanStackServerFnHandlerCall(model, call.node))
+    .map((call) => callbackArgument(call.node.arguments[0], model.checker))
+    .filter(Boolean)
+    .map((node) => ({ label: "@tanstack/react-start createServerFn(...).handler callback", node }))
+  if (roots.length === 0) {
+    return mismatch(model.file, "tanstack-server-fn requires an exact @tanstack/react-start createServerFn(...).handler callback")
+  }
+  return verifyReachableRunnerSet(
+    model,
+    execution.runners,
+    roots,
+    "declared TanStack ServerFn handler callback",
+  )
 }
 
 function verifyPackageFacade(model, execution) {
@@ -975,6 +996,28 @@ function namedImportForExpression(input, checker, imports, aliases) {
   const path = importedPath(input, checker, imports, aliases)
   if (!path?.bindingVerified || path.members.length !== 0 || path.origin.kind !== "named") return null
   return path.origin
+}
+
+function isTanStackServerFnHandlerCall(model, node) {
+  const expression = unwrapExpression(node.expression)
+  return ts.isPropertyAccessExpression(expression)
+    && expression.name.text === "handler"
+    && isTanStackServerFnBuilder(model, expression.expression)
+}
+
+function isTanStackServerFnBuilder(model, input) {
+  const expression = unwrapExpression(input)
+  if (!ts.isCallExpression(expression)) return false
+  const direct = namedImportForExpression(
+    expression.expression,
+    model.checker,
+    model.imports,
+    model.aliases,
+  )
+  if (direct?.module === "@tanstack/react-start" && direct.export === "createServerFn") return true
+  const callee = unwrapExpression(expression.expression)
+  return ts.isPropertyAccessExpression(callee)
+    && isTanStackServerFnBuilder(model, callee.expression)
 }
 
 function namedImportPathForExpression(input, checker, imports, aliases) {
