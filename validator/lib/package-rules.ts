@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
-import { effectVersionSupported, packageRequirements } from "./effect-capabilities.js"
+import { packageRequirements } from "./effect-capabilities.js"
 import { makeFinding } from "./findings.js"
 import { packageResolution, safePackageMajor } from "./resolver.js"
 
@@ -36,12 +36,12 @@ export function scanPackageRules(root, manifest, scanState = null) {
       }
       continue
     }
-    if (!effectVersionSupported(resolved)) {
+    if (effectMajor !== 4 || !effectVersionSupported(resolved)) {
       findings.push(makeFinding(root, {
         ruleId: "EFF908",
         file: pkg.relativePackageJson,
         package: pkg.path,
-        message: `Effect v${effectMajor} does not satisfy the declared capability range`,
+        message: "Effect must satisfy >=4.0.0-beta.97 <5.0.0-0",
       }))
       continue
     }
@@ -82,6 +82,17 @@ export function scanPackageRules(root, manifest, scanState = null) {
     }
   }
   return findings
+}
+
+function effectVersionSupported(resolved) {
+  const candidates = [...(resolved?.installedMajor?.candidates ?? []), ...(resolved?.declaredMajor?.candidates ?? [])]
+    .filter((candidate) => candidate.packageName === "effect" && typeof candidate.versionRange === "string")
+  if (candidates.length === 0) return false
+  return candidates.every((candidate) => {
+    const match = candidate.versionRange.match(/4\.0\.0(?:-beta\.(\d+))?/)
+    if (!match) return /^4\.(?:[1-9]|\d{2,})\./.test(candidate.versionRange)
+    return match[1] === undefined || Number(match[1]) >= 97
+  })
 }
 
 function missingRequirement(deps, requirement, options: { hasDeclaredAiProviderTransport?: boolean } = {}) {

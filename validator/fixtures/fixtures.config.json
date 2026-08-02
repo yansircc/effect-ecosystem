@@ -2772,7 +2772,7 @@
       "exact": true
     },
     {
-      "name": "effect-v3-typescript-v6-green",
+      "name": "effect-v3-rejected",
       "suites": [
         "toolchain-hard-cut",
         "red-green-fixtures"
@@ -2784,26 +2784,9 @@
         "package.json": "{}",
         "src/a.ts": "export const x = 1\n"
       },
-      "expectExit": 0,
-      "expectRules": [],
-      "exact": true
-    },
-    {
-      "name": "effect-v3-typescript-v7-rejected",
-      "suites": [
-        "toolchain-hard-cut",
-        "red-green-fixtures"
-      ],
-      "strict": true,
-      "toolchain": "effect-v3-typescript-v7",
-      "files": {
-        ".effect-skill.json": "{\"shape\":[\"library\"]}",
-        "package.json": "{}",
-        "src/a.ts": "export const x = 1\n"
-      },
       "expectExit": 1,
       "expectRules": [
-        "EFF901"
+        "EFF908"
       ],
       "exact": true
     },

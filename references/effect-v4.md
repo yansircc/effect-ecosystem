@@ -1,6 +1,6 @@
 # Effect v4 Notes
 
-Effect v4 is a supported runtime line. The verified floor is
+Effect v4 is the only supported runtime line. The verified floor is
 `effect@4.0.0-beta.97`; later v4 releases require acceptance before expanding
 the supported range.
 
