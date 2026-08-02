@@ -68,7 +68,6 @@
     "EFF310",
     "EFF311",
     "EFF312",
-    "EFF315",
     "EFF321",
     "EFF323",
     "EFF324",
@@ -142,6 +141,12 @@
     "wrangler-do-external-script-red",
     "wrangler-do-bare-class-red",
     "wrangler-do-undeclared-method-red",
+    "wrangler-worker-unreachable-run-red",
+    "wrangler-workflow-main-export-red",
+    "tanstack-server-fn-module-run-red",
+    "tanstack-server-fn-wrong-builder-red",
+    "effect-vitest-run-outside-test-red",
+    "host-options-callback-wrong-property-red",
     "run-suppression-cannot-admit-red",
     "edge-suppression-cannot-admit-red",
     "generated-path-cannot-admit-run-red",
@@ -1233,6 +1238,266 @@
       ]
     },
     {
+      "name": "wrangler-worker-dispatch-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
+        "src/worker.ts": "import { Effect } from \"effect\"\nexport default { fetch() { return Effect.runPromise(program) } }\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "wrangler-worker-unreachable-run-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
+        "src/worker.ts": "import { Effect } from \"effect\"\nconst hidden = () => Effect.runPromise(program)\nexport default { fetch() { return new Response(\"ok\") } }\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/worker.ts",
+          "line": 2,
+          "messageIncludes": "not reachable from the declared wrangler-worker dispatch graph"
+        }
+      ]
+    },
+    {
+      "name": "wrangler-workflow-reexport-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
+        "src/worker.ts": "export { TestWorkflow } from \"./workflow.js\"\nexport default { fetch() { return new Response(\"ok\") } }\n",
+        "src/workflow.ts": "import { WorkflowEntrypoint } from \"cloudflare:workers\"\nimport { Effect } from \"effect\"\nexport class TestWorkflow extends WorkflowEntrypoint { run() { return Effect.runPromise(program) } }\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "wrangler-workflow-main-export-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
+        "src/worker.ts": "export default { fetch() { return new Response(\"ok\") } }\n",
+        "src/workflow.ts": "import { WorkflowEntrypoint } from \"cloudflare:workers\"\nimport { Effect } from \"effect\"\nexport class TestWorkflow extends WorkflowEntrypoint { run() { return Effect.runPromise(program) } }\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/workflow.ts",
+          "line": 1,
+          "messageIncludes": "is not exported from the configured Wrangler main module"
+        }
+      ]
+    },
+    {
+      "name": "handler-map-dispatch-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handlers.ts\",\"owner\":\"@http-tests\",\"reason\":\"HTTP handler map\",\"execution\":{\"lifecycle\":\"handler-map\",\"runners\":[\"Effect.runPromise\"],\"handlerMap\":{\"factory\":\"handlers\"}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/handlers.ts": "import { Effect } from \"effect\"\nexport const handlers = () => ({ health: () => run() })\nconst run = () => Effect.runPromise(program)\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "tanstack-server-fn-dispatch-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/handler.ts": "import { Effect } from \"effect\"\nimport { createServerFn } from \"@tanstack/react-start\"\nexport const get = createServerFn({ method: \"GET\" }).middleware([]).handler(() => Effect.runPromise(program))\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "tanstack-server-fn-module-run-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "red-green-fixtures",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/handler.ts": "import { Effect } from \"effect\"\nimport { createServerFn } from \"@tanstack/react-start\"\nexport const get = createServerFn({ method: \"GET\" }).handler(() => undefined)\nEffect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/handler.ts",
+          "line": 4,
+          "messageIncludes": "not reachable from the declared TanStack ServerFn handler callback"
+        }
+      ]
+    },
+    {
+      "name": "tanstack-server-fn-wrong-builder-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "red-green-fixtures",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/handler.ts": "import { Effect } from \"effect\"\nconst createServerFn = () => ({ handler: (callback) => callback })\nexport const get = createServerFn().handler(() => Effect.runPromise(program))\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ]
+    },
+    {
+      "name": "host-options-callback-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/auth.ts\",\"owner\":\"@auth-tests\",\"reason\":\"magic-link callback\",\"execution\":{\"lifecycle\":\"host-options-callback\",\"runners\":[\"Effect.runPromise\"],\"host\":{\"module\":\"better-auth/plugins/magic-link\",\"export\":\"magicLink\",\"optionsArgument\":0,\"property\":\"sendMagicLink\"}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/auth.ts": "import { Effect } from \"effect\"\nimport { magicLink } from \"better-auth/plugins/magic-link\"\nmagicLink({ sendMagicLink: () => Effect.runPromise(program) })\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "host-options-callback-wrong-property-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/auth.ts\",\"owner\":\"@auth-tests\",\"reason\":\"magic-link callback\",\"execution\":{\"lifecycle\":\"host-options-callback\",\"runners\":[\"Effect.runPromise\"],\"host\":{\"module\":\"better-auth/plugins/magic-link\",\"export\":\"magicLink\",\"optionsArgument\":0,\"property\":\"sendMagicLink\"}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/auth.ts": "import { Effect } from \"effect\"\nimport { magicLink } from \"better-auth/plugins/magic-link\"\nmagicLink({ wrongProperty: () => Effect.runPromise(program) })\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/auth.ts",
+          "line": 1,
+          "messageIncludes": "has no direct sendMagicLink callback"
+        }
+      ]
+    },
+    {
+      "name": "function-facade-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"],\"executableEdges\":[{\"path\":\"src/client.ts\",\"owner\":\"@client-tests\",\"reason\":\"browser function facade\",\"execution\":{\"lifecycle\":\"function-facade\",\"runners\":[\"Effect.runPromise\"],\"facade\":{\"export\":\"createClient\",\"members\":[{\"kind\":\"returned\",\"path\":\"load\"}]}}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/client.ts": "import { Effect } from \"effect\"\nexport const createClient = () => ({ load: () => Effect.runPromise(program) })\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "effect-vitest-test-double-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"],\"testGlobs\":[\"**/*.test.ts\"],\"executableEdges\":[{\"path\":\"src/a.test.ts\",\"owner\":\"@tests\",\"reason\":\"Effect test Promise double\",\"execution\":{\"lifecycle\":\"effect-vitest\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/a.test.ts": "import { it } from \"@effect/vitest\"\nimport { Effect } from \"effect\"\nit.effect(\"runs a Promise double\", () => Effect.tryPromise(() => Effect.runPromise(program)))\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "effect-vitest-run-outside-test-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"],\"testGlobs\":[\"**/*.test.ts\"],\"executableEdges\":[{\"path\":\"src/a.test.ts\",\"owner\":\"@tests\",\"reason\":\"Effect test Promise double\",\"execution\":{\"lifecycle\":\"effect-vitest\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/a.test.ts": "import { it } from \"@effect/vitest\"\nimport { Effect } from \"effect\"\nEffect.runPromise(program)\nit.effect(\"does not own the module run\", () => Effect.void)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/a.test.ts",
+          "line": 3,
+          "messageIncludes": "not reachable from the @effect/vitest test callback"
+        }
+      ]
+    },
+    {
       "name": "run-suppression-cannot-admit-red",
       "suites": [
         "edge-rules",
@@ -1741,7 +2006,6 @@
         "EFF310",
         "EFF311",
         "EFF312",
-        "EFF315",
         "EFF321"
       ]
     },

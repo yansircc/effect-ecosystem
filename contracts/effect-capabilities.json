@@ -140,16 +140,6 @@
       "providerPrefixAnyOf": [
         "@effect/ai-"
       ]
-    },
-    {
-      "ruleId": "EFF315",
-      "shapes": [
-        "frontend"
-      ],
-      "anyOf": [
-        "@effect-atom/atom-react"
-      ],
-      "forbidden": []
     }
   ]
 }

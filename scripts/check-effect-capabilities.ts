@@ -13,7 +13,7 @@ for (const requirement of contract.packageRequirements) {
   if (!RULES[requirement.ruleId]) throw new Error(`capability contract references unknown rule ${requirement.ruleId}`)
 }
 
-for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312", "EFF315"]) {
+for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311", "EFF312"]) {
   if (!requirementRuleIds.has(ruleId)) throw new Error(`capability contract does not cover ${ruleId}`)
 }
 

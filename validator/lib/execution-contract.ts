@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import * as ts from "typescript/unstable/ast"
+import { SymbolFlags } from "typescript/unstable/sync"
 import { parseWranglerConfig } from "./runtime-facts.js"
 import {
   sameTypeScriptNode,
@@ -25,8 +26,15 @@ const RUNTIME_MODULES = new Map([
 const EXECUTION_VERIFIERS = new Map([
   ["process-main", (model, execution) => verifyProcessMain(model, execution)],
   ["host-callback", (model, execution) => verifyHostCallback(model, execution)],
+  ["tanstack-server-fn", (model, execution) => verifyTanStackServerFn(model, execution)],
   ["package-facade", (model, execution) => verifyPackageFacade(model, execution)],
   ["wrangler-do", (model, execution, context) => verifyWranglerDo(model, execution, context)],
+  ["wrangler-worker", (model, execution, context) => verifyWranglerWorker(model, execution, context)],
+  ["wrangler-workflow", (model, execution, context) => verifyWranglerWorkflow(model, execution, context)],
+  ["handler-map", (model, execution) => verifyHandlerMap(model, execution)],
+  ["host-options-callback", (model, execution) => verifyHostOptionsCallback(model, execution)],
+  ["function-facade", (model, execution) => verifyFunctionFacade(model, execution)],
+  ["effect-vitest", (model, execution) => verifyEffectVitest(model, execution)],
 ])
 
 export function effectRunCallsForFile(file) {
@@ -97,6 +105,26 @@ function verifyHostCallback(model, execution) {
   return result
 }
 
+function verifyTanStackServerFn(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "tanstack-server-fn cannot own process-main calls")
+  }
+  const roots = model.calls
+    .filter((call) => isTanStackServerFnHandlerCall(model, call.node))
+    .map((call) => callbackArgument(call.node.arguments[0], model.checker))
+    .filter(Boolean)
+    .map((node) => ({ label: "@tanstack/react-start createServerFn(...).handler callback", node }))
+  if (roots.length === 0) {
+    return mismatch(model.file, "tanstack-server-fn requires an exact @tanstack/react-start createServerFn(...).handler callback")
+  }
+  return verifyReachableRunnerSet(
+    model,
+    execution.runners,
+    roots,
+    "declared TanStack ServerFn handler callback",
+  )
+}
+
 function verifyPackageFacade(model, execution) {
   if (model.runtimeRunMainCalls.length > 0) {
     return mismatchAt(model, model.runtimeRunMainCalls[0], "package-facade cannot own process-main calls")
@@ -105,12 +133,23 @@ function verifyPackageFacade(model, execution) {
   const packageResult = verifyPackageSubpath(model, binding)
   if (packageResult.ok === false) return packageResult
 
+  return verifyFactoryFacade(model, execution.runners, binding, "package facade")
+}
+
+function verifyFunctionFacade(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "function-facade cannot own process-main calls")
+  }
+  return verifyFactoryFacade(model, execution.runners, execution.facade, "function facade")
+}
+
+function verifyFactoryFacade(model, runners, binding, label) {
   const factory = exportedFunction(model, binding.export)
   if (!factory) {
-    return mismatch(model.file, `package facade export ${binding.export} is not a function defined and exported by the edge file`)
+    return mismatch(model.file, `${label} export ${binding.export} is not a function defined and exported by the edge file`)
   }
   if (!directReturnedObject(factory)) {
-    return mismatch(model.file, `package facade export ${binding.export} must directly return one object facade`)
+    return mismatch(model.file, `${label} export ${binding.export} must directly return one object facade`)
   }
 
   const owners = []
@@ -122,22 +161,22 @@ function verifyPackageFacade(model, execution) {
     if (member.kind === "factory-local") {
       const local = directFactoryLocal(model, factory, member.name)
       if (!local) {
-        return mismatch(model.file, `package facade factory-local ${member.name} is not a direct const function in ${binding.export}`)
+        return mismatch(model.file, `${label} factory-local ${member.name} is not a direct const function in ${binding.export}`)
       }
       if (!referencedOutsideDeclaration(model, factory, local)) {
-        return mismatch(model.file, `package facade factory-local ${member.name} is never captured or called by ${binding.export}`)
+        return mismatch(model.file, `${label} factory-local ${member.name} is never captured or called by ${binding.export}`)
       }
       owners.push({ label: `${binding.export} factory-local ${member.name}`, node: local.node })
       continue
     }
     const returned = returnedFactoryMember(factory, member.path)
     if (!returned) {
-      return mismatch(model.file, `package facade returned member ${member.path} is not a direct callable in ${binding.export}'s returned object`)
+      return mismatch(model.file, `${label} returned member ${member.path} is not a direct callable in ${binding.export}'s returned object`)
     }
     owners.push({ label: `${binding.export} returned member ${member.path}`, node: returned })
   }
 
-  return verifyManagedRunnerSet(model, execution.runners, owners, "declared package facade member")
+  return verifyManagedRunnerSet(model, runners, owners, `declared ${label} member`)
 }
 
 function verifyWranglerDo(model, execution, context) {
@@ -201,6 +240,293 @@ function verifyWranglerDo(model, execution, context) {
   }
 
   return verifyManagedRunnerSet(model, execution.runners, owners, "declared wrangler-do public method")
+}
+
+function verifyWranglerWorker(model, execution, context) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "wrangler-worker cannot own process-main calls")
+  }
+  const runtime = localWranglerMain(model, context, "wrangler-worker")
+  if (runtime.ok === false) return runtime
+  const worker = defaultExportObject(model)
+  if (!worker) return mismatch(model.file, "wrangler-worker requires one direct default object export")
+  const roots = []
+  for (const method of execution.worker.methods) {
+    const callable = objectCallableMember(worker, method)
+    if (!callable) return mismatch(model.file, `wrangler-worker default export has no direct callable ${method} method`)
+    roots.push({ label: `default.${method}`, node: callable })
+  }
+  return verifyReachableRunnerSet(model, execution.runners, roots, "declared wrangler-worker dispatch graph")
+}
+
+function verifyWranglerWorkflow(model, execution, context) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "wrangler-workflow cannot own process-main calls")
+  }
+  const runtime = localWranglerMain(model, context, "wrangler-workflow")
+  if (runtime.ok === false) return runtime
+  const className = execution.workflow.className
+  const bindings = Array.isArray(runtime.config.workflows) ? runtime.config.workflows : []
+  if (!bindings.some((item) => item
+    && typeof item === "object"
+    && item.class_name === className
+    && typeof item.binding === "string"
+    && item.binding.length > 0)) {
+    return mismatch(model.file, `wrangler-workflow class ${className} is not bound by workflows[].class_name`)
+  }
+  const classDeclaration = exportedClass(model, className)
+  if (!classDeclaration) {
+    return mismatch(model.file, `wrangler-workflow class ${className} is not a class defined and exported by the edge file`)
+  }
+  if (!extendsImportedClass(model, classDeclaration, "cloudflare:workers", "WorkflowEntrypoint")) {
+    return mismatch(model.file, `wrangler-workflow class ${className} must extend WorkflowEntrypoint from cloudflare:workers`)
+  }
+  if (!mainExportsClass(model, runtime.mainFile, classDeclaration, className)) {
+    return mismatch(model.file, `wrangler-workflow class ${className} is not exported from the configured Wrangler main module`)
+  }
+  const roots = []
+  for (const methodName of execution.workflow.methods) {
+    const methods = classDeclaration.members.filter((member) =>
+      ts.isMethodDeclaration(member)
+      && member.body
+      && publicInstanceMethod(member)
+      && declarationName(member.name) === methodName
+    )
+    if (methods.length !== 1) {
+      return mismatch(model.file, `wrangler-workflow public method ${className}.${methodName} must have exactly one implementation; found ${methods.length}`)
+    }
+    roots.push({ label: `${className}.${methodName}`, node: methods[0] })
+  }
+  return verifyReachableRunnerSet(model, execution.runners, roots, "declared wrangler-workflow dispatch graph")
+}
+
+function verifyHandlerMap(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "handler-map cannot own process-main calls")
+  }
+  const factory = exportedFunction(model, execution.handlerMap.factory)
+  if (!factory) {
+    return mismatch(model.file, `handler-map factory ${execution.handlerMap.factory} is not a function defined and exported by the edge file`)
+  }
+  const map = directReturnedObject(factory)
+  if (!map) return mismatch(model.file, `handler-map factory ${execution.handlerMap.factory} must directly return one handler object`)
+  const roots = []
+  for (const property of map.properties) {
+    if (ts.isMethodDeclaration(property)) {
+      roots.push(property)
+      continue
+    }
+    if (!ts.isPropertyAssignment(property)) continue
+    const callable = unwrapExpression(property.initializer)
+    if (ts.isArrowFunction(callable) || ts.isFunctionExpression(callable)) roots.push(callable)
+  }
+  if (roots.length === 0) return mismatch(model.file, `handler-map factory ${execution.handlerMap.factory} has no direct handler callbacks`)
+  return verifyReachableRunnerSet(
+    model,
+    execution.runners,
+    roots.map((node) => ({ label: `${execution.handlerMap.factory} handler`, node })),
+    "declared handler-map dispatch graph",
+  )
+}
+
+function verifyHostOptionsCallback(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "host-options-callback cannot own process-main calls")
+  }
+  const host = execution.host
+  const roots = model.calls
+    .filter((call) => sameNamedImport(call.calleeImport, host))
+    .flatMap((call) => optionPropertyCallbacks(call.node.arguments[host.optionsArgument], host.property, model.checker))
+    .map((node) => ({ label: `${host.module}:${host.export}.${host.property}`, node }))
+  if (roots.length === 0) {
+    return mismatch(model.file, `declared host ${host.module}:${host.export} has no direct ${host.property} callback`)
+  }
+  return verifyReachableRunnerSet(model, execution.runners, roots, "declared host options callback")
+}
+
+function verifyEffectVitest(model, execution) {
+  if (!model.file.roles.test) {
+    return mismatch(model.file, "effect-vitest execution is only valid for a classified test file")
+  }
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "effect-vitest cannot own process-main calls")
+  }
+  const roots = model.calls
+    .filter((call) => call.calleeImportPath?.module === "@effect/vitest" && call.calleeImportPath.export === "it.effect")
+    .map((call) => callbackArgument(call.node.arguments[1], model.checker))
+    .filter(Boolean)
+    .map((node) => ({ label: "@effect/vitest it.effect callback", node }))
+  if (roots.length === 0) return mismatch(model.file, "effect-vitest requires an imported it.effect callback")
+  return verifyReachableRunnerSet(model, execution.runners, roots, "@effect/vitest test callback")
+}
+
+function localWranglerMain(model, context, lifecycle) {
+  const pkg = model.file.package
+  if (!pkg?.wranglerPath) return mismatch(model.file, `${lifecycle} requires the owning package to declare wranglerPath`)
+  const root = context.root
+  if (!root) return mismatch(model.file, `${lifecycle} verification requires the scan root`)
+  const configPath = resolve(root, pkg.wranglerPath)
+  if (!existsSync(configPath)) return mismatch(model.file, `${lifecycle} config does not exist: ${pkg.wranglerPath}`)
+  const parsed = parseWranglerConfig(pkg.wranglerPath, readText(configPath))
+  if (parsed.error) return mismatch(model.file, `${lifecycle} config is not supported: ${parsed.error.code}`)
+  const config = parsed.config
+  if (typeof config.main !== "string") return mismatch(model.file, `${lifecycle} config must declare a string main entry`)
+  const mainFile = resolve(dirname(configPath), config.main)
+  return { ok: true as const, config, mainFile }
+}
+
+function verifyReachableRunnerSet(model, declaredRunners, roots, ownerKind) {
+  if (model.effectRunCalls.length === 0) {
+    return mismatch(model.file, `missing declared terminal runner set ${declaredRunners.join(", ")}`)
+  }
+  const unbound = model.effectRunCalls.find((run) => !run.bindingVerified)
+  if (unbound) {
+    return mismatchAt(model, unbound, `${unbound.runner} is not bound to its declared Effect import`)
+  }
+  const declared = new Set(declaredRunners)
+  const unexpected = model.effectRunCalls.find((run) => !declared.has(run.runner))
+  if (unexpected) {
+    return mismatchAt(model, unexpected, `${unexpected.runner} is not in the declared runner set`)
+  }
+  const actual = new Set(model.effectRunCalls.map((run) => run.runner))
+  const unused = declaredRunners.find((runner) => !actual.has(runner))
+  if (unused) {
+    return mismatch(model.file, `declared runner ${unused} has no terminal call`)
+  }
+  const reachable = reachableFunctions(model, roots.map((root) => root.node))
+  const unreachable = model.effectRunCalls.find((run) => !runOwnedByReachableFunction(run.node, reachable))
+  if (unreachable) {
+    return mismatchAt(model, unreachable, `${unreachable.runner} is not reachable from the ${ownerKind}`)
+  }
+  return { ok: true as const }
+}
+
+function reachableFunctions(model, roots) {
+  const reachable = new Set()
+  const pending = [...roots]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (!current || reachable.has(current)) continue
+    reachable.add(current)
+    visitCallableBody(current, (call) => {
+      const local = localCallableForCall(model, call)
+      if (local) pending.push(local)
+      for (const argument of call.arguments) {
+        for (const callback of callableExpressionsIn(argument)) pending.push(callback)
+      }
+    })
+  }
+  return reachable
+}
+
+function visitCallableBody(owner, visitCall) {
+  const body = owner.body
+  if (!body) return
+  visit(body)
+
+  function visit(node) {
+    if (node !== owner && ts.isFunctionLikeDeclaration(node)) return
+    if (ts.isCallExpression(node)) visitCall(node)
+    node.forEachChild(visit)
+  }
+}
+
+function callableExpressionsIn(node) {
+  const found = []
+  visit(node)
+  return found
+
+  function visit(current) {
+    if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+      found.push(current)
+      return
+    }
+    current.forEachChild(visit)
+  }
+}
+
+function localCallableForCall(model, call) {
+  const expression = unwrapExpression(call.expression)
+  if (!ts.isIdentifier(expression)) return null
+  const symbol = model.checker.getSymbolAtLocation(expression)
+  for (const declaration of typeScriptSymbolDeclarations(symbol)) {
+    if (declaration.getSourceFile() !== model.sourceFile) continue
+    if (ts.isFunctionDeclaration(declaration) && declaration.body) return declaration
+    if (ts.isVariableDeclaration(declaration) && declaration.initializer) {
+      const initializer = unwrapExpression(declaration.initializer)
+      if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) return initializer
+    }
+  }
+  return null
+}
+
+function runOwnedByReachableFunction(node, reachable) {
+  let current = node.parent
+  while (current) {
+    if (reachable.has(current)) return true
+    current = current.parent
+  }
+  return false
+}
+
+function optionPropertyCallbacks(input, propertyName, checker) {
+  if (!input) return []
+  const object = unwrapExpression(input)
+  if (!ts.isObjectLiteralExpression(object)) return []
+  return object.properties.flatMap((property) => {
+    if (!ts.isPropertyAssignment(property) || declarationName(property.name) !== propertyName) return []
+    const callback = callbackArgument(property.initializer, checker)
+    return callback ? [callback] : []
+  })
+}
+
+function defaultExportObject(model) {
+  const defaults = model.sourceFile.statements.filter((statement) => ts.isExportAssignment(statement))
+  if (defaults.length !== 1) return null
+  const expression = unwrapExpression(defaults[0].expression)
+  return ts.isObjectLiteralExpression(expression) ? expression : null
+}
+
+function objectCallableMember(object, name) {
+  const member = objectLiteralMember(object, name)
+  if (!member) return null
+  if (ts.isMethodDeclaration(member)) return member
+  if (!ts.isPropertyAssignment(member)) return null
+  const expression = unwrapExpression(member.initializer)
+  return ts.isArrowFunction(expression) || ts.isFunctionExpression(expression) ? expression : null
+}
+
+function extendsImportedClass(model, classDeclaration, module, exportedName) {
+  const heritage = classDeclaration.heritageClauses?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
+  const type = heritage?.types[0]
+  if (!type) return false
+  const expression = unwrapExpression(type.expression)
+  if (!ts.isIdentifier(expression)) return false
+  const symbol = model.checker.getSymbolAtLocation(expression)
+  const origin = symbol ? model.imports.get(symbol) : null
+  return origin?.module === module && origin.export === exportedName && origin.kind === "named"
+}
+
+function mainExportsClass(model, mainFile, classDeclaration, className) {
+  const { project, checker } = compilerProgramForFile(model.file)
+  const source = project.program.getSourceFile(mainFile)
+  if (!source) return false
+  const moduleSymbol = checker.getSymbolAtLocation(source)
+  if (!moduleSymbol) return false
+  const exported = checker.getExportsOfModule(moduleSymbol).find((symbol) => symbol.name === className)
+  const classSymbol = classDeclaration.name ? checker.getSymbolAtLocation(classDeclaration.name) : null
+  if (!exported || !classSymbol) return false
+  return sameTypeScriptSymbol(resolveAlias(checker, exported), resolveAlias(checker, classSymbol))
+}
+
+function resolveAlias(checker, symbol) {
+  let current = symbol
+  while (current && (current.flags & SymbolFlags.Alias) !== 0) {
+    const next = checker.getAliasedSymbol(current)
+    if (!next || sameTypeScriptSymbol(next, current)) break
+    current = next
+  }
+  return current
 }
 
 function verifyManagedRunnerSet(model, declaredRunners, owners, ownerKind) {
@@ -481,6 +807,7 @@ function sourceModel(file) {
       calls.push({
         node,
         calleeImport: namedImportForExpression(node.expression, checker, imports, aliases),
+        calleeImportPath: namedImportPathForExpression(node.expression, checker, imports, aliases),
       })
     }
     node.forEachChild(visit)
@@ -669,6 +996,37 @@ function namedImportForExpression(input, checker, imports, aliases) {
   const path = importedPath(input, checker, imports, aliases)
   if (!path?.bindingVerified || path.members.length !== 0 || path.origin.kind !== "named") return null
   return path.origin
+}
+
+function isTanStackServerFnHandlerCall(model, node) {
+  const expression = unwrapExpression(node.expression)
+  return ts.isPropertyAccessExpression(expression)
+    && expression.name.text === "handler"
+    && isTanStackServerFnBuilder(model, expression.expression)
+}
+
+function isTanStackServerFnBuilder(model, input) {
+  const expression = unwrapExpression(input)
+  if (!ts.isCallExpression(expression)) return false
+  const direct = namedImportForExpression(
+    expression.expression,
+    model.checker,
+    model.imports,
+    model.aliases,
+  )
+  if (direct?.module === "@tanstack/react-start" && direct.export === "createServerFn") return true
+  const callee = unwrapExpression(expression.expression)
+  return ts.isPropertyAccessExpression(callee)
+    && isTanStackServerFnBuilder(model, callee.expression)
+}
+
+function namedImportPathForExpression(input, checker, imports, aliases) {
+  const path = importedPath(input, checker, imports, aliases)
+  if (!path?.bindingVerified || path.origin.kind !== "named") return null
+  return {
+    module: path.origin.module,
+    export: [path.origin.export, ...path.members].join("."),
+  }
 }
 
 function sameNamedImport(origin, host) {

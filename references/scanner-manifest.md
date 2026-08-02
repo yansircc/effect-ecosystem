@@ -87,6 +87,24 @@ callback positions. Singular `runner` / `host` grammar is not accepted:
 }
 ```
 
+TanStack Start ServerFns are host terminal edges when the scanner can prove an
+exact named `createServerFn` import from `@tanstack/react-start`, its fluent
+builder chain, and the final `.handler(callback)`. The callback is the only
+admitted runner owner; a similarly named local factory, a different final
+method, or a module-level runner fails closed:
+
+```json
+{
+  "path": "src/users.handler.ts",
+  "owner": "@tanstack-server-fn",
+  "reason": "ServerFn handlers adapt request context to Effect programs",
+  "execution": {
+    "lifecycle": "tanstack-server-fn",
+    "runners": ["Effect.runPromise"]
+  }
+}
+```
+
 Package facades bind execution to the exact package name, export subpath target,
 exported factory, and runner-owning factory members:
 
@@ -201,10 +219,12 @@ prose is not a contract surface.
 `.effect-skill.json`. `loadManifest` applies it through Ajv before
 normalization. Runtime code does not maintain a parallel handwritten manifest
 shape. `executableEdges[].execution` is a discriminated `process-main |
-host-callback | package-facade | wrangler-do` contract. The Effect runner enum
-and runner-set uniqueness are owned only by this schema; execution validation
-derives its terminal inventory from that enum and routes each discriminant
-through one verifier dispatch table before applying the shared ownership gate.
+host-callback | tanstack-server-fn | package-facade | wrangler-do |
+wrangler-worker | wrangler-workflow | handler-map | host-options-callback |
+function-facade | effect-vitest` contract. The Effect runner enum and
+runner-set uniqueness are owned only by this schema; execution validation derives
+its terminal inventory from that enum and routes each discriminant through one
+verifier dispatch table before applying the shared ownership gate.
 
 ### Contract Owner: rules
 
@@ -315,11 +335,6 @@ HTTP client libraries.
 AI capability must be owned by `@effect/ai` in v3 or the v4 capability
 contract. Provider SDKs are terminal adapters only.
 
-### EFF315 frontend-without-effect-atom
-
-Frontend React state integration still requires a proven React adapter. v4
-browser runtime proof is not React integration proof.
-
 ### EFF321 missing-effect-vitest
 
 Any non-empty shape requires `@effect/vitest` in `devDependencies`.
@@ -365,12 +380,15 @@ The current terminal inventory is `runCallback`, `runCallbackWith`, `runFork`,
 An executable edge must prove its declared lifecycle from AST bindings and
 nesting. `process-main` requires exactly one exact imported runtime runner at
 module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
-named host import and callback position. `package-facade` proves the package
-manifest subpath, exported object factory, and its direct runner-owning members.
-`wrangler-do` proves JSONC `main`, Durable Object `class_name`, exported class,
-and direct public method ownership. Host-managed runner sets must exactly equal
-the bound calls, with complete unique coverage. Duplicate contracts for one path
-are invalid. EFF401 cannot be suppressed.
+named host import and callback position. `tanstack-server-fn` proves the exact
+`@tanstack/react-start` `createServerFn(...).handler(callback)` builder chain.
+`package-facade` proves the package manifest subpath, exported object factory,
+and its direct runner-owning members. `wrangler-do` proves JSONC `main`, Durable
+Object `class_name`, exported class, and direct public method ownership.
+`wrangler-worker` proves JSONC `main` and its default dispatch graph.
+Host-managed runner sets must exactly equal the bound calls, with complete unique
+coverage. Duplicate contracts for one path are invalid. EFF401 cannot be
+suppressed.
 
 ### EFF402 platform-constructor-outside-adapter
 
