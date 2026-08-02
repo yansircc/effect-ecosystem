@@ -57,6 +57,7 @@ verify:
 	status=0; \
 	{ \
 	$(MAKE) build BUILD_DIR="$(BUILD_DIR)" && \
+	node "$(BUILD_DIR)/scripts/verify-build-provenance.js" && \
 	node "$(BUILD_DIR)/scripts/check-registry.js" && \
 	node "$(BUILD_DIR)/scripts/generate-derived-docs.js" --check && \
 	node "$(BUILD_DIR)/scripts/check-skill-thin.js" && \

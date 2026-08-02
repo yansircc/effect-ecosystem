@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { relative, resolve, sep } from "node:path"
-import { createHash } from "node:crypto"
+import { deriveBuildInfo } from "./build-provenance.js"
 
 const SOURCE_PATHS = [
   ".effect-skill.json",
@@ -24,18 +24,14 @@ const gitRoot = git(["rev-parse", "--show-toplevel"]) ?? sourceRoot
 const gitCommit = git(["rev-parse", "HEAD"]) ?? "unknown"
 const status = git(["status", "--porcelain=v1", "--untracked-files=all", "--", ...SOURCE_PATHS]) ?? "unknown"
 const diff = git(["diff", "--binary", "HEAD", "--", ...SOURCE_PATHS]) ?? ""
-const dirty = status.trim().length > 0
-const dirtyHash = dirty
-  ? createHash("sha256").update(status).update("\0").update(diff).digest("hex").slice(0, 12)
-  : "clean"
-const shortCommit = gitCommit === "unknown" ? "unknown" : gitCommit.slice(0, 12)
-const buildId = dirty ? `${shortCommit}-dirty-${dirtyHash}` : `${shortCommit}-clean`
-
 const buildInfo = {
-  schemaVersion: 1,
-  gitCommit,
-  dirty,
-  buildId,
+  ...deriveBuildInfo({
+    gitCommit,
+    status,
+    diff,
+    releaseSourceCommit: process.env.EFFECT_SCAN_RELEASE_SOURCE_SHA,
+    releaseFiles: process.env.EFFECT_SCAN_RELEASE_FILES,
+  }),
   sourceRootRelative: toPosix(relative(gitRoot, sourceRoot) || "."),
 }
 

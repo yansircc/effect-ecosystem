@@ -67,10 +67,16 @@ jobs:
           npm ci
 
       - name: Verify source
+        env:
+          EFFECT_SCAN_RELEASE_SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
+          EFFECT_SCAN_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
         run: |
           npm run verify
 
       - name: Pack candidate once
+        env:
+          EFFECT_SCAN_RELEASE_SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
+          EFFECT_SCAN_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
         shell: bash
         run: |
           mkdir -p release
@@ -81,6 +87,12 @@ jobs:
             exit 1
           fi
           mv "${archives[0]}" release/package.tgz
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            node scripts/verify-release-build-info.mjs \
+              release/package.tgz \
+              "${{ steps.release.outputs.sourceSha }}" \
+              "${{ steps.release.outputs.releaseFiles }}"
+          fi
 
       - name: Install candidate
         shell: bash
