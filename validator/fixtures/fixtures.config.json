@@ -145,6 +145,8 @@
     "wrangler-workflow-main-export-red",
     "tanstack-server-fn-module-run-red",
     "tanstack-server-fn-wrong-builder-red",
+    "tanstack-file-route-module-run-red",
+    "tanstack-file-route-wrong-builder-red",
     "effect-vitest-run-outside-test-red",
     "host-options-callback-wrong-property-red",
     "run-suppression-cannot-admit-red",
@@ -1394,6 +1396,66 @@
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
         "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
         "src/handler.ts": "import { Effect } from \"effect\"\nconst createServerFn = () => ({ handler: (callback) => callback })\nexport const get = createServerFn().handler(() => Effect.runPromise(program))\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ]
+    },
+    {
+      "name": "tanstack-file-route-dispatch-green",
+      "suites": [
+        "manifest-schema",
+        "edge-rules",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/route.ts": "import { Effect } from \"effect\"\nimport { createFileRoute } from \"@tanstack/react-router\"\nconst run = () => Effect.runPromise(program)\nexport const Route = createFileRoute(\"/api/health\")({ server: { handlers: { GET: () => run() } } })\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
+      "name": "tanstack-file-route-module-run-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "red-green-fixtures",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/route.ts": "import { Effect } from \"effect\"\nimport { createFileRoute } from \"@tanstack/react-router\"\nexport const Route = createFileRoute(\"/api/health\")({ server: { handlers: { GET: () => undefined } } })\nEffect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "expectFindings": [
+        {
+          "ruleId": "EFF401",
+          "count": 1,
+          "file": "src/route.ts",
+          "line": 4,
+          "messageIncludes": "not reachable from the declared TanStack file-route server.handlers callback"
+        }
+      ]
+    },
+    {
+      "name": "tanstack-file-route-wrong-builder-red",
+      "suites": [
+        "edge-rules",
+        "evil-edge-bypass",
+        "red-green-fixtures",
+        "cheapest-plausible-lies"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "src/route.ts": "import { Effect } from \"effect\"\nconst createFileRoute = () => () => ({ server: { handlers: { GET: () => Effect.runPromise(program) } } })\nexport const Route = createFileRoute(\"/api/health\")({})\n"
       },
       "expectExit": 1,
       "expectRules": [

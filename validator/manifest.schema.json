@@ -139,6 +139,7 @@
             { "$ref": "#/$defs/processMainExecution" },
             { "$ref": "#/$defs/hostCallbackExecution" },
             { "$ref": "#/$defs/tanstackServerFnExecution" },
+            { "$ref": "#/$defs/tanstackFileRouteExecution" },
             { "$ref": "#/$defs/packageFacadeExecution" },
             { "$ref": "#/$defs/wranglerDoExecution" },
             { "$ref": "#/$defs/wranglerWorkerExecution" },
@@ -197,6 +198,15 @@
       "additionalProperties": false,
       "properties": {
         "lifecycle": { "const": "tanstack-server-fn" },
+        "runners": { "$ref": "#/$defs/effectRunnerSet" }
+      }
+    },
+    "tanstackFileRouteExecution": {
+      "type": "object",
+      "required": ["lifecycle", "runners"],
+      "additionalProperties": false,
+      "properties": {
+        "lifecycle": { "const": "tanstack-file-route" },
         "runners": { "$ref": "#/$defs/effectRunnerSet" }
       }
     },

@@ -27,6 +27,7 @@ const EXECUTION_VERIFIERS = new Map([
   ["process-main", (model, execution) => verifyProcessMain(model, execution)],
   ["host-callback", (model, execution) => verifyHostCallback(model, execution)],
   ["tanstack-server-fn", (model, execution) => verifyTanStackServerFn(model, execution)],
+  ["tanstack-file-route", (model, execution) => verifyTanStackFileRoute(model, execution)],
   ["package-facade", (model, execution) => verifyPackageFacade(model, execution)],
   ["wrangler-do", (model, execution, context) => verifyWranglerDo(model, execution, context)],
   ["wrangler-worker", (model, execution, context) => verifyWranglerWorker(model, execution, context)],
@@ -122,6 +123,25 @@ function verifyTanStackServerFn(model, execution) {
     execution.runners,
     roots,
     "declared TanStack ServerFn handler callback",
+  )
+}
+
+function verifyTanStackFileRoute(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "tanstack-file-route cannot own process-main calls")
+  }
+  const roots = model.calls
+    .filter((call) => isTanStackFileRouteConfigCall(model, call.node))
+    .flatMap((call) => tanStackFileRouteHandlerCallbacks(call.node.arguments[0], model.checker))
+    .map((node) => ({ label: "@tanstack/react-router createFileRoute(...).server.handlers callback", node }))
+  if (roots.length === 0) {
+    return mismatch(model.file, "tanstack-file-route requires an exact @tanstack/react-router createFileRoute(...).server.handlers callback")
+  }
+  return verifyReachableRunnerSet(
+    model,
+    execution.runners,
+    roots,
+    "declared TanStack file-route server.handlers callback",
   )
 }
 
@@ -1003,6 +1023,44 @@ function isTanStackServerFnHandlerCall(model, node) {
   return ts.isPropertyAccessExpression(expression)
     && expression.name.text === "handler"
     && isTanStackServerFnBuilder(model, expression.expression)
+}
+
+function isTanStackFileRouteConfigCall(model, node) {
+  const expression = unwrapExpression(node.expression)
+  if (!ts.isCallExpression(expression)) return false
+  const direct = namedImportForExpression(
+    expression.expression,
+    model.checker,
+    model.imports,
+    model.aliases,
+  )
+  return direct?.module === "@tanstack/react-router" && direct.export === "createFileRoute"
+}
+
+function tanStackFileRouteHandlerCallbacks(input, checker) {
+  const config = unwrapExpression(input)
+  if (!ts.isObjectLiteralExpression(config)) return []
+  const server = objectLiteralMember(config, "server")
+  if (!server || !ts.isPropertyAssignment(server)) return []
+  const serverConfig = unwrapExpression(server.initializer)
+  if (!ts.isObjectLiteralExpression(serverConfig)) return []
+  const handlers = objectLiteralMember(serverConfig, "handlers")
+  if (!handlers || !ts.isPropertyAssignment(handlers)) return []
+  const handlerMap = unwrapExpression(handlers.initializer)
+  if (!ts.isObjectLiteralExpression(handlerMap)) return []
+  const httpMethods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+  const callbacks = []
+  for (const property of handlerMap.properties) {
+    if (!ts.isMethodDeclaration(property) && !ts.isPropertyAssignment(property)) continue
+    if (!httpMethods.has(declarationName(property.name))) continue
+    if (ts.isMethodDeclaration(property)) {
+      if (property.body) callbacks.push(property)
+      continue
+    }
+    const callback = callbackArgument(property.initializer, checker)
+    if (callback) callbacks.push(callback)
+  }
+  return callbacks
 }
 
 function isTanStackServerFnBuilder(model, input) {

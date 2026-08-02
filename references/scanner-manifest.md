@@ -105,6 +105,14 @@ method, or a module-level runner fails closed:
 }
 ```
 
+TanStack file-route HTTP terminals use `tanstack-file-route` when the scanner
+can prove an exact named `createFileRoute` import from `@tanstack/react-router`
+and a direct `createFileRoute(...)({ server: { handlers: { METHOD: callback } } })`
+configuration. Only direct callbacks for the standard HTTP methods (`GET`,
+`HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`) own runners. A local
+lookalike, indirect handler map, non-HTTP property, or module-level runner is
+not an executable edge.
+
 Package facades bind execution to the exact package name, export subpath target,
 exported factory, and runner-owning factory members:
 
@@ -382,6 +390,9 @@ nesting. `process-main` requires exactly one exact imported runtime runner at
 module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
 named host import and callback position. `tanstack-server-fn` proves the exact
 `@tanstack/react-start` `createServerFn(...).handler(callback)` builder chain.
+`tanstack-file-route` proves the exact `@tanstack/react-router`
+`createFileRoute(...)({ server: { handlers } })` structure and direct HTTP
+handler callbacks.
 `package-facade` proves the package manifest subpath, exported object factory,
 and its direct runner-owning members. `wrangler-do` proves JSONC `main`, Durable
 Object `class_name`, exported class, and direct public method ownership.
