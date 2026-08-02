@@ -1246,7 +1246,7 @@
         "red-green-fixtures"
       ],
       "files": {
-        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
         "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport default { fetch() { return Effect.runPromise(program) } }\n"
@@ -1262,7 +1262,7 @@
         "cheapest-plausible-lies"
       ],
       "files": {
-        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
         "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import { Effect } from \"effect\"\nconst hidden = () => Effect.runPromise(program)\nexport default { fetch() { return new Response(\"ok\") } }\n"
@@ -1289,7 +1289,7 @@
         "red-green-fixtures"
       ],
       "files": {
-        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
         "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
         "src/worker.ts": "export { TestWorkflow } from \"./workflow.js\"\nexport default { fetch() { return new Response(\"ok\") } }\n",
@@ -1306,7 +1306,7 @@
         "cheapest-plausible-lies"
       ],
       "files": {
-        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
+        ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
         "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
         "src/worker.ts": "export default { fetch() { return new Response(\"ok\") } }\n",
@@ -2007,8 +2007,25 @@
         "EFF310",
         "EFF311",
         "EFF312",
-        "EFF315",
         "EFF321"
+      ]
+    },
+    {
+      "name": "package-presence-v3-frontend-atom-red",
+      "suites": [
+        "package-presence",
+        "red-green-fixtures",
+        "fixture-coverage"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
+        "package.json": "{\"dependencies\":{\"effect\":\"3.21.4\"},\"devDependencies\":{\"@effect/vitest\":\"3.21.4\"}}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF315"
       ]
     },
     {
