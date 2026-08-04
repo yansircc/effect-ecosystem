@@ -38,10 +38,17 @@ package:
 	rsync -a --delete dist/build/contracts/ dist/skill/contracts/
 	rsync -a --delete dist/build/references/ dist/skill/references/
 	rsync -a --delete node_modules/jsonc-parser/ dist/skill/runtime/node_modules/jsonc-parser/
-	platform="typescript-$$(node -p process.platform)-$$(node -p process.arch)"; \
-		mkdir -p "dist/skill/runtime/node_modules/@typescript/$$platform/lib"; \
-		cp "node_modules/@typescript/$$platform/package.json" "dist/skill/runtime/node_modules/@typescript/$$platform/"; \
-		cp "node_modules/@typescript/$$platform/lib/tsc" "dist/skill/runtime/node_modules/@typescript/$$platform/lib/"
+	@set -eu; \
+	archive_dir=$$(mktemp -d "dist/.typescript-platforms.XXXXXX"); \
+	trap 'rm -rf "$$archive_dir"' EXIT; \
+	version=$$(node -p 'require("./package-lock.json").packages["node_modules/typescript"].version'); \
+	for platform in darwin-arm64 linux-x64 linux-arm64; do \
+		package="@typescript/typescript-$$platform"; \
+		archive=$$(npm pack "$$package@$$version" --pack-destination "$$archive_dir" --silent | tail -1); \
+		target="dist/skill/runtime/node_modules/@typescript/typescript-$$platform"; \
+		mkdir -p "$$target"; \
+		tar -xzf "$$archive_dir/$$archive" -C "$$target" --strip-components=1; \
+	done
 	cp packaging/typescript-runtime.package.json dist/skill/runtime/package.json
 	cp dist/build/build-info.json dist/skill/
 	cp validator/manifest.schema.json dist/skill/runtime/
