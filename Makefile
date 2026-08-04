@@ -41,7 +41,7 @@ package:
 	@set -eu; \
 	archive_dir=$$(mktemp -d "dist/.typescript-platforms.XXXXXX"); \
 	trap 'rm -rf "$$archive_dir"' EXIT; \
-	version=$$(node -p 'require("./package-lock.json").packages["node_modules/typescript"].version'); \
+	version=$$(node -p 'require("./package.json").dependencies.typescript'); \
 	for platform in darwin-arm64 linux-x64 linux-arm64; do \
 		package="@typescript/typescript-$$platform"; \
 		archive=$$(npm pack "$$package@$$version" --pack-destination "$$archive_dir" --silent | tail -1); \
