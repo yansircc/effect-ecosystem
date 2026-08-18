@@ -422,6 +422,19 @@
       ]
     },
     {
+      "name": "suppression-valid-not-orphan-green",
+      "suites": [
+        "suppression-drift",
+        "red-green-fixtures"
+      ],
+      "failOnSuppressionDrift": true,
+      "files": {
+        "src/a.ts": "try { work() } catch (e) {} // eff-ignore EFF001 reason=\"generated\"\n"
+      },
+      "expectExit": 0,
+      "expectRules": []
+    },
+    {
       "name": "edge-run-outside-edge",
       "suites": [
         "edge-rules",

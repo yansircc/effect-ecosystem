@@ -64,10 +64,13 @@ export function runScan(inputRoot: string, options: any = {}) {
 
   if (strict && manifest) findings.push(...findingsFromCompilerFacts(root, compiler))
 
+  // Drift validation must see the pre-suppression findings, so a line-level
+  // `eff-ignore` that actually suppressed a finding is not misreported as orphaned.
+  const rawFindings = findings
   const suppressed = timings.measure("suppressions", () => applySuppressions(root, findings, manifest))
   findings = [...suppressed.findings, ...suppressed.suppressionFindings]
   if (options.failOnSuppressionDrift) {
-    findings.push(...timings.measure("suppressionDrift", () => validateSuppressionDrift(root, files, manifest, findings)))
+    findings.push(...timings.measure("suppressionDrift", () => validateSuppressionDrift(root, files, manifest, rawFindings)))
   }
 
   findings = timings.measure("sortFindings", () => sortFindings(findings))
