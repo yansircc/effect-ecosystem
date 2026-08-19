@@ -12,7 +12,10 @@ writeFixture(root)
 run("npm", ["install", "--no-audit", "--no-fund"], { timeout: 180_000 })
 
 const otel = JSON.parse(readFileSync(resolve(root, "node_modules/@effect/opentelemetry/package.json"), "utf8"))
-run("npm", ["install", "--save", "--no-audit", "--no-fund", ...Object.entries(otel.peerDependencies ?? {}).map(([name, range]) => `${name}@${range}`)], { timeout: 180_000 })
+// effect 本体由夹具精确钉版（beta 线与其他 @effect 包对齐），不能把 peer 的
+// ^范围交给 npm --save（会升级写入 ^4.0.0-beta.98 并解析到 rc，撕裂 Multipasta 布局）
+const otelPeers = Object.entries(otel.peerDependencies ?? {}).filter(([name]) => name !== "effect")
+run("npm", ["install", "--save", "--no-audit", "--no-fund", ...otelPeers.map(([name, range]) => `${name}@${range}`)], { timeout: 180_000 })
 for (const peer of Object.keys(otel.peerDependencies ?? {})) {
   if (!existsSync(resolve(root, "node_modules", ...peer.split("/"), "package.json"))) {
     throw new Error(`OpenTelemetry peer metadata is not installed: ${peer}`)
@@ -59,15 +62,15 @@ function writeFixture(root: string) {
       postinstall: "effect-tsgo patch --typescript-package typescript"
     },
     dependencies: {
-      effect: "4.0.0-beta.97",
-      "@effect/platform-node": "4.0.0-beta.97",
-      "@effect/sql-d1": "4.0.0-beta.97",
-      "@effect/opentelemetry": "4.0.0-beta.97"
+      effect: "4.0.0-beta.98",
+      "@effect/platform-node": "4.0.0-beta.98",
+      "@effect/sql-d1": "4.0.0-beta.98",
+      "@effect/opentelemetry": "4.0.0-beta.98"
     },
     devDependencies: {
       "@cloudflare/workers-types": "latest",
       "@effect/tsgo": "0.21.0",
-      "@effect/vitest": "4.0.0-beta.97",
+      "@effect/vitest": "4.0.0-beta.98",
       esbuild: "latest",
       typescript: "7.0.2",
       wrangler: "latest"
