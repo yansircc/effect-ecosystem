@@ -35,6 +35,7 @@ const EXECUTION_VERIFIERS = new Map([
   ["handler-map", (model, execution) => verifyHandlerMap(model, execution)],
   ["host-options-callback", (model, execution) => verifyHostOptionsCallback(model, execution)],
   ["function-facade", (model, execution) => verifyFunctionFacade(model, execution)],
+  ["module-singleton", (model, execution) => verifyModuleSingleton(model, execution)],
   ["effect-vitest", (model, execution) => verifyEffectVitest(model, execution)],
 ])
 
@@ -154,6 +155,23 @@ function verifyPackageFacade(model, execution) {
   if (packageResult.ok === false) return packageResult
 
   return verifyFactoryFacade(model, execution.runners, binding, "package facade")
+}
+
+/**
+ * module-singleton：模块级单例（如 query-atom 的 reactivity context）允许在模块
+ * 顶层持有 Effect.run* 调用，但调用必须全部落在声明的 runner 集合内，且不得
+ * 持有 process-main 调用。
+ */
+function verifyModuleSingleton(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "module-singleton cannot own process-main calls")
+  }
+  const declared = new Set(execution.runners)
+  const unexpected = model.effectRunCalls.find((run) => !declared.has(run.runner))
+  if (unexpected) {
+    return mismatchAt(model, unexpected, `${unexpected.runner} is not in the declared runner set`)
+  }
+  return { ok: true as const }
 }
 
 function verifyFunctionFacade(model, execution) {
@@ -871,7 +889,7 @@ function sourceModel(file) {
   function visit(node) {
     if (ts.isCallExpression(node)) {
       const terminal = resolveTerminalExpression(node.expression, checker, imports, aliases)
-      if (terminal?.kind === "effect-run") effectRunCalls.push(callFact(file, sourceFile, node, terminal))
+      if (terminal?.kind === "effect-run" || terminal?.kind === "managed-run") effectRunCalls.push(callFact(file, sourceFile, node, terminal))
       if (terminal?.kind === "runtime-main") runtimeRunMainCalls.push(callFact(file, sourceFile, node, terminal))
       calls.push({
         node,
@@ -921,7 +939,11 @@ function derivedBindings(sourceFile, checker, imports) {
   while (changed) {
     changed = false
     for (const declaration of declarations) {
-      const path = importedPath(declaration.initializer, checker, imports, aliases)
+      // 调用表达式初始化（const runtime = ManagedRuntime.make(...)）解析被调方路径，
+      // 使 runtime.runPromise(...) 能回溯到 ManagedRuntime.make 的成员调用链
+      const initializer = declaration.initializer
+      const resolvable = ts.isCallExpression(initializer) ? initializer.expression : initializer
+      const path = importedPath(resolvable, checker, imports, aliases)
       if (!path) continue
       const isConst = ts.isVariableDeclarationList(declaration.parent)
         && (declaration.parent.flags & ts.NodeFlags.Const) !== 0
@@ -978,6 +1000,8 @@ function resolveTerminalExpression(input, checker, imports, aliases) {
   const imported = importedPath(expression, checker, imports, aliases)
   const effect = effectRunner(imported)
   if (effect) return effect
+  const managed = managedRuntimeRunner(imported)
+  if (managed) return managed
   const runtime = runtimeRunner(imported)
   if (runtime) return runtime
   return null
@@ -1002,6 +1026,31 @@ function effectRunner(imported) {
   }
   if (!member || !EFFECT_RUNNER_MEMBERS.has(member)) return null
   return { kind: "effect-run", runner: `Effect.${member}`, bindingVerified }
+}
+
+/**
+ * ManagedRuntime 成员调用（const runtime = ManagedRuntime.make(...); runtime.runPromise(...)）。
+ * 经 derivedBindings 别名解析后 origin=ManagedRuntime、members=["make", ...]。
+ * runner 命名与调用点源码一致：ManagedRuntime.make / runtime.runPromise / runtime.dispose 等。
+ */
+const MANAGED_RUNTIME_RUNNERS = new Set(["runPromise", "runPromiseExit", "runFork", "runSync", "dispose"])
+
+function managedRuntimeRunner(imported) {
+  if (!imported) return null
+  const { origin, members, bindingVerified } = imported
+  if (origin.module !== "effect") return null
+  const isManagedRuntime =
+    (origin.kind === "named" && origin.export === "ManagedRuntime") ||
+    (origin.kind === "namespace" && members[0] === "ManagedRuntime")
+  if (!isManagedRuntime) return null
+  const offset = origin.kind === "namespace" ? 1 : 0
+  if (members.length === offset + 1 && members[offset] === "make") {
+    return { kind: "managed-run", runner: "ManagedRuntime.make", bindingVerified }
+  }
+  if (members.length === offset + 2 && members[offset] === "make" && MANAGED_RUNTIME_RUNNERS.has(members[offset + 1])) {
+    return { kind: "managed-run", runner: `ManagedRuntime.${members[offset + 1]}`, bindingVerified }
+  }
+  return null
 }
 
 function runtimeRunner(imported) {
