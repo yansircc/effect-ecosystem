@@ -34,12 +34,24 @@ export function runScan(inputRoot: string, options: any = {}) {
   const strict = Boolean(options.strict)
   const context = discoverScanContext(root)
   const warnings = []
-  const manifestResult = timings.measure("manifest", () => loadManifest(root, { strict, workspaceRoot: context.workspaceRoot }))
+  const manifestResult = timings.measure("manifest", () =>
+    loadManifest(root, {
+      strict,
+      workspaceRoot: context.workspaceRoot,
+      manifestPath: options.manifestPath,
+    }),
+  )
   warnings.push(...manifestResult.warnings)
   let findings = [...manifestResult.findings]
   const manifest = manifestResult.manifest
   if (manifest && context.workspaceError && manifest.packages.some((pkg) => pkg.dependencyOwner === "workspace-root")) {
-    findings.push(makeFinding(root, { ruleId: "EFF907", file: ".effect-skill.json", message: context.workspaceError }))
+    findings.push(
+      makeFinding(root, {
+        ruleId: "EFF907",
+        file: options.manifestPath ?? ".effect-skill.json",
+        message: context.workspaceError,
+      }),
+    )
   }
   const files = timings.measure("collectSourceFiles", () => collectSourceFiles(root, manifest))
   const ruleContract = readJsonFile(options.rulesPath ?? RULES_PATH)

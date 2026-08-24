@@ -45,7 +45,8 @@ compatibility guess.
 6. Load only the exact `path §heading` entries in
    `effect.requiredReferences`. They derive solely from findings and emitted
    signals. An empty array means load nothing.
-7. Read `.effect-skill.json` only when a finding concerns manifest ownership,
+7. Read the manifest selected by `effect-scan --manifest <path>` (default
+   `.effect-skill.json`) only when a finding concerns manifest ownership,
    runtime facts, profiles, or suppressions.
 8. If `effect.requiredReferences` is missing, the installed scanner is stale;
    republish the generator artifact. If Effect support is unresolved, repair

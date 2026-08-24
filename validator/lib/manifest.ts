@@ -11,13 +11,23 @@ const MANIFEST_SCHEMA_PATH = resolve(__dirname, "..", "manifest.schema.json")
 const manifestSchema = JSON.parse(readFileSync(MANIFEST_SCHEMA_PATH, "utf8"))
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(manifestSchema)
 
-export function loadManifest(root, { strict = false, workspaceRoot = root } = {}) {
-  const path = resolve(root, MANIFEST_NAME)
+export function loadManifest(
+  root,
+  { strict = false, workspaceRoot = root, manifestPath = null } = {},
+) {
+  const relativeManifestPath = toPosix(manifestPath ?? MANIFEST_NAME)
+  const path = resolve(root, relativeManifestPath)
   if (!existsSync(path)) {
     return {
       manifest: null,
-      warnings: strict ? [] : [`${MANIFEST_NAME} not found; running syntax-only scanner`],
-      findings: strict ? [makeFinding(root, { ruleId: "EFF000", file: MANIFEST_NAME })] : [],
+      warnings: strict ? [] : [`${relativeManifestPath} not found; running syntax-only scanner`],
+      findings: strict
+        ? [makeFinding(root, {
+            ruleId: "EFF000",
+            file: relativeManifestPath,
+            message: `--strict requires ${relativeManifestPath}`,
+          })]
+        : [],
     }
   }
 
@@ -30,20 +40,20 @@ export function loadManifest(root, { strict = false, workspaceRoot = root } = {}
       warnings: [],
       findings: [makeFinding(root, {
         ruleId: "EFF900",
-        file: MANIFEST_NAME,
-        message: `${MANIFEST_NAME} is not valid JSON: ${error.message}`,
+        file: relativeManifestPath,
+        message: `${relativeManifestPath} is not valid JSON: ${error.message}`,
       })],
     }
   }
 
-  const errors = validateManifestSchema(raw)
+  const errors = validateManifestSchema(raw, relativeManifestPath)
   if (errors.length > 0) {
     return {
       manifest: null,
       warnings: [],
       findings: errors.map((message) => makeFinding(root, {
         ruleId: "EFF900",
-        file: MANIFEST_NAME,
+        file: relativeManifestPath,
         message,
       })),
     }
@@ -51,17 +61,17 @@ export function loadManifest(root, { strict = false, workspaceRoot = root } = {}
 
   const manifest = normalizeManifest(root, raw, path, workspaceRoot)
   const strictFindings = strict && allShapesEmpty(manifest)
-    ? [makeFinding(root, { ruleId: "EFF903", file: MANIFEST_NAME })]
+    ? [makeFinding(root, { ruleId: "EFF903", file: relativeManifestPath })]
     : []
 
   return { manifest, warnings: [], findings: strictFindings }
 }
 
-function validateManifestSchema(raw) {
+function validateManifestSchema(raw, relativeManifestPath = MANIFEST_NAME) {
   if (validateManifest(raw)) return []
   return (validateManifest.errors ?? []).map((error) => {
     const location = error.instancePath || "/"
-    return `${MANIFEST_NAME} schema violation at ${location}: ${error.message}`
+    return `${relativeManifestPath} schema violation at ${location}: ${error.message}`
   })
 }
 

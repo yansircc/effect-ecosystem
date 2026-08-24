@@ -22,8 +22,13 @@ if (evidenceValue.ok === false) {
   console.error(evidenceValue.message)
   process.exit(USAGE_EXIT_CODE)
 }
+const manifestValue = optionalValue(args, "--manifest")
+if (manifestValue.ok === false) {
+  console.error(manifestValue.message)
+  process.exit(USAGE_EXIT_CODE)
+}
 const outputMode = output.mode
-const valueFlags = new Set(["--evidence", "--output"])
+const valueFlags = new Set(["--evidence", "--manifest", "--output"])
 const positional = args.filter((arg, index) => !arg.startsWith("--") && !valueFlags.has(args[index - 1]))
 const root = resolve(positional[0] ?? process.cwd())
 
@@ -46,6 +51,7 @@ try {
     profile: flags.has("--profile"),
     timings: flags.has("--timings"),
     evidenceDir,
+    manifestPath: manifestValue.value,
     gateSummary: outputMode === "gate-json" || outputMode === "human",
     failOnSuppressionDrift: flags.has("--fail-on-suppression-drift"),
   })
