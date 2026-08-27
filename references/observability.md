@@ -243,10 +243,34 @@ it.effect("emits expected span", () =>
 )
 ```
 
-## 8. 禁忌
+## 8. Incident boundary — 从 Cause 到可行动事件
+
+`Cause` 是 Effect 的失败语义；incident 是部署/运行系统需要采取行动的投影。两者不能混为一个“错误字符串”。在 runtime 或服务边界建立一个 provider-neutral `ErrorReporter`/`IncidentReporter`，再由独立 adapter 投递到 Sentry-compatible、OTLP 或其他平台：
+
+```text
+Cause → classify → redact → fingerprint → Incident → provider adapter
+```
+
+默认分类：
+
+- `Fail` 通常是预期控制流：记录结构化日志，不自动创建 incident；
+- `Die` / 未预期 defect：创建 error incident；
+- `Interrupt` / 取消：默认不创建 incident；
+- 未捕获的 runtime exception：创建 error incident；
+- retry exhausted、发布/恢复失败和数据完整性失败：由边界策略决定是否升级。
+
+Reporter contract 应保留并行/串行 Cause 结构、错误 tag/code、severity、service、operation、environment、release/deployment、trace/span 与受控 attributes。不要用 `Cause.pretty()` 或动态 message 作为 fingerprint；使用稳定的 domain error code + operation，并限制深度、大小和基数。
+
+投递必须与业务结果隔离：设置超时，脱敏 Authorization、cookie、token、密码和请求体；在 Worker 使用 `waitUntil` 或 Queue，在 Node 使用异步批量/重试；provider 不可用时不能让主业务失败，并为关键事件提供可查询的 retry/dead-letter 路径。Cloudflare Logs/Tail 可作为 Worker runtime 事实与裸异常兜底，但不能替代跨运行时的长期 incident 管理。
+
+`IncidentReporter` 应属于应用的可观测性边界；Better Stack、Sentry、Bugsink、GlitchTip 等属于可替换的 provider adapter，不应成为 Effect 核心 API 或业务层依赖。
+
+## 9. 禁忌
 
 - 严禁 `console.log` 调试生产 — 用 `Effect.log` / `Effect.logDebug`。
 - 严禁手写 `import { trace } from "@opentelemetry/api"` 调 raw API — 用 `Effect.withSpan`。
 - 严禁忘记在 `MainLive` 提供 `OtelLive`（开发期可以不提供，生产 mandatory）。
 - 严禁在热路径过度埋点 — span 也有 overhead；用 `withTracerDisabledWhen` 排除 healthcheck / metrics scrape。
 - 严禁 metric 名包含高基数 label（如 user_id） — 用 span attribute 表达高基数维度。
+- 严禁把所有 `Effect.fail`、取消或重试过程当成 incident 自动上报。
+- 严禁让供应商 SDK、DSN 或 transport 污染领域层；通过 adapter/layer 注入。
