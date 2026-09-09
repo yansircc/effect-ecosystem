@@ -255,7 +255,7 @@ normalization. Runtime code does not maintain a parallel handwritten manifest
 shape. `executableEdges[].execution` is a discriminated `process-main |
 host-callback | tanstack-server-fn | package-facade | wrangler-do |
 wrangler-worker | wrangler-workflow | handler-map | host-options-callback |
-function-facade | effect-vitest` contract. The Effect runner enum and
+function-facade | module-singleton | effect-vitest` contract. The Effect runner enum and
 runner-set uniqueness are owned only by this schema; execution validation derives
 its terminal inventory from that enum and routes each discriminant through one
 verifier dispatch table before applying the shared ownership gate.
@@ -428,6 +428,10 @@ Object `class_name`, exported class, and direct public method ownership.
 default export must be either a direct handler object or exactly
 `@sentry/cloudflare.withSentry(optionsCallback, handlerObject)` with a direct
 options callback and direct handler object; other wrappers are not admitted.
+`module-singleton` admits verified terminal calls during module initialization only,
+with no function or class ancestor. Nested callbacks, IIFEs, class fields, empty
+declarations and unused runner names fail closed; it is not a file-wide runtime
+permission.
 Host-managed runner sets must exactly equal the bound calls, with complete unique
 coverage. Duplicate contracts for one path are invalid. EFF401 cannot be
 suppressed.

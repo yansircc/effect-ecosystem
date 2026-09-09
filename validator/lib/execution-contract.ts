@@ -166,12 +166,19 @@ function verifyModuleSingleton(model, execution) {
   if (model.runtimeRunMainCalls.length > 0) {
     return mismatchAt(model, model.runtimeRunMainCalls[0], "module-singleton cannot own process-main calls")
   }
-  const declared = new Set(execution.runners)
-  const unexpected = model.effectRunCalls.find((run) => !declared.has(run.runner))
-  if (unexpected) {
-    return mismatchAt(model, unexpected, `${unexpected.runner} is not in the declared runner set`)
-  }
-  return { ok: true as const }
+  // Class instance fields are deferred executions too, despite having no function ancestor.
+  const classOwned = model.effectRunCalls.find((run) => {
+    let current = run.node.parent
+    while (current) {
+      if (ts.isClassDeclaration(current) || ts.isClassExpression(current)) return true
+      current = current.parent
+    }
+    return false
+  })
+  if (classOwned) return mismatchAt(model, classOwned, "module-singleton cannot own class-scoped execution")
+  return verifyManagedRunnerSet(model, execution.runners, [
+    { label: "module initialization", node: model.sourceFile },
+  ], "module initialization")
 }
 
 function verifyFunctionFacade(model, execution) {
