@@ -68,13 +68,13 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\basync\\s+function\\b"
+        "kind": "source-ast",
+        "selector": "async-function"
       },
       "family": "source",
       "message": "禁用 async function。改写为 Effect.gen(function* () { ... }) + yield*",
       "facts": [
-        "source.code"
+        "source.syntax"
       ]
     },
     {
@@ -86,13 +86,13 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\basync\\s*\\("
+        "kind": "source-ast",
+        "selector": "async-arrow"
       },
       "family": "source",
       "message": "禁用 async 箭头函数。改写为 Effect.gen + yield*",
       "facts": [
-        "source.code"
+        "source.syntax"
       ]
     },
     {
@@ -104,13 +104,13 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bawait\\s+"
+        "kind": "source-ast",
+        "selector": "await"
       },
       "family": "source",
       "message": "禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain",
       "facts": [
-        "source.code"
+        "source.syntax"
       ]
     },
     {

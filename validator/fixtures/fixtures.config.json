@@ -56,7 +56,8 @@
     "cloudflare-runtime-facts",
     "workflow-shape",
     "worker-shape-ambiguity",
-    "toolchain-hard-cut"
+    "toolchain-hard-cut",
+    "async-ast-rules"
   ],
   "requiredRuleCoverage": [
     "EFF000",
@@ -160,7 +161,12 @@
     "unpatched-ts7-rejected",
     "wrong-tsgo-version-rejected",
     "declared-v4-installed-v3-rejected",
-    "effect-before-floor-rejected"
+    "effect-before-floor-rejected",
+    "async-spelling-is-not-syntax-green",
+    "async-syntax-forms-red",
+    "async-multiline-and-template-red",
+    "manifest-custom-test-role-green",
+    "manifest-test-suffix-reclassified-source-red"
   ],
   "cases": [
     {
@@ -2994,6 +3000,94 @@
       "expectExit": 1,
       "expectRules": [
         "EFF908"
+      ],
+      "exact": true
+    },
+    {
+      "name": "async-spelling-is-not-syntax-green",
+      "files": {
+        "src/a.tsx": "const async = (value: number) => value\nconst syncCall = async(1)\nconst metadata = { await : 1 }\nconst words = <p>await response; async () is syntax text</p>\nconst regex = /await work async ()/\nusing resource = acquire()\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "suites": [
+        "async-ast-rules",
+        "red-green-fixtures"
+      ],
+      "exact": true
+    },
+    {
+      "name": "async-syntax-forms-red",
+      "files": {
+        "src/a.ts": "const single = async value => value\nconst generic = async <T>(value: T) => value\nconst block = async () => {\n  await work()\n}\nasync function declared() {}\nconst expression = async function* () {}\nconst object = { async method() {} }\nclass Example { async method() {} }\nasync function iterate() { for await (const item of stream) consume(item) }\nasync function resource() { await using file = acquire() }\nexport const top = await work()\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF002",
+        "EFF003",
+        "EFF004"
+      ],
+      "expectRuleCounts": {
+        "EFF002": 6,
+        "EFF003": 3,
+        "EFF004": 4
+      },
+      "suites": [
+        "async-ast-rules",
+        "red-green-fixtures"
+      ],
+      "exact": true
+    },
+    {
+      "name": "async-multiline-and-template-red",
+      "files": {
+        "src/a.tsx": "const multiline = async (\n  value: number,\n) => value\nconst fn = async () => `${await value}`\nconst view = <button onClick={async () => { await save() }}>await text</button>\nconst split = async () => { await\n  work() }\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004"
+      ],
+      "expectRuleCounts": {
+        "EFF003": 4,
+        "EFF004": 3
+      },
+      "suites": [
+        "async-ast-rules",
+        "red-green-fixtures"
+      ],
+      "exact": true
+    },
+    {
+      "name": "manifest-custom-test-role-green",
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"testGlobs\": [\"**/custom-check.ts\"]}",
+        "src/custom-check.ts": "export const scenario = async () => { await work() }\n",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "suites": [
+        "async-ast-rules",
+        "red-green-fixtures"
+      ],
+      "exact": true
+    },
+    {
+      "name": "manifest-test-suffix-reclassified-source-red",
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"testGlobs\": [\"**/custom-check.ts\"]}",
+        "src/business.test.ts": "export const scenario = async () => { await work() }\n",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004"
+      ],
+      "suites": [
+        "async-ast-rules",
+        "red-green-fixtures"
       ],
       "exact": true
     }

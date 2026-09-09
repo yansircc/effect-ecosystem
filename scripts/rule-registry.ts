@@ -29,7 +29,8 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.profiles) || rule.profiles.length === 0) errors.push(`${rule.id}.profiles is required`)
     if (!Array.isArray(rule.references)) errors.push(`${rule.id}.references must be an array`)
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
-    if (!rule.scanner || !["line-regex", "source-import", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (!rule.scanner || !["line-regex", "source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (rule.scanner?.kind === "source-ast" && !["async-function", "async-arrow", "await"].includes(rule.scanner.selector)) errors.push(`${rule.id}.scanner.selector is invalid`)
     if (["line-regex", "source-import"].includes(rule.scanner?.kind) && (typeof rule.scanner.pattern !== "string" || rule.scanner.pattern.length === 0)) {
       errors.push(`${rule.id}.scanner.pattern is required`)
     }

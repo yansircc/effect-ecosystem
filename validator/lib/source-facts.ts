@@ -10,6 +10,7 @@ export function sourceFactsForFile(file) {
   if (cached?.source === source) return cached.facts
 
   const masked = source.split("")
+  const syntax: Record<string, { line: number }[]> = { "async-function": [], "async-arrow": [], await: [] }
   const imports = []
   const importStarts = new Set<number>()
   const maskRanges = []
@@ -20,6 +21,7 @@ export function sourceFactsForFile(file) {
 
   imports.sort((left, right) => left.start - right.start)
   const facts = {
+    syntax,
     codeLines: masked.join("").split(/\r?\n/),
     imports,
     semanticCandidates: semanticCandidates(source, imports),
@@ -27,7 +29,20 @@ export function sourceFactsForFile(file) {
   cache.set(file.absolute, { source, facts })
   return facts
 
+  function recordSyntax(selector: string, node) {
+    syntax[selector].push({ line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1 })
+  }
+
   function visit(node) {
+    const asyncModifier = node.modifiers?.find((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)
+    if (asyncModifier) {
+      if (ts.isArrowFunction(node)) recordSyntax("async-arrow", asyncModifier)
+      else if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isMethodDeclaration(node)) recordSyntax("async-function", asyncModifier)
+    }
+    if (ts.isAwaitExpression(node)) recordSyntax("await", node)
+    else if (ts.isForOfStatement(node) && node.awaitModifier) recordSyntax("await", node.awaitModifier)
+    else if (ts.isVariableDeclarationList(node) && (node.flags & ts.NodeFlags.AwaitUsing) === ts.NodeFlags.AwaitUsing) recordSyntax("await", node)
+
     if (isMaskedLiteral(node)) {
       maskRanges.push({ pos: node.getStart(sourceFile), end: node.end })
     }
