@@ -62,7 +62,8 @@
     "native-dependency-boundaries",
     "module-singleton-ownership",
     "exported-function-ownership",
-    "test-import-identity"
+    "test-import-identity",
+    "javascript-source-ownership"
   ],
   "requiredRuleCoverage": [
     "EFF000",
@@ -3979,6 +3980,272 @@
       "expectRuleCounts": {
         "EFF200": 0
       },
+      "exact": true
+    },
+    {
+      "name": "javascript-js-source-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/unsafe.js": "import { Effect } from \"effect\"\nexport const work = async () => await Effect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF400"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-jsx-source-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/unsafe.jsx": "import { Effect } from \"effect\"\nexport const work = async () => await Effect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF400"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-mjs-source-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/unsafe.mjs": "import { Effect } from \"effect\"\nexport const work = async () => await Effect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF400"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-cjs-source-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/unsafe.cjs": "import { Effect } from \"effect\"\nexport const work = async () => await Effect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF400"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-mjs-main-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.mjs\", \"owner\": \"@runtime\", \"reason\": \"Node CLI lifecycle\", \"execution\": {\"lifecycle\": \"process-main\", \"runner\": \"NodeRuntime.runMain\"}}]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/main.mjs": "import { NodeRuntime as Runtime } from \"@effect/platform-node\"\nRuntime.runMain(program)\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-mjs-forged-main-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.mjs\", \"owner\": \"@runtime\", \"reason\": \"Node CLI lifecycle\", \"execution\": {\"lifecycle\": \"process-main\", \"runner\": \"NodeRuntime.runMain\"}}]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/main.mjs": "const NodeRuntime = {runMain(program) { return program }}\nNodeRuntime.runMain(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-cjs-unproven-main-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.cjs\", \"owner\": \"@runtime\", \"reason\": \"Node CLI lifecycle\", \"execution\": {\"lifecycle\": \"process-main\", \"runner\": \"NodeRuntime.runMain\"}}]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/main.cjs": "const { NodeRuntime } = require(\"@effect/platform-node\")\nNodeRuntime.runMain(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401",
+        "EFF404"
+      ],
+      "exact": true
+    },
+    {
+      "name": "javascript-js-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.js": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-jsx-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.jsx": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-mjs-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.mjs": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-cjs-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.cjs": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-mts-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.mts": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-cts-test-classification-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.cts": "import { it } from \"@effect/vitest\"\nit(\"native fixture\", async () => { await 1; new Response(\"fixture\") })\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "javascript-explicit-test-globs-red",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"],\"testGlobs\":[]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.test.mjs": "import { Effect } from \"effect\"\nexport const run = async () => await Effect.runPromise(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF400"
+      ],
+      "exact": true
+    },
+    {
+      "name": "declaration-module-files-not-executables-green",
+      "suites": [
+        "javascript-source-ownership",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/example.d.mts": "export declare const work: () => void\n",
+        "src/example.d.cts": "export declare const work: () => void\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
       "exact": true
     }
   ]

@@ -11,14 +11,32 @@
       "**/*.ts",
       "**/*.tsx",
       "**/*.mts",
-      "**/*.cts"
+      "**/*.cts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs"
     ],
     "exclude": [
       "**/*.test.ts",
       "**/*.spec.ts",
       "**/*.test.tsx",
       "**/*.spec.tsx",
-      "**/*.d.ts"
+      "**/*.test.mts",
+      "**/*.spec.mts",
+      "**/*.test.cts",
+      "**/*.spec.cts",
+      "**/*.test.js",
+      "**/*.spec.js",
+      "**/*.test.jsx",
+      "**/*.spec.jsx",
+      "**/*.test.mjs",
+      "**/*.spec.mjs",
+      "**/*.test.cjs",
+      "**/*.spec.cjs",
+      "**/*.d.ts",
+      "**/*.d.mts",
+      "**/*.d.cts"
     ]
   },
   "rules": [

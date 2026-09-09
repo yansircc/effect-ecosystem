@@ -16,6 +16,19 @@ violations. It does not mean the agent completed the semantic review required by
 Gate actionability is fixed: error findings are `BLOCK`, warning findings are
 `REPORT`, and signals are `REVIEW`.
 
+## Source languages
+
+Source discovery covers `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and
+`.cjs`. The TypeScript compiler supplies AST and binding facts for all of them;
+a JavaScript extension does not bypass source rules or terminal ownership.
+Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are not executable source. Default
+test classification recognizes `.test` and `.spec` before every supported
+extension; explicit `testGlobs` still replaces that default.
+
+CommonJS source is inspected, but `require()` is not proof of an approved ESM
+runtime import and remains subject to EFF404. Unsupported or unresolved bindings
+do not acquire execution permission merely by matching a runner name.
+
 ## Manifest
 
 Every strict target needs `.effect-skill.json`.

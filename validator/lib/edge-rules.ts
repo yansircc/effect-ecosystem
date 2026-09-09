@@ -85,7 +85,7 @@ export function scanEdgeRules(root, files, manifest, constructorRule) {
         file: edge.path,
         line: 1,
         lineText: "",
-        message: `executable edge ${edge.path} does not exist or is not a TypeScript file`,
+        message: `executable edge ${edge.path} does not exist or is not a supported JavaScript/TypeScript source file`,
       }))
       continue
     }

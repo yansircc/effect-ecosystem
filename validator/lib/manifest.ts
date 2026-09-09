@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Ajv2020 } from "ajv/dist/2020.js"
-import { depsOf, devDepsOf, readJsonFile, toPosix } from "./util.js"
+import { DEFAULT_TEST_GLOBS, depsOf, devDepsOf, readJsonFile, toPosix } from "./util.js"
 import { makeFinding } from "./findings.js"
 
 export const MANIFEST_NAME = ".effect-skill.json"
@@ -98,7 +98,7 @@ function normalizeManifest(root, raw, manifestPath, workspaceRoot) {
       notProven: raw.gate?.notProven ?? [],
     },
     wranglerPath: raw.wranglerPath ? toPosix(raw.wranglerPath) : null,
-    testGlobs: raw.testGlobs ?? ["**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx", "**/*.spec.tsx"],
+    testGlobs: raw.testGlobs ?? DEFAULT_TEST_GLOBS,
     suppression: raw.suppression ?? {
       lineLevel: { requireReason: true, requireOwner: false, allowExpires: true },
       manifestPath: { requireReason: true, requireOwner: true },

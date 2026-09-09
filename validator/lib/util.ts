@@ -2,7 +2,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { dirname, extname as pathExtname, relative, resolve, sep } from "node:path"
 
-export const TEXT_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts"])
+export const TEXT_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"])
+export const DEFAULT_TEST_GLOBS = [...TEXT_EXTENSIONS].flatMap((extension) =>
+  [`**/*.test${extension}`, `**/*.spec${extension}`])
 const DEFAULT_IGNORE_DIRS = [
   ".git",
   ".cst",
@@ -102,7 +104,7 @@ function gitWorkingTreeFiles(root, options: any) {
 
 export function extname(path) {
   const base = path.split(/[\\/]/).at(-1) ?? ""
-  if (base.endsWith(".d.ts")) return ".d.ts"
+  if (/\.d\.(?:ts|mts|cts)$/.test(base)) return ".declaration"
   return pathExtname(base)
 }
 

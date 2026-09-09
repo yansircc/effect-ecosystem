@@ -1,10 +1,10 @@
 import { resolve } from "node:path"
-import { collectFiles, matchesAny, readLines, rel, toPosix } from "./util.js"
+import { collectFiles, DEFAULT_TEST_GLOBS, matchesAny, readLines, rel, toPosix } from "./util.js"
 import { packageForFile } from "./manifest.js"
 
 export function collectSourceFiles(root, manifest) {
   return collectFiles(root, { ignoreRelativeDirs: hostToolingPruneDirs(manifest) })
-    .filter((file) => !file.endsWith(".d.ts"))
+    .filter((file) => !/\.d\.(?:ts|mts|cts)$/.test(file))
     .map((file) => classifyFile(root, file, manifest))
     .filter((file) => !file.roles.hostTooling)
 }
@@ -25,7 +25,7 @@ export function classifyFile(root, file, manifest) {
   const pkg = packageForFile(manifest, normalized)
   const isTest = manifest
     ? matchesAny(normalized, manifest.testGlobs)
-    : /\.(test|spec)\.tsx?$/.test(normalized)
+    : matchesAny(normalized, DEFAULT_TEST_GLOBS)
   const isGenerated = Boolean(manifest?.generatedPaths?.some((item) => matchesAny(normalized, [item.glob])))
   const isHostTooling = Boolean(manifest?.hostTooling?.some((item) => matchesAny(normalized, [item.path])))
   const isExecutableEdge = Boolean(manifest?.executableEdges?.some((item) => item.path === normalized))
