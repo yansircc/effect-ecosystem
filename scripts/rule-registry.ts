@@ -30,6 +30,13 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.references)) errors.push(`${rule.id}.references must be an array`)
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
     if (!rule.scanner || !["line-regex", "source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (rule.id === "EFF402") {
+      for (const key of ["constructors", "testFixtures"]) {
+        const names = rule.scanner?.[key]
+        if (!Array.isArray(names) || names.length === 0 || names.some((name) => typeof name !== "string" || !name.trim()) || new Set(names).size !== names.length) errors.push(`${rule.id}.scanner.${key} must contain unique constructor names`)
+      }
+      if (rule.scanner?.testFixtures?.some((name) => !rule.scanner?.constructors?.includes(name))) errors.push(`${rule.id}.scanner.testFixtures must be a subset of constructors`)
+    }
     if (rule.scanner?.kind === "source-ast" && !["async-function", "async-arrow", "await"].includes(rule.scanner.selector)) errors.push(`${rule.id}.scanner.selector is invalid`)
     if (["line-regex", "source-import"].includes(rule.scanner?.kind) && (typeof rule.scanner.pattern !== "string" || rule.scanner.pattern.length === 0)) {
       errors.push(`${rule.id}.scanner.pattern is required`)

@@ -1,12 +1,12 @@
 import * as ts from "typescript/unstable/ast"
+import { platformConstructors } from "./platform-constructors.js"
 import { makeFinding } from "./findings.js"
 import { effectRunCallsForFile, verifyExecutionContract } from "./execution-contract.js"
 import { compilerProgramForFile } from "./compiler-facts.js"
 
-const PLATFORM_CTOR_RE = /\bnew\s+(Response|Request|XMLHttpRequest|WebSocket|EventSource)\s*\(/
 const NAMESPACE_IMPORT_RE = /import\s+\*\s+as\s+\w+\s+from\s+['"](effect|@effect\/[^'"]+)['"]/
 
-export function scanEdgeRules(root, files, manifest) {
+export function scanEdgeRules(root, files, manifest, constructorRule) {
   if (!manifest) return []
   const findings = []
   for (const file of files) {
@@ -23,16 +23,19 @@ export function scanEdgeRules(root, files, manifest) {
         }))
       }
     }
-    for (const line of file.lines) {
-      if (!allowsPlatformCtor && PLATFORM_CTOR_RE.test(line.text)) {
+    if (!allowsPlatformCtor) {
+      for (const constructor of platformConstructors(file, constructorRule.scanner.constructors)) {
+        if (file.roles.test && constructor.verified && constructorRule.scanner.testFixtures.includes(constructor.name)) continue
         findings.push(makeFinding(root, {
           ruleId: "EFF402",
           file: file.relative,
-          line: line.number,
-          lineText: line.text.trim(),
+          line: constructor.line,
+          lineText: file.lines[constructor.line - 1]?.text.trim() ?? "",
           package: file.package?.path ?? null,
         }))
       }
+    }
+    for (const line of file.lines) {
       if (NAMESPACE_IMPORT_RE.test(line.text)) {
         findings.push(makeFinding(root, {
           ruleId: "EFF403",

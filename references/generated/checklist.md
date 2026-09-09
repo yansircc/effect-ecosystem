@@ -45,7 +45,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF324 Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent.
 - [ ] EFF400 Effect.run* is only allowed in manifest executableEdges.
 - [ ] EFF401 Executable edge source does not prove its declared terminal execution lifecycle.
-- [ ] EFF402 Response/Request/WebSocket/EventSource constructors are only allowed in manifest allowedAdapters.
+- [ ] EFF402 Platform constructors require manifest allowedAdapters; test-role files may construct verified native Request/Response fixtures only.
 - [ ] EFF403 Namespace imports from effect or @effect/* are forbidden.
 - [ ] EFF404 require() and top-level dynamic import() are forbidden in source files.
 - [ ] EFF500 The Effect diagnostics provider reported a floating Effect.

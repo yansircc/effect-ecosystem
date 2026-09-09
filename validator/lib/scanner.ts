@@ -66,7 +66,7 @@ export function runScan(inputRoot: string, options: any = {}) {
   if (manifest) {
     findings.push(...timings.measure("filePairRules", () => scanFilePairRules(root, files)))
     findings.push(...timings.measure("packageRules", () => scanPackageRules(root, manifest, scanState)))
-    findings.push(...timings.measure("edgeRules", () => scanEdgeRules(root, files, manifest)))
+    findings.push(...timings.measure("edgeRules", () => scanEdgeRules(root, files, manifest, (ruleContract.rules.find((rule) => rule.id === "EFF402") ?? readJsonFile(RULES_PATH).rules.find((rule) => rule.id === "EFF402")))))
     findings.push(...timings.measure("runtimeFactRules", () => scanRuntimeFactRules(root, manifest)))
   }
 

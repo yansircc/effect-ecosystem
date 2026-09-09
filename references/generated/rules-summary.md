@@ -47,7 +47,7 @@ Source of truth: `contracts/rules.json`.
 | EFF324 | effect-version-conflict | error | core | Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent. |
 | EFF400 | run-outside-executable-edge | error | core | Effect.run* is only allowed in manifest executableEdges. |
 | EFF401 | edge-execution-contract-mismatch | error | core | Executable edge source does not prove its declared terminal execution lifecycle. |
-| EFF402 | platform-constructor-outside-adapter | error | core | Response/Request/WebSocket/EventSource constructors are only allowed in manifest allowedAdapters. |
+| EFF402 | platform-constructor-outside-adapter | error | core | Platform constructors require manifest allowedAdapters; test-role files may construct verified native Request/Response fixtures only. |
 | EFF403 | namespace-import-effect | error | core | Namespace imports from effect or @effect/* are forbidden. |
 | EFF404 | dynamic-import-require-in-src | error | core | require() and top-level dynamic import() are forbidden in source files. |
 | EFF500 | floating-effect | error | core | The Effect diagnostics provider reported a floating Effect. |
@@ -325,7 +325,7 @@ Rule: Executable edge source does not prove its declared terminal execution life
 
 Profiles: core
 
-Rule: Response/Request/WebSocket/EventSource constructors are only allowed in manifest allowedAdapters.
+Rule: Platform constructors require manifest allowedAdapters; test-role files may construct verified native Request/Response fixtures only.
 
 ## EFF403 namespace-import-effect
 

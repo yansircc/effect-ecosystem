@@ -823,7 +823,7 @@
       "profiles": [
         "core"
       ],
-      "message": "Response/Request/WebSocket/EventSource constructors are only allowed in manifest allowedAdapters.",
+      "message": "Platform constructors require manifest allowedAdapters; test-role files may construct verified native Request/Response fixtures only.",
       "references": [
         "references/scanner-manifest.md §EFF402 platform-constructor-outside-adapter"
       ],
@@ -831,7 +831,18 @@
         "compiler.execution"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "constructors": [
+          "Response",
+          "Request",
+          "XMLHttpRequest",
+          "WebSocket",
+          "EventSource"
+        ],
+        "testFixtures": [
+          "Request",
+          "Response"
+        ]
       }
     },
     {

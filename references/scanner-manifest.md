@@ -406,8 +406,20 @@ suppressed.
 
 ### EFF402 platform-constructor-outside-adapter
 
-Platform constructors such as `Response`, `Request`, `WebSocket`, and
-`EventSource` are only allowed in manifest-owned adapters.
+Platform constructors require manifest-owned adapters in production source. The
+EFF402 rule contract lists the constructor inventory and permits only verified
+native `Request` / `Response` objects as inert HTTP fixtures in files classified
+as tests by the manifest. `WebSocket`, `EventSource`, and `XMLHttpRequest` still
+require an adapter in tests. Unknown constructor origins are not fixture proof.
+
+Constructor identity is derived from `NewExpression` and symbols: comments,
+strings, and concrete local classes with matching names do not count. Global
+property access, constructor aliases, and destructured aliases retain platform
+identity. Mutable aliases cannot establish the verified fixture exception. Construct
+signatures returning platform types also remain unverified: function parameters,
+declared variables, type aliases/unions, generics, or factory results cannot gain
+the fixture exception merely through their static type.
+This test exception does not admit Effect runners or exempt other rules.
 
 ### EFF403 namespace-import-effect
 

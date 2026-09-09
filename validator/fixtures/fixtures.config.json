@@ -57,7 +57,8 @@
     "workflow-shape",
     "worker-shape-ambiguity",
     "toolchain-hard-cut",
-    "async-ast-rules"
+    "async-ast-rules",
+    "platform-constructor-identity"
   ],
   "requiredRuleCoverage": [
     "EFF000",
@@ -166,7 +167,17 @@
     "async-syntax-forms-red",
     "async-multiline-and-template-red",
     "manifest-custom-test-role-green",
-    "manifest-test-suffix-reclassified-source-red"
+    "manifest-test-suffix-reclassified-source-red",
+    "test-http-fixture-identities-green",
+    "test-transport-constructors-red",
+    "production-platform-aliases-red",
+    "platform-spelling-not-identity-green",
+    "unknown-http-fixture-origin-red",
+    "mutable-http-fixture-alias-red",
+    "custom-test-http-fixtures-green",
+    "test-suffix-not-test-platform-red",
+    "test-http-fixture-does-not-admit-runner-red",
+    "typed-constructor-origin-unknown-red"
   ],
   "cases": [
     {
@@ -3089,6 +3100,201 @@
         "async-ast-rules",
         "red-green-fixtures"
       ],
+      "exact": true
+    },
+    {
+      "name": "test-http-fixture-identities-green",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "new Request(\"https://example.invalid\")\nnew Response(\"body\")\nnew globalThis.Response(\"body\")\nnew globalThis[\"Request\"](\"https://example.invalid\")\nconst Reply = Response\nnew Reply(\"body\")\nconst { Request: Incoming } = globalThis\nnew Incoming(\"https://example.invalid\")\nexport {}\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectRuleCounts": {
+        "EFF402": 0
+      },
+      "exact": true
+    },
+    {
+      "name": "test-transport-constructors-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "new WebSocket(\"wss://example.invalid\")\nnew EventSource(\"https://example.invalid\")\nnew XMLHttpRequest()\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 3
+      },
+      "exact": true
+    },
+    {
+      "name": "production-platform-aliases-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.ts": "new Response(\"body\")\nnew globalThis.Response(\"body\")\nnew globalThis[\"Request\"](\"https://example.invalid\")\nconst Reply = Response\nnew Reply(\"body\")\nconst { Request: Incoming } = globalThis\nnew Incoming(\"https://example.invalid\")\nexport {}\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 5
+      },
+      "exact": true
+    },
+    {
+      "name": "platform-spelling-not-identity-green",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.tsx": "// new Response(\"hidden\")\nconst text = \"new Request()\"\nconst view = <p>new WebSocket()</p>\nclass Response {}\nfunction Request() {}\nnew Response()\nnew Request()\nconst Local = Response\nnew Local()\nexport {}\nimport { LocalResponse as ImportedResponse } from \"./local.js\"\nnew ImportedResponse()\n",
+        "src/local.ts": "export class LocalResponse {}\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectRuleCounts": {
+        "EFF402": 0
+      },
+      "exact": true
+    },
+    {
+      "name": "unknown-http-fixture-origin-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "declare const Response: any\nnew Response(\"body\")\nconst Reply = Response\nnew Reply(\"body\")\nexport {}\nconst FromFactory: typeof globalThis.Request = choose()\nnew FromFactory(\"https://example.invalid\")\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 3
+      },
+      "exact": true
+    },
+    {
+      "name": "mutable-http-fixture-alias-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "let Reply = Response\nnew Reply(\"body\")\nexport {}\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 1
+      },
+      "exact": true
+    },
+    {
+      "name": "custom-test-http-fixtures-green",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"testGlobs\": [\"**/custom-check.ts\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/custom-check.ts": "new Response(\"body\")\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectRuleCounts": {
+        "EFF402": 0
+      },
+      "exact": true
+    },
+    {
+      "name": "test-suffix-not-test-platform-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"testGlobs\": [\"**/custom-check.ts\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "new Response(\"body\")\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 1
+      },
+      "exact": true
+    },
+    {
+      "name": "test-http-fixture-does-not-admit-runner-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"]}",
+        "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "src/example.test.ts": "import { Effect } from \"effect\"\nimport { it } from \"@effect/vitest\"\nnew Response(\"body\")\nEffect.runPromise(Effect.void)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF400"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 0
+      },
+      "exact": true
+    },
+    {
+      "name": "typed-constructor-origin-unknown-red",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/typed.test.ts": "export function parameter(Ctor: typeof Response) { return new Ctor() }\ndeclare const Ctor: typeof Response\nnew Ctor()\ntype Alias = typeof Response\ndeclare const Aliased: Alias\nnew Aliased()\ndeclare const Choice: typeof Response | typeof Request\nnew Choice(\"https://example.invalid\")\nexport function generic<T extends typeof Response>(Ctor: T) { return new Ctor() }\ndeclare function factory(): typeof Response\nnew (factory())()\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF402"
+      ],
+      "expectRuleCounts": {
+        "EFF402": 6
+      },
       "exact": true
     }
   ]
