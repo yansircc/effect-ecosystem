@@ -1,12 +1,14 @@
 import { makeFinding } from "./findings.js"
+import { sourceFactsForFile } from "./source-facts.js"
 
 export function scanFilePairRules(root, files) {
   const findings = []
   for (const file of files) {
     if (!file.roles.test) continue
-    const text = file.lines.map((line) => line.text).join("\n")
-    const importsEffect = /from\s+["']effect(?:\/[^"']*)?["']|from\s+["']@effect\/[^"']+["']/.test(text)
-    const importsEffectVitest = /from\s+["']@effect\/vitest["']/.test(text)
+    const imports = sourceFactsForFile(file).imports.filter((item) => !item.dynamic)
+    const importsEffect = imports.some((item) => item.specifier === "effect"
+      || item.specifier.startsWith("effect/") || item.specifier.startsWith("@effect/"))
+    const importsEffectVitest = imports.some((item) => item.specifier === "@effect/vitest")
     if (importsEffect && !importsEffectVitest) {
       findings.push(makeFinding(root, {
         ruleId: "EFF200",
