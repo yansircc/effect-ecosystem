@@ -91,6 +91,7 @@ function normalizeManifest(root, raw, manifestPath, workspaceRoot) {
     executableEdges: normalizePathItems(raw.executableEdges ?? []),
     allowedAdapters: normalizePathItems(raw.allowedAdapters ?? []),
     aiProviderTransports: normalizePathItems(raw.aiProviderTransports ?? []),
+    nativeDependencyBoundaries: raw.nativeDependencyBoundaries ?? [],
     generatedPaths: raw.generatedPaths ?? [],
     hostTooling: raw.hostTooling ?? [],
     gate: {

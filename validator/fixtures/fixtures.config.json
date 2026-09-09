@@ -58,7 +58,8 @@
     "worker-shape-ambiguity",
     "toolchain-hard-cut",
     "async-ast-rules",
-    "platform-constructor-identity"
+    "platform-constructor-identity",
+    "native-dependency-boundaries"
   ],
   "requiredRuleCoverage": [
     "EFF000",
@@ -177,7 +178,20 @@
     "custom-test-http-fixtures-green",
     "test-suffix-not-test-platform-red",
     "test-http-fixture-does-not-admit-runner-red",
-    "typed-constructor-origin-unknown-red"
+    "typed-constructor-origin-unknown-red",
+    "owned-native-dependency-green",
+    "owned-hono-does-not-hide-express-red",
+    "owned-native-does-not-hide-missing-effect-red",
+    "native-missing-and-forbidden-are-atomic-red",
+    "native-wrong-package-red",
+    "native-duplicate-pair-red",
+    "native-removed-dependency-drift-red",
+    "native-nonforbidden-dependency-red",
+    "native-shape-drift-red",
+    "native-missing-owner-red",
+    "native-missing-dependency-selector-red",
+    "native-unknown-field-red",
+    "native-package-isolation-red"
   ],
   "cases": [
     {
@@ -1949,8 +1963,8 @@
         "observability-wiring-facts"
       ],
       "expectRequiredReferences": [
-        "references/effect-ai.md §Provider ownership",
-        "references/observability.md §4. OpenTelemetry 桥接"
+        "references/effect-ai.md \u00a7Provider ownership",
+        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5"
       ],
       "expectRequiredReferenceCount": 2,
       "expectSignalFacts": [
@@ -2286,8 +2300,8 @@
         "cloudflare-runtime-facts"
       ],
       "expectRequiredReferences": [
-        "references/observability.md §4. OpenTelemetry 桥接",
-        "references/runtime-boundaries.md §Cloudflare Facet"
+        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5",
+        "references/runtime-boundaries.md \u00a7Cloudflare Facet"
       ],
       "expectRequiredReferenceCount": 2,
       "expectSignalFacts": [
@@ -2575,8 +2589,8 @@
         "workflow"
       ],
       "expectRequiredReferences": [
-        "references/effect-ai.md §Provider ownership",
-        "references/observability.md §4. OpenTelemetry 桥接"
+        "references/effect-ai.md \u00a7Provider ownership",
+        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5"
       ],
       "expectRequiredReferenceCount": 2,
       "expectEffectVersion": "4.0.0-beta.97"
@@ -3296,6 +3310,246 @@
         "EFF402": 6
       },
       "exact": true
+    },
+    {
+      "name": "owned-native-dependency-green",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "owned-hono-does-not-hide-express-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1\", \"express\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF310"
+      ],
+      "expectRuleCounts": {
+        "EFF310": 1
+      },
+      "exact": true
+    },
+    {
+      "name": "owned-native-does-not-hide-missing-effect-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"hono\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF310"
+      ],
+      "expectRuleCounts": {
+        "EFF310": 1
+      },
+      "exact": true,
+      "toolchain": "missing-effect"
+    },
+    {
+      "name": "native-missing-and-forbidden-are-atomic-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": []}",
+        "package.json": "{\"dependencies\": {\"hono\": \"1\", \"express\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF310"
+      ],
+      "expectRuleCounts": {
+        "EFF310": 3
+      },
+      "exact": true,
+      "toolchain": "missing-effect"
+    },
+    {
+      "name": "native-wrong-package-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \"missing\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900",
+        "EFF310"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-duplicate-pair-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}, {\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@other\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900",
+        "EFF310"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-removed-dependency-drift-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-nonforbidden-dependency-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"react\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"react\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-shape-drift-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-missing-owner-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-missing-dependency-selector-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-unknown-field-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"http-server\"], \"nativeDependencyBoundaries\": [{\"package\": \".\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\", \"rules\": [\"EFF310\"]}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF900"
+      ],
+      "expectRuleCounts": {},
+      "exact": true
+    },
+    {
+      "name": "native-package-isolation-red",
+      "suites": [
+        "native-dependency-boundaries",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"packages\": [{\"path\": \"packages/a\", \"shape\": [\"http-server\"]}, {\"path\": \"packages/b\", \"shape\": [\"http-server\"]}], \"nativeDependencyBoundaries\": [{\"package\": \"packages/a\", \"dependency\": \"hono\", \"owner\": \"@host-runtime\", \"reason\": \"Retained framework router uses Hono objects.\"}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1.0.0\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "packages/a/package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
+        "packages/b/package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.98\", \"hono\": \"1\"}, \"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF310"
+      ],
+      "expectRuleCounts": {
+        "EFF310": 1
+      },
+      "exact": true,
+      "expectFindings": [
+        {
+          "ruleId": "EFF310",
+          "file": "packages/b/package.json",
+          "messageIncludes": "hono"
+        }
+      ]
     }
   ]
 }

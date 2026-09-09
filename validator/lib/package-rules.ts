@@ -7,6 +7,7 @@ import { packageResolution, safePackageMajor } from "./resolver.js"
 export function scanPackageRules(root, manifest, scanState = null) {
   if (!manifest) return []
   const findings = []
+  const nativeBoundaries = validateNativeDependencyBoundaries(root, manifest, findings)
   for (const pkg of manifest.packages) {
     const resolved = packageResolution(scanState, pkg.path)
     const effectMajor = safePackageMajor(resolved)
@@ -25,6 +26,27 @@ export function scanPackageRules(root, manifest, scanState = null) {
         message: `declared Effect v${resolved.declaredMajor.major} but installed Effect v${resolved.installedMajor.major}`,
       }))
       continue
+    }
+    for (const requirement of packageRequirements()) {
+      if (!requirement.shapes.some((shape) => pkg.shape.includes(shape))) continue
+      const missing = missingRequirement(pkg.deps, requirement, {
+        hasDeclaredAiProviderTransport: aiProviderTransportsFor(manifest, pkg).length > 0,
+      })
+      if (missing.length > 0) findings.push(makeFinding(root, {
+        ruleId: requirement.ruleId,
+        file: pkg.relativePackageJson,
+        package: pkg.path,
+        message: `missing ${missing.join(" or ")}`,
+      }))
+      for (const dependency of (requirement.forbidden ?? []).filter((name) => hasDep(pkg.deps, name))) {
+        if (nativeBoundaries.has(`${pkg.path}\0${dependency}`)) continue
+        findings.push(makeFinding(root, {
+          ruleId: requirement.ruleId,
+          file: pkg.relativePackageJson,
+          package: pkg.path,
+          message: `forbidden direct dependency ${dependency}`,
+        }))
+      }
     }
     if (!effectMajor) {
       if (pkg.shape.length > 0 && !hasDep(pkg.devDeps, "@effect/vitest")) {
@@ -45,24 +67,6 @@ export function scanPackageRules(root, manifest, scanState = null) {
       }))
       continue
     }
-    for (const requirement of packageRequirements()) {
-      if (!requirement.shapes.some((shape) => pkg.shape.includes(shape))) continue
-      const missing = missingRequirement(pkg.deps, requirement, {
-        hasDeclaredAiProviderTransport: aiProviderTransportsFor(manifest, pkg).length > 0,
-      })
-      const forbidden = (requirement.forbidden ?? []).filter((name) => hasDep(pkg.deps, name))
-      if (missing.length > 0 || forbidden.length > 0) {
-        findings.push(makeFinding(root, {
-          ruleId: requirement.ruleId,
-          file: pkg.relativePackageJson,
-          package: pkg.path,
-          message: [
-            missing.length > 0 ? `missing ${missing.join(" or ")}` : null,
-            forbidden.length > 0 ? `forbidden direct dependency ${forbidden.join(", ")}` : null,
-          ].filter(Boolean).join("; "),
-        }))
-      }
-    }
     const missingOtelPeers = missingOtelPeerClosure(pkg)
     if (missingOtelPeers.length > 0) {
       findings.push(makeFinding(root, {
@@ -81,6 +85,38 @@ export function scanPackageRules(root, manifest, scanState = null) {
     }
   }
   return findings
+}
+
+/** A declaration owns exactly one present, applicable forbidden dependency fact. */
+function validateNativeDependencyBoundaries(root, manifest, findings) {
+  const admitted = new Set<string>()
+  const declarations = manifest.nativeDependencyBoundaries ?? []
+  const counts = new Map<string, number>()
+  for (const declaration of declarations) {
+    const key = `${declaration.package}\0${declaration.dependency}`
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  for (const declaration of declarations) {
+    const key = `${declaration.package}\0${declaration.dependency}`
+    const candidates = manifest.packages.filter((pkg) => pkg.path === declaration.package)
+    const pkg = candidates.length === 1 ? candidates[0] : undefined
+    const applicable = pkg && packageRequirements().some((requirement) =>
+      requirement.shapes.some((shape) => pkg.shape.includes(shape))
+      && requirement.forbidden?.includes(declaration.dependency))
+    const reason = counts.get(key) !== 1 ? "duplicate package/dependency selector"
+      : !pkg ? "package must identify exactly one declared package path"
+      : !hasDep(pkg.deps, declaration.dependency) ? "dependency is not a current direct dependency (stale boundary)"
+      : !applicable ? "dependency is not forbidden by an active package requirement (stale boundary)"
+      : null
+    if (reason) findings.push(makeFinding(root, {
+      ruleId: "EFF900",
+      file: ".effect-skill.json",
+      package: declaration.package,
+      message: `nativeDependencyBoundaries ${declaration.package}:${declaration.dependency}: ${reason}`,
+    }))
+    else admitted.add(key)
+  }
+  return admitted
 }
 
 function effectVersionSupported(resolved) {

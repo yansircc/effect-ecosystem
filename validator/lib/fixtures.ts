@@ -265,6 +265,7 @@ function fixtureFiles(testCase) {
     pkg.dependencies.effect = testCase.toolchain === "effect-v3"
       ? "3.21.2"
       : testCase.toolchain === "effect-before-floor" ? "4.0.0-beta.84" : "4.0.0-beta.97"
+    if (testCase.toolchain === "missing-effect") delete pkg.dependencies.effect
     for (const name of Object.keys(pkg.dependencies).filter((name) => name.startsWith("@effect/"))) {
       pkg.dependencies[name] = "4.0.0-beta.97"
     }

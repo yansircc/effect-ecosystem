@@ -37,7 +37,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF301 shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency.
 - [ ] EFF302 shape db:sqlite requires @effect/sql-sqlite-node or @effect/sql-sqlite-bun and forbids direct better-sqlite3 dependency.
 - [ ] EFF304 shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency.
-- [ ] EFF310 shape http-server requires @effect/platform and a platform runtime adapter.
+- [ ] EFF310 shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.
 - [ ] EFF311 shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies.
 - [ ] EFF312 shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.
 - [ ] EFF321 non-empty shape requires @effect/vitest in devDependencies.

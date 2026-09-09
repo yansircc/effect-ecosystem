@@ -39,7 +39,7 @@ Source of truth: `contracts/rules.json`.
 | EFF301 | mysql-without-effect-sql | error | core | shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency. |
 | EFF302 | sqlite-without-effect-sql | error | core | shape db:sqlite requires @effect/sql-sqlite-node or @effect/sql-sqlite-bun and forbids direct better-sqlite3 dependency. |
 | EFF304 | clickhouse-without-effect-sql | error | core | shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency. |
-| EFF310 | http-server-without-effect-platform | error | core | shape http-server requires @effect/platform and a platform runtime adapter. |
+| EFF310 | http-server-without-effect-platform | error | core | shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration. |
 | EFF311 | http-client-without-effect-platform | error | core | shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies. |
 | EFF312 | ai-without-effect-ai | error | core | shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden. |
 | EFF321 | missing-effect-vitest | error | core | non-empty shape requires @effect/vitest in devDependencies. |
@@ -277,7 +277,7 @@ Rule: shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @cl
 
 Profiles: core
 
-Rule: shape http-server requires @effect/platform and a platform runtime adapter.
+Rule: shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.
 
 ## EFF311 http-client-without-effect-platform
 

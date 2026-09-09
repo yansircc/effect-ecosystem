@@ -671,7 +671,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape http-server requires @effect/platform and a platform runtime adapter.",
+      "message": "shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.",
       "references": [
         "references/scanner-manifest.md §EFF310 http-server-without-effect-platform"
       ],

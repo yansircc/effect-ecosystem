@@ -114,6 +114,12 @@
           "$ref": "#/$defs/suppressionPolicy"
         }
       }
+    },
+    "nativeDependencyBoundaries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nativeDependencyBoundary"
+      }
     }
   },
   "$defs": {
@@ -858,6 +864,30 @@
         },
         "runners": {
           "$ref": "#/$defs/effectRunnerSet"
+        }
+      }
+    },
+    "nativeDependencyBoundary": {
+      "type": "object",
+      "required": [
+        "package",
+        "dependency",
+        "owner",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "$ref": "#/$defs/nonBlankString"
+        },
+        "dependency": {
+          "$ref": "#/$defs/nonBlankString"
+        },
+        "owner": {
+          "$ref": "#/$defs/nonBlankString"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonBlankString"
         }
       }
     }

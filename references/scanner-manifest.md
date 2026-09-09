@@ -54,6 +54,32 @@ Single package:
 }
 ```
 
+Native framework dependencies required by retained host SDKs may be admitted one
+package/dependency pair at a time. This is not a rule-level suppression:
+
+```json
+{
+  "nativeDependencyBoundaries": [
+    {
+      "package": ".",
+      "dependency": "hono",
+      "owner": "@application/http-boundary",
+      "reason": "The retained host SDK requires Hono route objects; Effect owns business programs."
+    }
+  ]
+}
+```
+
+`package` is the exact path of one manifest package, not a package name or glob.
+`dependency` must exist in that package's declared dependency inventory and must
+be forbidden by an active capability requirement for its shape. A declaration
+admits only that forbidden dependency fact: other dependencies and missing
+Effect capabilities still fail. Unknown packages, duplicate pairs, removed
+dependencies, and no-longer-applicable restrictions fail with EFF900 rather than
+silently retaining an unused allowance. Owner and reason are mandatory. This
+mechanism does not admit source imports or runtime execution; those rules retain
+their own independently verified boundaries.
+
 Every executable edge declares exactly one terminal execution lifecycle. The
 manifest grammar is a hard cut; legacy `{ path, owner, reason }` entries are
 invalid rather than inferred from source text.
@@ -329,9 +355,11 @@ Effect major.
 
 ### EFF310 http-server-without-effect-platform
 
-HTTP server capability must follow the resolved major contract. v3 requires
-`@effect/platform` plus an adapter; v4 may be satisfied by the v4 `effect`
-unstable HTTP capability.
+The supported v4 HTTP capability requires `effect` (including unstable HTTP).
+Forbidden native dependency findings are emitted independently per dependency;
+missing capability findings are separate. An exact `nativeDependencyBoundaries`
+declaration can admit a host-required dependency, never the missing capability
+or an unrelated forbidden dependency.
 
 ### EFF311 http-client-without-effect-platform
 
