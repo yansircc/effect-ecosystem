@@ -60,7 +60,8 @@
     "async-ast-rules",
     "platform-constructor-identity",
     "native-dependency-boundaries",
-    "module-singleton-ownership"
+    "module-singleton-ownership",
+    "exported-function-ownership"
   ],
   "requiredRuleCoverage": [
     "EFF000",
@@ -199,7 +200,21 @@
     "module-class-field-red",
     "module-no-runner-red",
     "module-unused-runner-red",
-    "module-wrong-runner-red"
+    "module-wrong-runner-red",
+    "exported-cleanup-green",
+    "exported-arrow-green",
+    "exported-local-alias-green",
+    "exported-unknown-name-red",
+    "exported-private-function-red",
+    "exported-indirect-alias-red",
+    "exported-nested-callback-red",
+    "exported-extra-function-red",
+    "exported-class-field-red",
+    "exported-no-runner-red",
+    "exported-unused-runner-red",
+    "exported-wrong-runner-red",
+    "exported-unbound-runner-red",
+    "exported-reexport-red"
   ],
   "cases": [
     {
@@ -3669,6 +3684,239 @@
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runPromise\"]}}]}",
         "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = Effect.runSync(Effect.succeed(1));"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-cleanup-green",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); return () => undefined; }"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "exported-arrow-green",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export const observe = () => { Effect.runFork(Effect.succeed(1)); };"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "exported-local-alias-green",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; function internal() { Effect.runFork(Effect.succeed(1)); } export {internal as observe};"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "exported-unknown-name-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function other() { Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-private-function-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; function observe() { Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-indirect-alias-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; const inner = () => Effect.runFork(Effect.succeed(1)); export const observe = inner;"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-nested-callback-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { return () => Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-extra-function-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); } function business() { Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-class-field-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { return class Deferred { value = Effect.runFork(Effect.succeed(1)); }; }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-no-runner-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "export function observe() { return () => undefined; }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-unused-runner-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\", \"Effect.runSync\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-wrong-runner-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runSync\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-unbound-runner-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "export function observe() { Effect.runFork(1); }"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "exact": true
+    },
+    {
+      "name": "exported-reexport-red",
+      "suites": [
+        "exported-function-ownership",
+        "red-green-fixtures"
+      ],
+      "files": {
+        ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "src/main.ts": "export { observe } from \"./other\";",
+        "src/other.ts": "export function observe() { return undefined; }"
       },
       "expectExit": 1,
       "expectRules": [

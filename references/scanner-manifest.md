@@ -255,7 +255,7 @@ normalization. Runtime code does not maintain a parallel handwritten manifest
 shape. `executableEdges[].execution` is a discriminated `process-main |
 host-callback | tanstack-server-fn | package-facade | wrangler-do |
 wrangler-worker | wrangler-workflow | handler-map | host-options-callback |
-function-facade | module-singleton | effect-vitest` contract. The Effect runner enum and
+function-facade | exported-function | module-singleton | effect-vitest` contract. The Effect runner enum and
 runner-set uniqueness are owned only by this schema; execution validation derives
 its terminal inventory from that enum and routes each discriminant through one
 verifier dispatch table before applying the shared ownership gate.
@@ -435,6 +435,40 @@ permission.
 Host-managed runner sets must exactly equal the bound calls, with complete unique
 coverage. Duplicate contracts for one path are invalid. EFF401 cannot be
 suppressed.
+
+An `exported-function` edge declares a caller-owned lifecycle entry whose direct
+body starts terminal execution. It does not turn arbitrary business helpers into
+runtime boundaries: the author must identify the actual external invocation and
+cleanup contract in owner/reason and test it. Return shape is unrestricted, so a
+React lifecycle bridge may return cleanup directly:
+
+```json
+{
+  "path": "src/observe.ts",
+  "owner": "@app/ui",
+  "reason": "React effect setup invokes this observer; React cleanup cancels its fiber.",
+  "execution": {
+    "lifecycle": "exported-function",
+    "runners": ["Effect.runFork"],
+    "function": { "export": "observeCanonicalCompletion" }
+  }
+}
+```
+
+```ts
+import { Effect } from "effect"
+export function observeCanonicalCompletion(program: Effect.Effect<void>) {
+  const controller = new AbortController()
+  Effect.runFork(program, { signal: controller.signal })
+  return () => controller.abort()
+}
+```
+
+Only the named local export's direct function body owns runners. Proven local
+export aliases follow the same resolution as `function-facade`; re-exports,
+unknown aliases, nested callbacks, other functions and class initializers do
+not qualify. Verified Effect bindings, a nonempty exact runner set, and no
+process-main calls are required. Existing object-facade contracts remain strict.
 
 ### EFF402 platform-constructor-outside-adapter
 

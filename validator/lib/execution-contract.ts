@@ -34,6 +34,7 @@ const EXECUTION_VERIFIERS = new Map([
   ["wrangler-workflow", (model, execution, context) => verifyWranglerWorkflow(model, execution, context)],
   ["handler-map", (model, execution) => verifyHandlerMap(model, execution)],
   ["host-options-callback", (model, execution) => verifyHostOptionsCallback(model, execution)],
+  ["exported-function", (model, execution) => verifyExportedFunction(model, execution)],
   ["function-facade", (model, execution) => verifyFunctionFacade(model, execution)],
   ["module-singleton", (model, execution) => verifyModuleSingleton(model, execution)],
   ["effect-vitest", (model, execution) => verifyEffectVitest(model, execution)],
@@ -179,6 +180,28 @@ function verifyModuleSingleton(model, execution) {
   return verifyManagedRunnerSet(model, execution.runners, [
     { label: "module initialization", node: model.sourceFile },
   ], "module initialization")
+}
+
+function verifyExportedFunction(model, execution) {
+  if (model.runtimeRunMainCalls.length > 0) {
+    return mismatchAt(model, model.runtimeRunMainCalls[0], "exported-function cannot own process-main calls")
+  }
+  const callable = exportedFunction(model, execution.function.export)
+  if (!callable) {
+    return mismatch(model.file, `exported-function ${execution.function.export} must be a function defined and exported by the edge file`)
+  }
+  const classOwned = model.effectRunCalls.find((run) => {
+    let current = run.node.parent
+    while (current && !sameTypeScriptNode(current, callable)) {
+      if (ts.isClassDeclaration(current) || ts.isClassExpression(current)) return true
+      current = current.parent
+    }
+    return false
+  })
+  if (classOwned) return mismatchAt(model, classOwned, "exported-function cannot own class-scoped execution")
+  return verifyManagedRunnerSet(model, execution.runners, [
+    { label: execution.function.export, node: callable },
+  ], "declared exported lifecycle function")
 }
 
 function verifyFunctionFacade(model, execution) {

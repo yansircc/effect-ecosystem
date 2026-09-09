@@ -281,6 +281,9 @@
             },
             {
               "$ref": "#/$defs/moduleSingletonExecution"
+            },
+            {
+              "$ref": "#/$defs/exportedFunctionExecution"
             }
           ]
         }
@@ -888,6 +891,35 @@
         },
         "reason": {
           "$ref": "#/$defs/nonBlankString"
+        }
+      }
+    },
+    "exportedFunctionExecution": {
+      "type": "object",
+      "required": [
+        "lifecycle",
+        "runners",
+        "function"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "lifecycle": {
+          "const": "exported-function"
+        },
+        "runners": {
+          "$ref": "#/$defs/effectRunnerSet"
+        },
+        "function": {
+          "type": "object",
+          "required": [
+            "export"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "export": {
+              "$ref": "#/$defs/nonBlankString"
+            }
+          }
         }
       }
     }
