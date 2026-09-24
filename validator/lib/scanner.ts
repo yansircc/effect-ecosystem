@@ -91,7 +91,7 @@ export function runScan(inputRoot: string, options: any = {}) {
   const toolchainMeta = {
     available: tscVersion.status === 0,
     tscVersion: tscVersion.status === 0 ? tscVersion.stdout.trim() : null,
-    tsgoVersion: "0.21.0",
+    tsgoVersion: "0.45.0",
     fingerprint: compiler.fingerprint,
     transactionCount: compiler.transactionCount,
   }

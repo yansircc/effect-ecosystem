@@ -277,7 +277,7 @@ function fixtureFiles(testCase) {
     if (path === "package.json") {
       const catalog = testCase.toolchain === "catalog" ? "catalog:" : testCase.toolchain === "named-catalog" ? "catalog:toolchain" : null
       pkg.devDependencies.typescript = catalog ?? (testCase.toolchain === "typescript-v6" ? "6.0.3" : "7.0.2")
-      pkg.devDependencies["@effect/tsgo"] = catalog ?? (testCase.toolchain === "wrong-tsgo" ? "0.20.0" : "0.21.0")
+      pkg.devDependencies["@effect/tsgo"] = catalog ?? (testCase.toolchain === "wrong-tsgo" ? "0.20.0" : "0.45.0")
       if (testCase.toolchain === "missing-tsgo") delete pkg.devDependencies["@effect/tsgo"]
     }
     files[path] = JSON.stringify(pkg)
@@ -573,7 +573,7 @@ function validateGateSummaryBundle() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\",\"typescript\":\"7.0.2\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\",\"typescript\":\"7.0.2\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -632,7 +632,7 @@ function validateCliOutputProjection() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -721,7 +721,7 @@ function validateComplianceHash() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const program = Effect.succeed(1)\n",
     })
     linkFixtureNodeModules(root)
@@ -785,7 +785,7 @@ function validateNotProvenManifest() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"gate\":{\"notProven\":[{\"id\":\"live-recorded-authored\",\"owner\":\"agentOS\",\"reason\":\"agentOS architectural invariant outside Effect scanner scope\"}]}}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)
@@ -812,7 +812,7 @@ function validateLibraryExportedEffectRollup() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/no-effect.ts": "export const value = 1\n",
       "src/with-span.ts": "export const withSpan = Effect.succeed(1).pipe(Effect.withSpan(\"with-span\"))\n",
       "src/without-span.ts": "export const withoutSpan = Effect.succeed(1)\n",
@@ -845,7 +845,7 @@ function validateTimingsOutput() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.21.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)

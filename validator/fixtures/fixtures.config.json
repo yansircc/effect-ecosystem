@@ -2910,7 +2910,7 @@
       "toolchain": "catalog",
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
-        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalog:\n  typescript: 7.0.2\n  '@effect/tsgo': 0.21.0\n",
+        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalog:\n  typescript: 7.0.2\n  '@effect/tsgo': 0.45.0\n",
         "package.json": "{}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2929,7 +2929,7 @@
       "toolchain": "named-catalog",
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
-        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalogs:\n  toolchain:\n    typescript: 7.0.2\n    '@effect/tsgo': 0.21.0\n",
+        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalogs:\n  toolchain:\n    typescript: 7.0.2\n    '@effect/tsgo': 0.45.0\n",
         "package.json": "{}",
         "src/a.ts": "export const x = 1\n"
       },

@@ -317,11 +317,11 @@ Invalid manifest JSON or schema shape is an infra error.
 ### EFF901 missing-tsc
 
 Strict mode requires exact project-local TypeScript 7.0.2 patched by
-`@effect/tsgo@0.21.0`.
+`@effect/tsgo@0.45.0`.
 
 ### EFF902 missing-effect-diagnostics-provider
 
-Strict mode requires project-local `@effect/tsgo@0.21.0`. There is no provider
+Strict mode requires project-local `@effect/tsgo@0.45.0`. There is no provider
 fallback or legacy language-service branch.
 
 ### EFF903 empty-shape

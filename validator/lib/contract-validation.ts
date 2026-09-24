@@ -170,7 +170,7 @@ function effectCapabilitiesShapeSchema() {
         properties: {
           effect: { type: "object", additionalProperties: false, required: ["major", "range"], properties: { major: { const: 4 }, range: { type: "string" } } },
           typescript: { type: "object", additionalProperties: false, required: ["major", "version"], properties: { major: { const: 7 }, version: { const: "7.0.2" } } },
-          diagnostics: { type: "object", additionalProperties: false, required: ["package", "version", "compilerMarker"], properties: { package: { const: "@effect/tsgo" }, version: { const: "0.21.0" }, compilerMarker: { const: "+effect-tsgo." } } }
+          diagnostics: { type: "object", additionalProperties: false, required: ["package", "version", "compilerMarker"], properties: { package: { const: "@effect/tsgo" }, version: { const: "0.45.0" }, compilerMarker: { const: "+effect-tsgo." } } }
         }
       },
       references: {

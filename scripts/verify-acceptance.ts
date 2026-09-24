@@ -59,7 +59,7 @@ function writeFixture(root: string) {
   writeJson(resolve(root, "package.json"), {
     type: "module",
     scripts: {
-      postinstall: "effect-tsgo patch --typescript-package typescript"
+      postinstall: "effect-tsgo patch --typescript --typescript-package typescript"
     },
     dependencies: {
       effect: "4.0.0-beta.98",
@@ -67,9 +67,15 @@ function writeFixture(root: string) {
       "@effect/sql-d1": "4.0.0-beta.98",
       "@effect/opentelemetry": "4.0.0-beta.98"
     },
+    // A beta-line package still declares its siblings as `^4.0.0-beta.98`, and that range now
+    // resolves to `4.0.0-rc.*`, whose build imports the effect layout its own line ships. Pinning
+    // the one transitive that drifts keeps the tree under test on the line the fixture declares.
+    overrides: {
+      "@effect/platform-node-shared": "4.0.0-beta.98"
+    },
     devDependencies: {
       "@cloudflare/workers-types": "latest",
-      "@effect/tsgo": "0.21.0",
+      "@effect/tsgo": "0.45.0",
       "@effect/vitest": "4.0.0-beta.98",
       esbuild: "latest",
       typescript: "7.0.2",

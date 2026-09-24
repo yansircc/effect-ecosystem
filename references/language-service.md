@@ -5,7 +5,7 @@ Effect diagnostics provider 提供 Effect 专属的编辑器诊断和 quick fix�
 ## 1. 安装
 
 ```bash
-pnpm add -D typescript@7.0.2 @effect/tsgo@0.21.0
+pnpm add -D typescript@7.0.2 @effect/tsgo@0.45.0
 npx effect-tsgo patch --typescript-package typescript
 ```
 

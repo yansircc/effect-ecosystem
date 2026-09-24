@@ -19,6 +19,6 @@ for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF304", "EFF310", "EFF311"
 
 if (contract.support.effect.major !== 4) throw new Error("Effect v4 must be the only supported major")
 if (contract.support.typescript.version !== "7.0.2") throw new Error("TypeScript must be pinned to 7.0.2")
-if (contract.support.diagnostics.version !== "0.21.0") throw new Error("@effect/tsgo must be pinned to 0.21.0")
+if (contract.support.diagnostics.version !== "0.45.0") throw new Error("@effect/tsgo must be pinned to 0.45.0")
 
 console.log(`effect capabilities ok (${requirementRuleIds.size} package rules)`)
