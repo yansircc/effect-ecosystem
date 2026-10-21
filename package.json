@@ -1,6 +1,6 @@
 {
   "name": "@yansircc/effect-scan",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "Mechanical Effect ecosystem compliance scanner",
   "type": "module",
   "license": "MIT",
