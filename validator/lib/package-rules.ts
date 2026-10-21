@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
-import { packageRequirements } from "./effect-capabilities.js"
+import { subset, validRange } from "semver"
+import { packageRequirements, supportedToolchain } from "./effect-capabilities.js"
 import { makeFinding } from "./findings.js"
 import { packageResolution, safePackageMajor } from "./resolver.js"
 
@@ -63,7 +64,7 @@ export function scanPackageRules(root, manifest, scanState = null) {
         ruleId: "EFF908",
         file: pkg.relativePackageJson,
         package: pkg.path,
-        message: "Effect must satisfy >=4.0.0-beta.97 <5.0.0-0",
+        message: `Effect must satisfy ${supportedToolchain().effect.range}`,
       }))
       continue
     }
@@ -123,10 +124,11 @@ function effectVersionSupported(resolved) {
   const candidates = [...(resolved?.installedMajor?.candidates ?? []), ...(resolved?.declaredMajor?.candidates ?? [])]
     .filter((candidate) => candidate.packageName === "effect" && typeof candidate.versionRange === "string")
   if (candidates.length === 0) return false
+  // The contract's range is the one fact; a declared range must lie inside it, an installed version is a one-point range.
+  const supported = supportedToolchain().effect.range
   return candidates.every((candidate) => {
-    const match = candidate.versionRange.match(/4\.0\.0(?:-beta\.(\d+))?/)
-    if (!match) return /^4\.(?:[1-9]|\d{2,})\./.test(candidate.versionRange)
-    return match[1] === undefined || Number(match[1]) >= 97
+    const range = validRange(candidate.versionRange, { includePrerelease: true })
+    return range !== null && subset(range, supported, { includePrerelease: true })
   })
 }
 

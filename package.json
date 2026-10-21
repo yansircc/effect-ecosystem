@@ -32,6 +32,7 @@
   "dependencies": {
     "ajv": "^8.20.0",
     "jsonc-parser": "^3.3.1",
+    "semver": "7.8.5",
     "typescript": "7.0.2"
   },
   "devDependencies": {
@@ -48,6 +49,7 @@
     "@opentelemetry/sdk-trace-web": "^2.0.0",
     "@opentelemetry/semantic-conventions": "^1.33.0",
     "@types/node": "^25.9.1",
+    "@types/semver": "7.8.0",
     "bun": "1.3.14",
     "effect": "4.0.0-beta.98"
   },

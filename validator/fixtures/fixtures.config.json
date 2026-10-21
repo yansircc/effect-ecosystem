@@ -168,6 +168,7 @@
     "wrong-tsgo-version-rejected",
     "declared-v4-installed-v3-rejected",
     "effect-before-floor-rejected",
+    "effect-stable-patch-green",
     "async-spelling-is-not-syntax-green",
     "async-syntax-forms-red",
     "async-multiline-and-template-red",
@@ -3051,6 +3052,23 @@
       "expectRules": [
         "EFF908"
       ],
+      "exact": true
+    },
+    {
+      "name": "effect-stable-patch-green",
+      "suites": [
+        "toolchain-hard-cut",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "toolchain": "effect-stable-patch",
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
       "exact": true
     },
     {
