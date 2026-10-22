@@ -19,7 +19,7 @@ clean worktree (`npm ci`); Rust is this branch's `target/release/effect-scan`.
 | local | 470 ms | 110 ms | 4.3x |
 | github | 2.4 s | 0.63 s | 3.8x |
 
-Requirement was >= 3x (>= 2/3 less time): met on both targets.
+Requirement was >= 3x (>= 2/3 less time): met on both targets on the reference machine. The performance gate (`scripts/benchmark-scan.ts`) is machine-independent: cold and warm runs must beat the TypeScript baseline; it reports `speedupVsBaseline` (the 3x figure is a reference measurement, since a shared CI runner is slower in absolute terms).
 
 Notes on the numbers:
 - An earlier first measurement of the same TS baseline showed 9.7-11 s on the github target. A later

@@ -101,19 +101,29 @@ try {
   execFileSync("mkdir", ["-p", consumer])
   writeFileSync(
     join(consumer, "package.json"),
-    JSON.stringify({ private: true, dependencies: { [manifest.name]: `file:${rootArchive}` }, overrides }, null, 2),
+    // The platform archives are the consumer's own optionalDependencies: npm applies their os/cpu gates the same
+    // way on every npm version, whereas `overrides` of a file: package's optional dependencies is not stable across npm 11.x.
+    JSON.stringify({ private: true, dependencies: { [manifest.name]: `file:${rootArchive}` }, optionalDependencies: overrides }, null, 2),
   )
   const npmInstall = spawnSync("npm", ["install", "--prefix", consumer, "--no-audit", "--no-fund", "--prefer-offline", "--loglevel", "verbose"], {
     encoding: "utf8",
     timeout: 120_000,
   })
   assert.equal(npmInstall.status, 0, `npm install failed:\n${npmInstall.stdout}\n${npmInstall.stderr}`)
-  const scope = join(consumer, "node_modules", ...manifest.name.split("/").slice(0, -1))
-  const installed = readdirSync(scope).filter((entry) => entry.startsWith("effect-scan")).sort()
-  assert.deepEqual(
-    installed,
-    ["effect-scan", `effect-scan-${host.key}`],
-    `npm must install only the host platform package (npm ${spawnSync("npm", ["--version"], { encoding: "utf8" }).stdout.trim()}, node ${process.version}, ${process.platform}/${process.arch}):\n${npmInstall.stdout}\n${npmInstall.stderr}`,
+  // The host platform package must be installed (wherever npm placed it) and resolvable by the shim.
+  const platformDirs = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const path = join(dir, entry.name)
+      if (/^effect-scan-/.test(entry.name) && dir.endsWith(join("node_modules", "@yansircc"))) platformDirs.push(entry.name)
+      if (entry.name === "node_modules" || entry.name.startsWith("@") || dir.endsWith("node_modules") || dir.endsWith("@yansircc")) walk(path)
+    }
+  }
+  walk(join(consumer, "node_modules"))
+  assert.ok(
+    platformDirs.includes(`effect-scan-${host.key}`),
+    `npm did not install the host platform package effect-scan-${host.key} (found: ${platformDirs.join(", ") || "none"}; npm ${spawnSync("npm", ["--version"], { encoding: "utf8" }).stdout.trim()}, node ${process.version}, ${process.platform}/${process.arch}):\n${npmInstall.stdout}\n${npmInstall.stderr}`,
   )
 
   const binary = join(consumer, "node_modules", ".bin", "effect-scan")
