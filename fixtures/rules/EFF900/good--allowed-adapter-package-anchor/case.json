@@ -1,0 +1,11 @@
+{
+  "description": "allowed-adapter-package-anchor-green: an allowedAdapters selector naming a file that package-level findings are reported on (package.json, the manifest) is live even though it is not source",
+  "suites": [
+    "manifest-schema",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

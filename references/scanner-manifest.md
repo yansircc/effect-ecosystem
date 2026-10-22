@@ -348,8 +348,12 @@ Invalid manifest JSON or schema shape is an infra error.
 Stale declarations are EFF900 too. A manifest selector that grants an exemption,
 ownership or reclassification must match at least one file it applies to:
 
-- `allowedAdapters[].path` and `aiProviderTransports[].path`: a scanned source
-  file (so a selector inside `hostTooling`, which is never scanned, is stale);
+- `allowedAdapters[].path`: a file a finding can be reported on — a scanned
+  source file, or a package-level anchor (the manifest, a declared package's
+  `package.json`, a declared wrangler config), since package rules such as EFF303
+  and EFF906 report there. A selector inside `hostTooling`, which is never
+  scanned, is stale;
+- `aiProviderTransports[].path`: a scanned source file (a transport is code);
 - `hostTooling[].path`: a discovered source file (a pruned `<dir>/**` counts when
   the directory holds source).
 

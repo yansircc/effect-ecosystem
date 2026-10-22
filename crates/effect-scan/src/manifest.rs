@@ -275,6 +275,10 @@ pub enum SelectorScope {
     Scanned,
     /// Source discovery before hostTooling exclusion: what hostTooling itself removes.
     Discovered,
+    /// Every file a finding can be anchored to: the scanned source files plus the package-level
+    /// anchors (`Manifest::anchor_files`). An `allowedAdapters` entry exempts findings by file, and
+    /// package rules (EFF303, EFF906, ...) report on `package.json` / the manifest, not on source.
+    Anchored,
 }
 
 /// A manifest path/glob selector that grants an exemption, ownership or reclassification.
@@ -310,10 +314,19 @@ impl Manifest {
     pub fn path_selectors(&self) -> Vec<PathSelector<'_>> {
         let scanned = SelectorScope::Scanned;
         let mut out: Vec<PathSelector<'_>> = Vec::new();
-        out.extend(self.allowed_adapters.iter().map(|a| PathSelector { entry: "allowedAdapters", pattern: &a.path, scope: scanned }));
+        out.extend(self.allowed_adapters.iter().map(|a| PathSelector { entry: "allowedAdapters", pattern: &a.path, scope: SelectorScope::Anchored }));
         out.extend(self.ai_provider_transport_paths.iter().map(|p| PathSelector { entry: "aiProviderTransports", pattern: p, scope: scanned }));
         out.extend(self.host_tooling_paths.iter().map(|p| PathSelector { entry: "hostTooling", pattern: p, scope: SelectorScope::Discovered }));
         out
+    }
+
+    /// The non-source files package-level findings are reported on: the manifest, every declared
+    /// package's `package.json`, and every declared wrangler config.
+    pub fn anchor_files<'a>(&'a self, manifest_file: &'a str) -> impl Iterator<Item = &'a str> {
+        std::iter::once(manifest_file)
+            .chain(self.packages.iter().map(|p| p.relative_package_json.as_str()))
+            .chain(self.packages.iter().filter_map(|p| p.wrangler_path.as_deref()))
+            .chain(self.wrangler_path.as_deref())
     }
 
     /// The one ownership relation between a package and a manifest path: `pkg` owns `relative_path`

@@ -94,7 +94,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let (files, skipped_symlinks, discovered) = collect_source_files(root, manifest.as_ref(), &contract)?;
     if let Some(m) = manifest.as_ref() {
         let manifest_file = util::to_posix(options.manifest_path.as_deref().unwrap_or(MANIFEST_NAME));
-        findings.extend(stale_selector_findings(m, &manifest_file, &files, &discovered, registry));
+        findings.extend(stale_selector_findings(root, m, &manifest_file, &files, &discovered, registry));
     }
     warnings.extend(skipped_symlinks.iter().map(|link| format!("{link} is a symlink and was not scanned (symlinks are not followed; its target is scanned at its own path)")));
     timings.mark("collectSourceFiles");
@@ -166,7 +166,7 @@ struct Discovered {
 
 /// EFF900 for every validated manifest selector (`Manifest::path_selectors`) that matches no file of
 /// its scope: a stale declaration, reported like a stale `nativeDependencyBoundaries` entry.
-fn stale_selector_findings(manifest: &Manifest, manifest_file: &str, files: &[SourceFile], discovered: &Discovered, registry: &Registry) -> Vec<Finding> {
+fn stale_selector_findings(root: &Path, manifest: &Manifest, manifest_file: &str, files: &[SourceFile], discovered: &Discovered, registry: &Registry) -> Vec<Finding> {
     manifest
         .path_selectors()
         .into_iter()
@@ -174,6 +174,9 @@ fn stale_selector_findings(manifest: &Manifest, manifest_file: &str, files: &[So
             let matches = |path: &str| matches_any(path, std::slice::from_ref(&selector.pattern.to_string()));
             let live = match selector.scope {
                 SelectorScope::Scanned => files.iter().any(|f| matches(&f.relative)),
+                SelectorScope::Anchored => {
+                    files.iter().any(|f| matches(&f.relative)) || manifest.anchor_files(manifest_file).any(|a| root.join(a).is_file() && matches(a))
+                }
                 SelectorScope::Discovered => {
                     discovered.files.iter().any(|f| matches(f)) || prune_root(selector.pattern).is_some_and(|r| discovered.pruned_with_source.contains(&r))
                 }
@@ -183,6 +186,7 @@ fn stale_selector_findings(manifest: &Manifest, manifest_file: &str, files: &[So
         .map(|selector| {
             let scope = match selector.scope {
                 SelectorScope::Scanned => "scanned source file",
+                SelectorScope::Anchored => "scanned source file or package-level finding anchor",
                 SelectorScope::Discovered => "source file",
             };
             let message = format!("{} {}: selector matches no {scope} under the scan root (stale declaration)", selector.entry, selector.pattern);

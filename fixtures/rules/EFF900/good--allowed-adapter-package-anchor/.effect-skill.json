@@ -1,0 +1,23 @@
+{
+  "shape": [
+    "library"
+  ],
+  "allowedAdapters": [
+    {
+      "path": "package.json",
+      "rules": [
+        "EFF303"
+      ],
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": ".effect-skill.json",
+      "rules": [
+        "EFF906"
+      ],
+      "owner": "@owner",
+      "reason": "declared"
+    }
+  ]
+}
