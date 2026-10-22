@@ -9,4 +9,4 @@ export const p = a!.b.c
 export const q = a()?.Schedule.fixed
 export const r = Schedule["fixed"]("1 second")
 export const s = new (Schedule as any).Foo()
-export const t = Schedule.fixed<number>
+export const t = Schedule.passthrough<number, number, never, never>

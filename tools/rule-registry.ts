@@ -16,7 +16,7 @@ export function readRegistry(path = RULES_PATH) {
 
 export function validateRegistry(registry) {
   const errors = []
-  if (registry.schemaVersion !== 2) errors.push("schemaVersion must be 2")
+  if (registry.schemaVersion !== 3) errors.push("schemaVersion must be 3")
   if (!Array.isArray(registry.rules)) errors.push("rules must be an array")
   if (!Array.isArray(registry.retiredRuleIds)) errors.push("retiredRuleIds must be an array")
   const ids = new Set()

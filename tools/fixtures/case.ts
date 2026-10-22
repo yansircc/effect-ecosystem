@@ -35,6 +35,17 @@ export type ExtraRun = {
   expectStderrIncludes?: string[]
 }
 
+export type CompileAllowance = string | { file: string; code: string }
+
+/** `file` is relative to the scan root, as in the finding. Returns null for a malformed allowance. */
+export function parseAllowance(allowance: CompileAllowance): { file: string; code: string } | null {
+  if (typeof allowance !== "string") {
+    return allowance && typeof allowance.file === "string" && /^TS\d+$/.test(allowance.code) && allowance.file ? allowance : null
+  }
+  const match = allowance.match(/^(.+):(TS\d+)$/)
+  return match ? { file: match[1], code: match[2] } : null
+}
+
 export type Case = {
   description: string
   suites: string[]
@@ -70,7 +81,8 @@ export type Case = {
   /** Unproven facts `file:line:ruleId`. */
   expectNotProven?: string[]
   expectStderrIncludes?: string[]
-  allowCompileErrors?: string[]
+  /** Compile errors that are the point of the fixture, scoped to one file: `{ file, code }` or `"file:TSxxxx"`. */
+  allowCompileErrors?: CompileAllowance[]
   allowCompileErrorsReason?: string
 
   // projection
@@ -178,6 +190,14 @@ export function discoverFixtures(fixturesRoot: string): { fixtures: Fixture[]; f
     if (parsed.suite === undefined && typeof parsed.expectExit !== "number") failures.push(`${id}: ${CASE_FILE} needs expectExit`)
     if ((parsed.allowCompileErrors?.length ?? 0) > 0 && !String(parsed.allowCompileErrorsReason ?? "").trim()) {
       failures.push(`${id}: allowCompileErrors needs allowCompileErrorsReason (compile errors are only allowed when they are the point of the fixture)`)
+    }
+    for (const allowance of parsed.allowCompileErrors ?? []) {
+      if (!parseAllowance(allowance)) failures.push(`${id}: allowCompileErrors entry ${JSON.stringify(allowance)} must be { file, code } or "file:TSxxxx" (an allowance is scoped to one file)`)
+    }
+    // The canonical bad fixture is the rule's contract: its exact findings (file:line:rule:severity, with
+    // multiplicity) are pinned, not just the set of rule ids.
+    if (extra.verdict === "bad" && extra.variant === null && parsed.suite === undefined && !Array.isArray(parsed.expectFindingKeys)) {
+      failures.push(`${id}: a canonical bad fixture must pin expectFindingKeys (exact file:line:ruleId:severity list)`)
     }
     fixtures.push({ id, dir, area, case: parsed, ...extra })
   }

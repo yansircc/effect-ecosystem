@@ -1,11 +1,11 @@
-# effect-scan: Rust rewrite
+# effect-scan: the Rust scanner
 
-Status: complete. The Rust scanner is the only scanner. The TypeScript scanner (`validator/scan.ts`,
-`validator/lib/*`) served as the differential oracle until the Rust build agreed with it on all 229 legacy
-fixtures (findings, signals, profile, evidence, gate-json and human output: 0 differences, 22 documented
-intentional differences); it and the differential tooling were then deleted (see "Fixtures"). References to
-"the oracle" below describe that retired implementation: they document why a Rust verdict differs and are now
-the normative behaviour. The external contract does not change (see "Contract").
+Status: complete. The Rust scanner (`crates/effect-scan`) is the only scanner. The TypeScript scanner it replaced
+served as the differential oracle until the two agreed on all 229 legacy fixtures (findings, signals, profile,
+evidence, gate-json and human output: 0 differences besides the documented ones below); the oracle and the
+differential tooling were then deleted. Statements below that mention "the oracle" describe that retired
+implementation: they explain why a verdict differs from the old one, and the Rust behaviour is the normative one.
+This is the single migration document: what changed for users is in "Migration notes for users".
 
 ## Baseline and result
 
@@ -38,21 +38,36 @@ resolution on oxc scopes. Facts that genuinely need types (`getTypeAtLocation` i
 
 ## Architecture
 
-- Parser/semantics: oxc (`oxc_parser`, `oxc_ast_visit`). Pinned to the newest release whose MSRV is
-  <= rustc 1.92 (currently 0.126); bump when the toolchain is >= 1.97.
-- Type diagnostics: one `tsgo --noEmit` CLI run (EFF500-504), not reimplemented.
-- Layers: `facts` (runner references, execution points, import bindings) -> `rules` (each declares
-  coverage and blind spots) -> `output` (scan-result, gate-summary incl. `notProven`).
-- `contracts/rules.json` and `validator/manifest.schema.json` are embedded at build time
-  (`include_str!`), so there is one copy of each fact.
+- Parser and semantics: oxc (`oxc_parser`, `oxc_semantic`, `oxc_ast_visit`; the version in `Cargo.lock`, MSRV 1.97
+  via `rust-version`). No TypeScript checker is involved in source rules: facts are import bindings and scopes.
+- Type diagnostics: one `tsc --noEmit` run per TypeScript project of the project-local compiler
+  (TypeScript 7 + `@effect/tsgo`), mapped to EFF500-504; not reimplemented.
+- Modules (`crates/effect-scan/src`), each stage declares the rules it computes in `RULES`; `scan.rs` only sequences them:
 
-## Contract (unchanged)
+| module | owns |
+|---|---|
+| `main.rs`, `projection/cli.rs` | argument parsing, usage, exit codes, panic hook, output modes |
+| `findings.rs` | `Registry` (the validated rule contract), `Finding` |
+| `manifest.rs` | `.effect-skill.json` load and schema validation (EFF000/EFF900/EFF903) |
+| `source.rs`, `facts.rs`, `rules.rs` | per-file oxc facts: imports, runner references, `source-ast` selectors, `source-import` matching |
+| `scan.rs`, `expires.rs` | file collection and classification, suppression (`eff-ignore`, path scopes), drift, sorting, summary |
+| `contracts.rs`, `contracts/` | EFF400-402 execution contracts, platform constructors (`notProven` facts) |
+| `package.rs`, `package/` | dependency resolution, semver (node-semver port), runtime facts, EFF2xx/3xx/9xx |
+| `diagnostics.rs`, `diagnostics/` | toolchain checks (EFF901/902) and the compiler run (EFF500-504) |
+| `projection/` | signals, profile, evidence bundle, gate summary, hashes, timings, CLI rendering |
 
-rules.json schema, `effect.requiredReferences` routing, gate-summary / scan-result shapes,
-`.effect-skill.json`, `eff-ignore` semantics, exit codes (0 clean, 1 errors, 2 scan failure,
-64 usage). Additions only: `notProven` per-rule coverage, EFF303/325/326/504.
+- `contracts/rules.json` and `validator/manifest.schema.json` are embedded at build time (`include_str!`), so there
+  is one copy of each fact.
 
-Known intentional differences:
+## Contract
+
+Unchanged: `.effect-skill.json` grammar, `effect.requiredReferences` routing, scan-result and gate-summary shapes,
+`eff-ignore` semantics, the exit codes 0 clean / 1 error findings / 2 scan failure / 64 usage error, and the output
+modes. Changed (details below and in "Migration notes for users"): `contracts/rules.json` (`schemaVersion` 3, no
+`pattern`), `gate-summary.notProven[].source` gains two values, the command line is strict, `expires` is a date.
+Added rules and facts: per-rule `coverage`/`notProven`, EFF303/325/326/504.
+
+Known intentional differences from the retired oracle:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
   The fixture `manifest-rejects-singular-host-hard-cut` is pinned with `expectFindingKeys` (Ajv `allErrors`
@@ -65,10 +80,9 @@ Known intentional differences:
   warning plus empty dependency set in Rust (a manifest load cannot fail a scan); `localeCompare`
   ordering of candidate/binding keys uses `util::locale_compare` (code-point order for punctuation).
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
-- **Projection stage** (`projection/`: signals, profile, evidence, gate summary, CLI output). The
-  differential harness compares every output surface (below) with **0 differences** over all
-  fixtures except the `v4-*` fixtures under `fixtures/scenarios`, which pin these v4 detection fixes (the oracle
-  keeps the v3 recognition; it is deleted with the TypeScript scanner):
+- **Projection stage** (`projection/`: signals, profile, evidence, gate summary, CLI output). Every output surface
+  agreed with the oracle on all fixtures except the `v4-*` fixtures under `fixtures/scenarios`, which pin these v4
+  detection fixes (the oracle kept the v3 recognition):
   - `containsOtlpLayer`: true for any `Otlp*` layer factory (`Otlp.layer`, `OtlpTracer.layer`,
     `observability.Otlp.layer`, ...); the oracle matched the literal `Otlp.layer` only, so an
     `effect/observability` import (`observability.Otlp.layer`) was never recognised.
@@ -84,18 +98,17 @@ Known intentional differences:
   - `hasEffectAiDependency` (imports of `effect/ai`) is already v4 in the oracle; unchanged.
   Also: `effect/ai` imports counted for `hasEffectAiDependency` include `require("effect/ai")` in Rust
   (the shared import fact treats a literal `require` as an import); the oracle ignores `require`.
-- `scanner.*` (build provenance) comes from the artifact: `build.rs` embeds `build-info.json` selected by
-  `EFFECT_SCAN_BUILD_INFO=<path>` at compile time (the "unknown build" record otherwise, as the
-  TypeScript scanner reports without a `build-info.json`). `complianceHash` hashes `scanner.buildId`,
-  so it is comparable across the two scanners only for equal build ids; the harness builds the Rust
-  binary with the oracle's `build-info.json` (the differential harness, since removed, refused to run otherwise).
-- Contract extension (additive): `contracts/rules.json` rules may declare `coverage`
-  `{ proves: string, blindSpots: string[] }` (every rule that has a real blind spot does:
-  `EFF001-EFF032`, `EFF200`, `EFF3xx`, `EFF4xx`, `EFF5xx`); `gate-summary.notProven[]` gains the sources
-  `rule-coverage` (the blind spots of every rule that ran in this scan) and `unproven-fact` (a fact a rule
-  could not decide). Old consumers ignore unknown `source` values. The TypeScript oracle implements the same
-  `rule-coverage` aggregation (it is part of the `compliance-hash`/`gate-summary` suites' world);
-  `unproven-fact` is Rust-only, fed by the contracts stage.
+- `scanner.*` (build provenance) comes from the artifact: `build.rs` embeds the `build-info.json` selected by
+  `EFFECT_SCAN_BUILD_INFO=<path>` at compile time (the "unknown build" record otherwise). `complianceHash` hashes
+  `scanner.buildId`, so it is comparable only across equal build ids.
+- Contract extension: `contracts/rules.json` rules may declare `coverage` `{ proves: string, blindSpots: string[] }`
+  (every rule that has a real blind spot does: `EFF001-EFF032`, `EFF200`, `EFF3xx`, `EFF4xx`, `EFF5xx`), and
+  `gate-summary.notProven[]` gains the sources `rule-coverage` (the blind spots of every rule that ran in this scan)
+  and `unproven-fact` (a fact a rule could not decide, fed by the contracts stage). This is only an added field and
+  enum value, but it is visible to consumers that validate against the previous schema: see "Migration notes for
+  users". The `schemaVersion` of `gate-summary` stays 2 (a `const` in a schema with `additionalProperties: false`
+  throughout: bumping it or adding a version field would reject every existing consumer's documents outright).
+
 - **Rule verdicts are AST facts, not text matches** (`rules.rs`; architecture requirement iii). The
   Rust scanner has no regex rule mechanism. Documented fixes over the TS oracle, each pinned by a
   good/bad fixture pair (rule-bound variants under `fixtures/rules`):
@@ -117,11 +130,12 @@ Known intentional differences:
     EFF002/003; `await` and `try` whose nearest enclosing function is such a callback are not
     EFF004/EFF001. Deeper nested functions are not exempt; unproven or local `Effect` is not exempt.
 
-## Rule contract change: `pattern` is gone
 
-`rules.json` `scanner.pattern` (a regex) was the only regex mechanism and is removed with it; this is
-the one necessary deviation from "rules.json fields unchanged". Kinds are now `source-import`,
-`source-ast`, `projection`.
+## Rule contract change: `pattern` is gone (`contracts/rules.json` `schemaVersion` 3)
+
+`rules.json` `scanner.pattern` (a regex) was the only regex mechanism and is removed: this is the one necessary
+deviation from "rules.json fields unchanged", and it is why `schemaVersion` went from 2 to 3 (the scanner rejects any
+other value). Kinds are now `source-import`, `source-ast`, `projection`; `line-regex` no longer exists.
 
 | old | new |
 |---|---|
@@ -133,13 +147,17 @@ the one necessary deviation from "rules.json fields unchanged". Kinds are now `s
 | `process.env.` | `process-env` |
 | `source-import` + `pattern` | `source-import` + `packages` (name or any subpath) and/or `packagePrefixes` (string prefix); `node:` is stripped first |
 
-Import migrations: exact-name patterns became `packages` (so `zod` also covers `zod/v4`, `zod/mini`;
-`fs` covers `node:fs/promises`; `path` covers `node:path/posix`). Prefix patterns (`lodash`, `zustand`,
-`jotai`, `moment|dayjs|date-fns`, `@trpc/`) became `packagePrefixes` with unchanged semantics. Added
-packages: EFF014 `@tanstack/query-core`, `swr`; EFF020 `fs-extra`. The TS oracle matches imports the
-same structured way (first hit only) and keeps the old per-line regexes for the `source-ast`
-selectors above (`validator/lib/line-rules.ts`); `scripts/rule-registry.ts` validates the selector
-enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
+The selector vocabulary is `rules::SELECTORS`. `findings::Registry::from_json` validates the whole contract before
+any scan (schemaVersion, id shape and uniqueness, severity, kind, selector, `packages`/`packagePrefixes` types);
+`tools/rule-registry.ts` checks the same shape in the TypeScript tooling. A contract that fails is exit 2 with the
+rule id and the reason, never a panic or a silent skip.
+
+Import migrations: exact-name patterns became `packages` (so `zod` also covers `zod/v4`, `zod/mini`; `fs` covers
+`node:fs/promises`; `path` covers `node:path/posix`). Prefix patterns (`lodash`, `zustand`, `jotai`,
+`moment|dayjs|date-fns`, `@trpc/`) became `packagePrefixes` with unchanged semantics. Added packages: EFF014
+`@tanstack/query-core`, `swr`; EFF020 `fs-extra`. The custom-rule fixture uses `selector`.
+
+Other differences:
 - EFF500-504 come from the `tsc` CLI, which reports semantic diagnostics (and Effect diagnostics) only
   for a project without syntactic errors; the TypeScript oracle (tsgo API) reports both. A project
   with a syntax error therefore yields its syntax errors (EFF504) but no EFF500-503/semantic EFF504
@@ -172,6 +190,27 @@ enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
 - EFF401 `wrangler-workflow` resolves "main exports the class" through relative re-exports on the file
   system instead of the checker; a default export count other than one is a mismatch (the oracle throws).
 
+## Command line and suppression
+
+`effect-scan [root] [flags]`; the usage text (`--help`) lists every flag and the exit codes and is the reference.
+
+- Every token is a known flag, a flag value or the (single) root. An unknown flag, a repeated value flag, a value flag
+  without a value or a second positional argument is a usage error: message and usage on stderr, exit 64.
+  `--help`/`-h` prints the usage to stdout and exits 0 without scanning.
+- Exit 0/1 come from the scan; 2 is a scanner failure: unreadable root, invalid rule contract or manifest, or an
+  internal error. The release profile aborts on panic (exit 134 and no message); a panic hook turns every panic
+  into `effect-scan internal error: ...` on stderr and exit 2, so the 0/1/2/64 contract holds.
+- `--rules <file>` replaces the embedded rule contract. It exists for the fixture harness and is marked TEST ONLY in
+  the usage. The replacement contract is validated like the embedded one, and the override is recorded as the first
+  entry of `warnings` (raw-json, and stderr in human mode); gate-json has no `warnings`, so a gate produced with
+  `--rules` is not distinguishable from the embedded contract in its JSON. Do not use it for gates.
+- `eff-ignore EFFxxx reason="..." expires="..."`: under `--fail-on-suppression-drift` a comment is a finding when
+  it has no reason, matches no finding (orphan), has a past `expires`, or an `expires` that is not a date.
+  `expires` is compared as an instant (`src/expires.rs`): ISO 8601 (date, date-time with offset, milliseconds) and the
+  common JavaScript forms (`Jan 1 2020`, `12/31/2099`). The accepted formats and the UTC-versus-local-time difference
+  to `Date.parse` are in `references/scanner-manifest.md` (Suppression). The oracle compared the strings; the first
+  Rust port did too, which let `2026-10-22T00:00:00Z` and `Jan 1 2020` pass and reported `12/31/2099` as expired.
+
 ## Fixtures
 
 Layout (one real file tree per fixture; `case.json` holds the expectations):
@@ -182,54 +221,65 @@ fixtures/rules/<RULE_ID>/bad/         the same code with exactly this violation
 fixtures/rules/<RULE_ID>/good--<v>/   further variants of the verdict (edge cases, anti-cheat cases)
 fixtures/rules/<RULE_ID>/bad--<v>/
 fixtures/scenarios/<name>/            everything that is not one rule's verdict: manifest, suppression, output modes,
-                                      profile/evidence, toolchain, workspace, file collection, ...
+                                      profile/evidence, toolchain, workspace, file collection, CLI contract, ...
 fixtures/suites.json                  suites that must have fixtures (`requiredSuites`)
 ```
 
-Invariants (`tools/fixtures/suites.ts`, suite `fixture-coverage`): every rule of `contracts/rules.json` has a
-canonical `good` and `bad`; both are `strict`, `exact`, compile on the target toolchain (effect 4.0.5,
-`@effect/tsgo` 0.56.0, TypeScript 7.0.2), `bad` expects exactly `[rule]`, `good` expects nothing and exit 0. Only a
-rule that is itself a compiler diagnostic (family `lsp`: EFF501-503) may allow the TS error that carries it.
-Every fixture compiles on the target toolchain. A strict fixture is compiled by its own scan: an EFF504 finding
-fails the fixture unless it expects EFF504 or lists the TS code in `allowCompileErrors` (with
-`allowCompileErrorsReason`); an allowance that matches nothing is stale and fails. The compiler only runs under
-`--strict`, so a non-strict fixture (scanner behaviour without a manifest or toolchain) is probed on a scratch
-copy completed with a library manifest, the verified toolchain declaration and, when it has none, a bundler-style
-tsconfig (`noImplicitAny` off: untyped parameters are not a toolchain question); same rule, same allowances.
-Names, packages and members a snippet assumes are declared in a fixture-local ambient `scaffold.d.ts` (the scanner
-ignores declaration files), so the scanned text and its line numbers stay exactly what the test needs.
-Allowances that remain are fixtures whose subject is the invalid code: EFF501-503 (the Effect language service reports
-them on assignments that are also TS2322), `signal-effect-member-names` and `signal-token-masking` (adversarial
-syntax and member spellings).
+Invariants (`tools/fixtures/suites.ts` suite `fixture-coverage`, `tools/fixtures/case.ts`, `tools/fixtures/assert.ts`):
+
+- Every rule of `contracts/rules.json` has a canonical `good` and `bad`; both are `strict`, `exact`, compile on the
+  target toolchain (effect 4.0.5, `@effect/tsgo` 0.56.0, TypeScript 7.0.2). `good` expects nothing and exit 0.
+  `bad` expects exactly its rule and **pins the exact findings**: `expectFindingKeys` is a list of
+  `file:line:ruleId:severity` compared as a multiset, so a wrong line, a missing second hit or a duplicate fails.
+  A canonical `bad` without `expectFindingKeys` is a layout failure. Rule-bound `bad--` variants may assert less
+  (`expectRules`, counts) but a verdict that depends on position should pin keys too.
+- The process exit code is asserted: it must be 1 exactly when the scan has an error finding (0 otherwise), and the
+  verdict `expectExit` is checked on the findings that remain after allowances; with no allowance both are one number.
+- A strict fixture is compiled by its own scan: an EFF504 finding fails the fixture unless it expects EFF504 or an
+  allowance covers it. `allowCompileErrors` entries are scoped to one file and one code, `{ "file", "code" }` or
+  `"src/index.ts:TS2322"` (file relative to the scan root), and need `allowCompileErrorsReason`; a bare code is a
+  layout failure; an allowance that matches nothing is stale and fails. Non-strict fixtures (scanner behaviour
+  without a manifest or toolchain) are probed on a scratch copy completed with a library manifest, the verified
+  toolchain declaration and a bundler-style tsconfig (`noImplicitAny` off); same rule, same allowances.
+- Names, packages and members a snippet assumes are declared in a fixture-local ambient `scaffold.d.ts` (the scanner
+  ignores declaration files), including `declare module "x"` for module names, so the scanned text and its line
+  numbers stay what the test needs.
+- Allowances that remain have the invalid code as their subject: EFF501-503 and `lsp-context-error-layer-probe`
+  (`TS2322`: the Effect language service reports these rules on assignments that are also TS2322),
+  `signal-effect-member-names` (`src/sched.ts:TS1192`, `src/Comp.tsx:TS2339`: a default import of `effect/Effect` and JSX
+  tags naming non-existent members) and `signal-token-masking` (`src/misc.ts:TS1202`: `import x = require()`).
+
+Runner (`scripts/run-fixtures.ts`), after `make build`:
+
+```
+node dist/tools/scripts/run-fixtures.js --bin dist/platforms/<platform>/effect-scan --exact \
+     [--suite <name>] [--filter <id substring>] [--jobs N] [--list] [--fix-pins]
+make fixtures                       # build + run
+```
+
+Unknown arguments, a repeated or valueless flag, `--jobs` that is not a positive integer, and a `--filter` or
+`--suite` that selects no fixture are errors (exit 64): a selection that matches nothing must not pass. `--exact`
+requires the rule-id set of every fixture to equal `expectRules`.
+
+Each fixture is scanned with `--output raw-json --profile --evidence` and once more with `--output gate-json --evidence`
+(stdout equals `gate-summary.json`, same exit code, both bundle files valid against their schemas), then the internal
+suites run: contract checks (rule registry, implemented rules, runtime-facts and signals contracts, reference routing,
+effect capabilities) and scanner-driven suites on base trees `scenarios/suite-*` (gate summary, CLI output modes,
+compliance hash, notProven, library rollup, timings). `extraRuns` in a `case.json` run more command lines on the same
+tree (`scenarios/cli-usage-contract` uses it for usage errors, `--help`, invalid rule contracts). `case.json` keys are
+listed in `tools/fixtures/case.ts`; an unknown key fails the run.
 
 Static files, derived facts: toolchain pins in fixture `package.json` files are copies of
 `contracts/effect-capabilities.json` and the installed `effect`; `fixture-toolchain-pins` fails on drift and
-`run-fixtures --fix-pins` rewrites them. Two materialization conventions: a file named `gitignore` is written as
-`.gitignore`; a fixture that ships `node_modules/<pkg>` overrides that entry only, the rest of the installed
-toolchain is linked.
-
-```
-make build
-node dist/tools/scripts/diff-fixtures.js dist/platforms/<platform>/effect-scan   # i.e. make diff-fixtures
-cargo build --release -p effect-scan
-node dist-dev/scripts/run-fixtures.js [--bin <path>] [--suite <name>] [--filter <id substring>] [--exact] [--fix-pins]
-make fixtures                       # build + rust-build + run
-```
-
-`scripts/run-fixtures.ts` runs each fixture with `--output raw-json --profile --evidence` and once more with
-`--output gate-json --evidence` (stdout must equal `gate-summary.json`, same exit code, both bundle files valid
-against their schemas), then the internal suites: contract checks (rule registry, implemented rules, runtime-facts
-and signals contracts, reference routing, effect capabilities), and scanner-driven suites on base trees
-`scenarios/suite-*` (gate summary, CLI output modes, compliance hash, notProven, library rollup, timings).
-`case.json` keys are listed in `tools/fixtures/case.ts`; an unknown key fails the run.
+`--fix-pins` rewrites them. Two materialization conventions: a file named `gitignore` is written as `.gitignore`; a
+fixture that ships `node_modules/<pkg>` overrides that entry only, the rest of the installed toolchain is linked.
 
 History: the legacy `fixtures.config.json` (229 JSON-escaped cases) was migrated mechanically by
-`scripts/migrate-fixtures.ts` (kept for audit; the tree was edited by hand afterwards and the script refuses to
-overwrite it). The `rust*` pins became ordinary expectations (`expectRules`, `expectFindings`,
-`expectFindingKeys`, `expectNotProven`). Removed with the oracle: `expectCompilerDiagnostics` (a tsgo-API artifact:
-file-less option diagnostics outside findings), `profile-manifest-one-truth` (asserted the TypeScript profile
-module's source text), the TS-only `source-facts-grammar` / `candidate-source` internal checks (now the scenarios
-`source-facts-grammar` and `file-collection-*`).
+`scripts/migrate-fixtures.ts` (kept for audit; the script refuses to overwrite the tree). The `rust*` pins became
+ordinary expectations. Removed with the oracle: `expectCompilerDiagnostics` (a tsgo-API artifact), the
+`profile-manifest-one-truth` check (asserted the TypeScript profile module's source text) and the TS-only
+`source-facts-grammar` / `candidate-source` checks (now scenarios `source-facts-grammar` and `file-collection-*`).
+
 
 ## Source discovery
 
@@ -253,96 +303,68 @@ Default test classification (a manifest without `testGlobs`; an explicit list st
 there were source before and are test files now (exempt from source rules, EFF200 scope): fixtures
 `scenarios/file-classifier-default-test-directories` and `...-explicit-test-globs-replace-defaults`.
 
-## Ported so far
+## Stages
 
-CLI parsing and exit codes, file collection (git or walk), file classification, manifest load +
-schema validation (EFF000/EFF900/EFF903), line/import/async-await rules, `eff-ignore` suppression and
-drift, sorting/summary, and the **module facts layer** (`facts.rs`):
+Which module computes what, and what it cannot prove.
 
-- import bindings and `const` aliases resolved on oxc scopes (no checker round trips; shadowing is
-  exact), derived to a fixpoint;
-- **runner references**: every maximal member path that resolves to `Effect.run*`, a `ManagedRuntime`
-  runner, or `*Runtime.runMain`. EFF400 consumes them, so a runner
-  passed as a value (`program.pipe(Effect.runFork)`, `items.map(Effect.runPromise)`,
-  `const run = Effect.runSync`) is reported exactly like a call (audit W2). EFF401 will consume the same
-  facts (B2: `program.pipe(NodeRuntime.runMain)` counts as the one `runMain` reference);
-- EFF403 from `import` declarations (comments/strings/multi-line/`import type *` now correct, W3);
-  EFF404 from `require()` and module-scope `import()`.
+**Source rules and module facts** (`source.rs`, `facts.rs`, `rules.rs`): import bindings and `const` aliases are
+resolved on oxc scopes (shadowing is exact) to a fixpoint. Runner references are every maximal member path that
+resolves to `Effect.run*`, a `ManagedRuntime` runner or `*Runtime.runMain`; EFF400 and EFF401 consume them, so a runner
+passed as a value (`program.pipe(Effect.runFork)`, `items.map(Effect.runPromise)`, `const run = Effect.runSync`) is
+reported like a call. EFF403 comes from `import` declarations (comments, strings, multi-line forms and
+`import type *` are handled), EFF404 from `require()` and module-scope `import()`.
 
-Differential result: all 203 fixtures compared; 0 mismatches on the implemented rules, 4 pinned
-divergences (`expectFindingKeys` in the fixture, documented fixes the TypeScript oracle lacked:
-aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403).
+**Type diagnostics and toolchain** (`diagnostics.rs`, `diagnostics/`): EFF500-504 and EFF901/902. One
+`tsc --noEmit --pretty false` run per TypeScript project, parsed from `file(line,col): error|warning TSxxxx: message`.
+An Effect diagnostic is a message ending in `effect(<name>)` (`floatingEffect` -> EFF500, `missingEffectContext` ->
+501, `missingEffectError` -> 502, `missingLayerContext`/`unclosedLayer` -> 503; any severity); every other diagnostic
+of severity `error` is EFF504, whose `lineText` is `TSxxxx: message` (there is no separate raw-diagnostics key in the
+result). Only diagnostics of scanned source files count; file-less (option) diagnostics never do. A file belongs to
+the nearest ancestor `tsconfig.json` whose program (`--listFiles`) contains it, else to the inferred project, run as
+`--ignoreConfig --allowJs --jsx react-jsx --allowImportingTsExtensions <files>` (those flags are the inferred-project
+defaults that differ from the bare CLI defaults; the file list goes through a response file in the system temp
+dir, nothing is written to the target). Projects run concurrently, and `start(ctx) -> Handle` runs the whole stage on
+its own thread, joined by `Handle::finish()`.
 
-### Type diagnostics and toolchain (`diagnostics.rs`, `diagnostics/`)
+Toolchain policy: `contracts/effect-capabilities.json` `support.*.version` is the *verified* toolchain, not a pin.
+EFF901: no local `node_modules/typescript/bin/tsc` of TypeScript major 7 with the `+effect-tsgo.` marker, or a
+declared `typescript` range of another major. EFF902: `@effect/tsgo` not declared, or not caret-compatible (same
+major; for 0.x the same minor) with the provider version in the compiler marker.
 
-EFF500-504 and EFF901/902. One `tsc --noEmit --pretty false` CLI run per TypeScript project, parsed
-from `file(line,col): error|warning TSxxxx: message`; an Effect diagnostic is a message ending in
-`effect(<name>)` (`floatingEffect` -> EFF500, `missingEffectContext` -> 501, `missingEffectError` ->
-502, `missingLayerContext`/`unclosedLayer` -> 503; any severity), every other diagnostic of severity
-`error` is EFF504. Scope as in `findingsFromCompilerFacts`: only diagnostics of scanned source files;
-file-less (option) diagnostics never count.
+**Contracts and package stages** (`contracts/`, `package/`): EFF401 execution contracts on runner references and
+EFF402 platform constructors (`contracts/wrangler.rs` is the shared minimal Wrangler config reader); package and
+capability rules (EFF2xx/3xx/9xx). No `getTypeAtLocation`: what only a type decides becomes a `notProven` fact.
 
-Why this reproduces the oracle's diagnostic set: the oracle asks the tsgo API for each scanned file's
-default project. Rust does the same assignment with the CLI: a file belongs to the nearest ancestor
-`tsconfig.json` whose program (`--listFiles`) contains it, else to the inferred project, run as
-`--ignoreConfig --allowJs --jsx react-jsx --allowImportingTsExtensions <files>` (those flags are the
-inferred-project defaults that differ from the bare CLI defaults, found by differential probing;
-the file list goes through a response file in the system temp dir, nothing is written to the target).
-Projects run concurrently. `start(ctx) -> Handle` spawns the whole stage on a thread before the other
-analyses; `Handle::finish()` joins it. The oracle's API getters overlap (bind diagnostics are returned
-twice), so the oracle now de-duplicates identical diagnostics (`compiler-facts.ts`).
+**Projection** (`projection/`). Invariant: a projection is a pure function of (findings, files, scan state,
+toolchain, build info); it never recomputes a rule verdict or a resolver fact.
 
-Toolchain policy (W9): `contracts/effect-capabilities.json` `support.*.version` is the *verified*
-toolchain, not a pin. EFF901: no local `node_modules/typescript/bin/tsc` of TypeScript major 7 with the
-`+effect-tsgo.` marker, or a declared `typescript` range of another major. EFF902: `@effect/tsgo` not
-declared, or not caret-compatible (same major; for 0.x the same minor) with the provider version in the
-compiler marker. Verified: TypeScript 7.0.2 + `@effect/tsgo` 0.56.0.
-## Projection stage (`projection/`)
-
-Invariant: a projection is a pure function of (findings, files, scan state, toolchain, build info);
-it never recomputes a rule verdict or a resolver fact.
-
-- `collate.rs`, `json.rs`: `stableJson` (keys sorted with `localeCompare`, 2-space indent) and SHA-256 are
-  the byte contract of `complianceHash`/`inputHash`/`fullHash`. `collate::locale_compare` is exact for
-  ASCII (CLDR root order, cross-checked against Node's `Intl.Collator`); non-ASCII sorts by code point.
-- `source_facts.rs`: masked code text (strings, template text, comments blanked, as `sourceFactsForFile.codeLines`)
-  and the Effect member/call names of the top-level import bindings (`semanticFactsForFile`), computed on the
-  oxc AST (no tsgo round trips). Names are rooted in import declarations, not scopes: these are review facts.
+- `collate.rs`, `json.rs`: `stableJson` (keys sorted with `localeCompare`, 2-space indent) and SHA-256 are the byte
+  contract of `complianceHash`/`inputHash`/`fullHash`. `collate::locale_compare` is exact for ASCII (CLDR root order,
+  cross-checked against Node's `Intl.Collator`); non-ASCII sorts by code point.
+- `source_facts.rs`: masked code text (strings, template text, comments blanked) and the Effect member/call names of
+  the top-level import bindings, computed on the oxc AST. Names are rooted in import declarations, not scopes: these
+  are review facts.
 - `signals.rs`, `schemas.rs`: `buildSignals` with `signals.schema.json` validation; evidence and gate summary are
   validated against their schemas before they are written.
 - `profile.rs`: `buildProfile`, `activeProfilesFor`, `requiredReferencesFor`.
 - `evidence.rs`: evidence record, gate summary (`notProven`: defaults, rule coverage, manifest, unproven facts),
   bundle files (`scan-result.json`, `scan-evidence.json`, `gate-summary.json`, `input.sha256`, `full.sha256`).
-- `toolchain.rs`: `node <root>/node_modules/typescript/bin/tsc --version` (as `runLocalTsc`; needs `node` on `PATH`),
-  the diagnostics provider version from `effect-capabilities.json`, and the compiler fingerprint
-  (`sha256(sorted absolute scanned paths joined by NUL)`, one transaction).
-- `cli.rs`: `--output human|gate-json|raw-json` (TTY default human, otherwise gate-json), `--profile`, `--timings`,
-  `--evidence <dir>`, `--build-info`, exit codes.
+- `toolchain.rs`: `node <root>/node_modules/typescript/bin/tsc --version` (needs `node` on `PATH`), the diagnostics
+  provider version from `effect-capabilities.json`, and the compiler fingerprint (`sha256(sorted absolute scanned paths
+  joined by NUL)`, one transaction).
+- `cli.rs`: argument parsing and usage (above), `--output human|gate-json|raw-json` (TTY default human, otherwise
+  gate-json), the human rendering.
 
-Injection points (other stages leave these in `ScanResult.extras`; the projection consumes and removes them):
+Inputs a stage leaves in `ScanResult.extras` for the projection, which consumes and removes them:
 
 | key | shape | provider |
 |---|---|---|
-| `compilerMeta` | `{ "fingerprint": string, "transactionCount": 1 }` | diagnostics stage (until then derived as in the oracle) |
-| `notProvenFacts` | `[{ "id": string, "reason": string }]` | contracts stage (EFF402 cases it cannot decide) |
+| `notProvenFacts` | `[{ "id": "<rule>:<file>:<line>", "reason": string }]` | contracts stage (EFF402 cases it cannot decide) |
+| `compilerMeta` | `{ "fingerprint": string, "transactionCount": 1 }` | none today: the projection derives it itself |
 
-Other extras (`compilerDiagnostics`, ...) pass through into the raw result in insertion order.
+No other `extras` key exists besides the projection's own outputs (`signals`, `profile`, `evidence`, `gateSummary`,
+`timings`).
 
-Contract issue found: `compiler.fingerprint` (hence `scanner.fullHash`, the audit hash) hashes *absolute*
-scanned paths, so the same tree checked out elsewhere gets a different `fullHash`. `inputHash` and
-`complianceHash` are unaffected. Fix when the diagnostics stage lands: fingerprint the root-relative paths.
-
-## Next
-
-1. EFF401 execution contracts on runner references (B2), EFF402 platform constructors (no
-   `getTypeAtLocation`: unverifiable cases become `notProven`).
-2. Package/capability rules (EFF3xx). (Toolchain checks and EFF500-504 via the tsgo CLI: done.)
-1. (done) EFF401 execution contracts on runner references (B2), EFF402 platform constructors
-   (`contracts.rs` + `contracts/{model,verify,modules,wrangler}.rs`; `contracts/wrangler.rs` is the
-   shared minimal Wrangler config reader).
-2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
-3. ~~Profile, signals, evidence, gate-summary, complianceHash~~ (done: projection stage).
-4. Single build artifact + install path; delete the TS scanner after parity.
 
 ## Distribution and installation
 
@@ -354,13 +376,13 @@ local install) ships those same bytes and the same `build-info.json` (one build 
 | path | content |
 |---|---|
 | `dist/platforms/<platform>/effect-scan` + `build-info.json` | the only build output; `<platform>` is `darwin-arm64`, `linux-x64`, `linux-arm64` (`scripts/release/platforms.mjs` is the one list) |
-| `dist/tools/` | TypeScript development tools (self-test, checks, oracle, `build-info.json`); never shipped |
+| `dist/tools/` | TypeScript development tools (fixture runner, checks, `build-info.json`); never shipped |
 | `dist/skill/` | assembled skill (`make skill`) |
 | `dist/npm/*.tgz` | npm release set (`make npm-package`) |
 | `$(INSTALL_ROOT)/<buildId>/effect-scan` | installed binary (default `~/.local/lib/effect-scan`) |
 | `$(PREFIX)/bin/effect-scan` | symlink to the installed binary (default `~/.local/bin`) |
 
-`dist-dev/`, `dist-installed/`, `dist/build/`, `dist/validator/` no longer exist.
+`dist-dev/`, `dist-installed/`, `dist/build/`, `dist/validator/` no longer exist (the scanner never treats `dist-dev`/`dist-installed` as source).
 `target/release/effect-scan` is cargo's scratch output and is NOT the artifact: a plain
 `cargo build` embeds the "unknown build" record; `make build` builds with
 `EFFECT_SCAN_BUILD_INFO=dist/tools/build-info.json` (written by `scripts/write-build-info.ts`, source set now
@@ -374,7 +396,7 @@ includes `crates/`, `Cargo.*`, `packaging/`) and then asserts the binary's `--bu
 | `make install [PREFIX= INSTALL_ROOT=]` | build, copy to `$(INSTALL_ROOT)/<buildId>/effect-scan` (immutable per build id), point `$(BIN)` at it |
 | `make skill` | build, assemble `dist/skill`, run `scripts/check-skill-entry.mjs` |
 | `make npm-package` | build, `scripts/release/pack.mjs` -> `dist/npm` (missing platforms become marked placeholders locally; `PACK_FLAGS=` requires all) |
-| `make verify-offline` | everything without network: provenance, registry/contract checks, TS self-tests, Rust self-scan, skill entry, `verify-package` |
+| `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `verify-package` |
 | `make verify-online` | networked acceptance + benchmark |
 | `make verify` | offline + online, and the installed binary must not change meanwhile |
 
@@ -483,27 +505,65 @@ an error; a missing package name is a warning). Nothing in the repository publis
 
 ### Migration notes for users
 
-Command name, arguments, exit codes (0/1/2/64) and the output contracts are unchanged.
-- Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`) -> a shim that execs the
-  native binary: `npm i -g @yansircc/effect-scan` keeps working; `npx`/`node_modules/.bin/effect-scan` too.
-  Do not call `dist/validator/scan.js`; it no longer exists. Self-test flags are maintainer-only.
+Command name, output modes and the 0/1/2/64 exit codes are unchanged; the items below are what a downstream user or
+tool has to know.
+
+**Installation**
+- Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`) -> a shim that execs the native
+  binary: `npm i -g @yansircc/effect-scan` keeps working; `npx`/`node_modules/.bin/effect-scan` too. Do not call
+  `dist/validator/scan.js`; it no longer exists. Self-test flags are maintainer-only.
 - Old local install `make install` -> `<repo>/dist-installed/<buildId>/validator/scan.js` symlinked at
   `~/.local/bin/effect-scan`; now `~/.local/lib/effect-scan/<buildId>/effect-scan` (a real binary) behind the same
   `~/.local/bin/effect-scan`. Delete the old `dist-installed/`.
-- SKILL.md: the command was `node <skill-root>/runtime/validator/scan.js` (which the old package did not
-  actually contain); it is `<skill-root>/runtime/effect-scan`. The skill no longer bundles `node_modules`
-  or the TypeScript runtime packages.
-- Hashes: `scanner.buildId` (and so `complianceHash`) changes with every build as before; it now also
-  covers Rust sources, so the first release of this layout re-baselines.
-4. (done) Delete the TS scanner after parity. Open: single build artifact + install path (Makefile `install` / `package`,
-   `package.json` `bin`, SKILL.md runtime paths still name `validator/scan.js`).
+- SKILL.md: the command was `node <skill-root>/runtime/validator/scan.js` (which the old package did not actually
+  contain); it is `<skill-root>/runtime/effect-scan`. The skill no longer bundles `node_modules` or the TypeScript
+  runtime packages.
+- Hashes: `scanner.buildId` (and so `complianceHash`) changes with every build as before; it now also covers Rust
+  sources (`crates/`, `Cargo.*`, `packaging/`), so the first release of this layout re-baselines.
 
-## Open items (not done in this change)
+**Command line**
+- Unknown flags used to be ignored (`--stirct` ran a non-strict scan and exited 0; `--help` scanned the current
+  directory). They now exit 64. Scripts that passed flags the scanner never had must drop them. `--help` prints the
+  usage and exits 0.
+- A repeated value flag (`--output a --output b`) and a second positional argument exit 64.
+- `--rules <file>` is for tests only (see "Command line and suppression"). An invalid contract is exit 2, never 134.
+
+**`eff-ignore expires`**
+- Compared as a date, not as text (`Date.parse` semantics of the old scanner, formats in
+  `references/scanner-manifest.md`). An `expires` that does not parse is now a finding under
+  `--fail-on-suppression-drift` instead of being ignored. Check existing comments with that flag once after upgrading.
+
+**`contracts/rules.json` (`schemaVersion` 3)** - for anything that reads or supplies a rule contract (custom rules,
+registries, generators): `scanner.pattern` and the `line-regex` kind are gone; map them with the table in "Rule
+contract change". `source-import` now takes `packages` (a name or any of its subpaths) and `packagePrefixes` (string
+prefix), after dropping `node:`; a rule that needs neither is invalid. The scanner rejects `schemaVersion` other than 3
+and validates the whole contract before scanning (exit 2 with the rule id).
+
+**`gate-summary.notProven[].source`** - for anything that validates the gate summary against a schema.
+`notProven[]` items now come from four sources: `scanner-default`, `manifest` (as before), `rule-coverage` (one item per
+blind spot of every rule that ran; practically every gate summary has some) and `unproven-fact` (a fact a rule could not
+decide). Nothing is renamed or removed, `schemaVersion` stays 2, and a consumer that reads fields by name and ignores
+unknown `source` values is unaffected. A consumer that validates with the previous `gate-summary.schema.json` is
+affected: that schema's `source` enum rejects the two new values, so the document fails validation. Transition:
+1. Vendor the `contracts/gate-summary.schema.json` of this release (it accepts all four sources). Nothing else in the
+   schema changed.
+2. If the old schema must stay for a while, remove the items with `source` of `rule-coverage` or `unproven-fact` before
+   validating and surface them separately; they are review information, not gate verdicts (`ok`/`exitCode` do not
+   depend on them).
+3. To tell which schema a producer needs, test for the `source` values, not `schemaVersion`: the version field is
+   deliberately unchanged because it is a `const` in a closed schema and any change would reject every existing
+   document.
+
+**Rule semantics**: the verdict changes listed under "Known intentional differences" (AST facts instead of regexes,
+shadowing, `source-import` reporting every import, the `process-env` forms, the Effect-boundary callback exemption, EFF401
+runner values) can add or remove findings against a repository that passed before; re-run the gate and re-baseline.
+
+## Open items
 
 - Linux binaries were never built or run locally; the CI matrix (ubuntu-24.04, ubuntu-24.04-arm) is their first real build.
   They need glibc >= 2.39; older glibc or musl is a new entry in `scripts/release/platforms.mjs` and the matrix.
 - `compiler.fingerprint` hashes absolute scanned paths, so `scanner.fullHash` differs between checkout locations
-  (`inputHash` and `complianceHash` do not). Fix: fingerprint root-relative paths.
+  (`inputHash` and `complianceHash` do not). Fix: fingerprint root-relative paths; required before `fullHash` is compared across machines.
 - A project with a TypeScript syntax error reports its syntax errors (EFF504) but no EFF500-503 until fixed; the tsc CLI
   skips semantic diagnostics then. The gate fails either way.
 - Solution-style `tsconfig.json` (references, no `files`) is not followed; its files fall to the inferred project.

@@ -8,5 +8,8 @@
   "expectRules": [
     "EFF326"
   ],
+  "expectFindingKeys": [
+    "package.json:1:EFF326:error"
+  ],
   "exact": true
 }

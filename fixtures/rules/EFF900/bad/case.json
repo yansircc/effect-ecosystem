@@ -8,5 +8,8 @@
   "expectRules": [
     "EFF900"
   ],
+  "expectFindingKeys": [
+    ".effect-skill.json:1:EFF900:error"
+  ],
   "exact": true
 }

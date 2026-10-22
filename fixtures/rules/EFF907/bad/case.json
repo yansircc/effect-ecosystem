@@ -8,6 +8,9 @@
   "expectRules": [
     "EFF907"
   ],
+  "expectFindingKeys": [
+    ".effect-skill.json:1:EFF907:error"
+  ],
   "exact": true,
   "scanPath": "apps/runtime"
 }

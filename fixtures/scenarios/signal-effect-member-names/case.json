@@ -1,0 +1,19 @@
+{
+  "description": "signal-effect-member-names",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ],
+  "expectSignalCount": 9,
+  "allowCompileErrors": [
+    "src/sched.ts:TS1192",
+    "src/Comp.tsx:TS2339"
+  ],
+  "allowCompileErrorsReason": "adversarial member-name fixture: `import Eff from \"effect/Effect\"` (no default export) and JSX tags `<Schedule.Foo>` / `<Sch.Bar.Baz />` name members that do not exist, because the subject is name recognition in default imports and JSX, not API validity"
+}

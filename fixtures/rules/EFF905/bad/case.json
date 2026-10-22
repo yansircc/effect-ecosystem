@@ -8,5 +8,8 @@
   "expectRules": [
     "EFF905"
   ],
+  "expectFindingKeys": [
+    "wrangler.toml:1:EFF905:error"
+  ],
   "exact": true
 }

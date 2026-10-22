@@ -97,7 +97,7 @@ For a target project, run its normal tests plus
 ## Host Tooling Boundary
 
 The scanner is a native Rust binary (`crates/effect-scan`); the TypeScript under
-`validator/**` and `scripts/**` is development tooling (fixture harness, checks) that is
+`tools/**` and `scripts/**` is development tooling (fixture harness, checks) that is
 never shipped. That code is host tooling for the skill, not target application code. The target-project
 Effect rules apply to repositories being scanned; host tooling compliance is
 tracked separately by this repo's own registry and verification scripts.
