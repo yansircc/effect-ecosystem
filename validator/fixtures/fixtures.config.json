@@ -2034,7 +2034,8 @@
       ],
       "rustFindings": [
         "src/a.ts:2:EFF400:error",
-        "src/a.ts:3:EFF400:error"
+        "src/a.ts:3:EFF400:error",
+        "src/a.ts:3:EFF504:error"
       ]
     },
     {
@@ -3035,7 +3036,7 @@
       "toolchain": "catalog",
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
-        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalog:\n  typescript: 7.0.2\n  '@effect/tsgo': 0.45.0\n",
+        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalog:\n  typescript: {{VERIFIED_TYPESCRIPT}}\n  '@effect/tsgo': {{VERIFIED_PROVIDER}}\n",
         "package.json": "{}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -3054,7 +3055,7 @@
       "toolchain": "named-catalog",
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
-        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalogs:\n  toolchain:\n    typescript: 7.0.2\n    '@effect/tsgo': 0.45.0\n",
+        "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\ncatalogs:\n  toolchain:\n    typescript: {{VERIFIED_TYPESCRIPT}}\n    '@effect/tsgo': {{VERIFIED_PROVIDER}}\n",
         "package.json": "{}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -3098,6 +3099,23 @@
       "expectRules": [
         "EFF901"
       ],
+      "exact": true
+    },
+    {
+      "name": "toolchain-caret-ranges-green",
+      "suites": [
+        "toolchain-hard-cut",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "toolchain": "caret-ranges",
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
       "exact": true
     },
     {

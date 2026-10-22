@@ -6,6 +6,31 @@ import { rootPackageJson } from "./manifest.js"
 import { makeFinding } from "./findings.js"
 import { resolveWorkspaceDependencyVersion } from "./resolver.js"
 
+/**
+ * The installed compiler is the source of truth: `tsc --version` of a patched TypeScript reads
+ * `Version <ts>+effect-tsgo.<provider>`. Contract `support.*.version` records the verified
+ * toolchain; runtime matches by TypeScript major + compiler marker, never by exact version.
+ */
+export function parseCompilerVersion(stdout: string, compilerMarker: string) {
+  const escaped = compilerMarker.replace(/[.+*?^${}()|[\]\\]/g, "\\$&")
+  const match = stdout.trim().match(new RegExp(`^Version (\\d+)\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(${escaped}(\\d+\\.\\d+\\.\\d+\\S*))?(?:\\s|$)`))
+  if (!match) return null
+  return { typescriptMajor: Number(match[1]), providerVersion: match[3] ?? null }
+}
+
+/** `major.minor` line of a declared range (`1.2.3`, `^1.2.3`, `~1.2.3`, `>=1.2.3 ...`); null when not a lower-bounded version. */
+export function declaredVersionLine(range: unknown) {
+  if (typeof range !== "string") return null
+  const match = range.trim().match(/^(?:[\^~=v]|>=)?\s*(\d+)\.(\d+)\.\d+/)
+  return match ? { major: Number(match[1]), minor: Number(match[2]) } : null
+}
+
+/** Caret compatibility: same major, and for 0.x the same minor. */
+export function providerMatchesDeclared(providerVersion: string, declared: { major: number; minor: number }) {
+  const [major, minor] = providerVersion.split(".").map(Number)
+  return major === declared.major && (major !== 0 || minor === declared.minor)
+}
+
 export function strictPrerequisites(root, manifest, { toolingRoot = root } = {}) {
   const findings = []
   const support = supportedToolchain()
@@ -14,24 +39,27 @@ export function strictPrerequisites(root, manifest, { toolingRoot = root } = {})
     ...(pkg.dependencies ?? {}),
     ...(pkg.devDependencies ?? {}),
   }
-  const typescriptVersion = resolveWorkspaceDependencyVersion(
+  const declaredTypescript = declaredVersionLine(resolveWorkspaceDependencyVersion(
     toolingRoot,
     "typescript",
     declaredDependencies.typescript,
-  )
-  const diagnosticsVersion = resolveWorkspaceDependencyVersion(
+  ))
+  const declaredProvider = declaredVersionLine(resolveWorkspaceDependencyVersion(
     toolingRoot,
     support.diagnostics.package,
     declaredDependencies[support.diagnostics.package],
-  )
+  ))
   const tsc = runLocalTsc(toolingRoot, ["--version"])
-  const expectedCompiler = `Version ${support.typescript.version}${support.diagnostics.compilerMarker}${support.diagnostics.version}`
-  if (typescriptVersion !== support.typescript.version
-    || tsc.status !== 0
-    || !String(tsc.stdout).trim().startsWith(expectedCompiler)) {
+  const compiler = tsc.status === 0 ? parseCompilerVersion(String(tsc.stdout), support.diagnostics.compilerMarker) : null
+  // EFF901: no local compiler of the supported TypeScript major carrying the Effect marker.
+  if (declaredTypescript?.major !== support.typescript.major
+    || compiler?.typescriptMajor !== support.typescript.major
+    || compiler.providerVersion === null) {
     findings.push(makeFinding(root, { ruleId: "EFF901", file: "package.json" }))
   }
-  if (diagnosticsVersion !== support.diagnostics.version) {
+  // EFF902: the declared provider is absent, or is not the line the compiler is patched with.
+  if (declaredProvider === null
+    || (compiler?.providerVersion != null && !providerMatchesDeclared(compiler.providerVersion, declaredProvider))) {
     findings.push(makeFinding(root, { ruleId: "EFF902", file: "package.json" }))
   }
   return findings

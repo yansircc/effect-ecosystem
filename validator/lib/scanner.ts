@@ -8,7 +8,7 @@ import { scanEdgeRules } from "./edge-rules.js"
 import { scanPackageRules } from "./package-rules.js"
 import { scanFilePairRules } from "./file-pair.js"
 import { applySuppressions, validateSuppressionDrift } from "./suppression.js"
-import { runLocalTsc, strictPrerequisites } from "./toolchain.js"
+import { parseCompilerVersion, runLocalTsc, strictPrerequisites } from "./toolchain.js"
 import { activeProfilesFor, buildProfile, buildSignals, requiredReferencesFor } from "./profile.js"
 import { scanRuntimeFactRules } from "./runtime-facts.js"
 import { resolveScanState } from "./resolver.js"
@@ -20,6 +20,7 @@ import { findingsFromCompilerFacts, renderCompilerDiagnostics } from "./findings
 import { buildScanPlan } from "./scan-plan.js"
 import { readJsonFile } from "./util.js"
 import { sourceFactsForFile } from "./source-facts.js"
+import { supportedToolchain } from "./effect-capabilities.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const RULES_PATH = resolve(__dirname, "..", "..", "contracts", "rules.json")
@@ -91,7 +92,7 @@ export function runScan(inputRoot: string, options: any = {}) {
   const toolchainMeta = {
     available: tscVersion.status === 0,
     tscVersion: tscVersion.status === 0 ? tscVersion.stdout.trim() : null,
-    tsgoVersion: "0.45.0",
+    tsgoVersion: tscVersion.status === 0 ? parseCompilerVersion(String(tscVersion.stdout), supportedToolchain().diagnostics.compilerMarker)?.providerVersion ?? null : null,
     fingerprint: compiler.fingerprint,
     transactionCount: compiler.transactionCount,
   }

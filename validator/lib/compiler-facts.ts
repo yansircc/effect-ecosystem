@@ -41,14 +41,16 @@ export function prepareCompilerFacts(files, { diagnostics = false } = {}) {
     projects.set(project.id, project)
     programs.set(file.absolute, { sourceFile, checker: project.checker, project })
   }
+  // The program diagnostics are one set, but the API getters overlap (a binder diagnostic is returned
+  // by getBindDiagnostics and again by getSemanticDiagnostics), so identical diagnostics are one.
   const allDiagnostics = diagnostics
-    ? [...projects.values()].flatMap((project) => [
+    ? uniqueDiagnostics([...projects.values()].flatMap((project) => [
       ...project.program.getConfigFileParsingDiagnostics(),
       ...project.program.getProgramDiagnostics(),
       ...project.program.getSyntacticDiagnostics(),
       ...project.program.getBindDiagnostics(),
       ...project.program.getSemanticDiagnostics(),
-    ])
+    ]))
     : []
   const effectDiagnostics = allDiagnostics.filter(isEffectDiagnostic).map(toDiagnosticFact)
   const compilerDiagnostics = allDiagnostics.filter((diagnostic) => !isEffectDiagnostic(diagnostic)).map(toDiagnosticFact)
@@ -118,6 +120,16 @@ export function sameTypeScriptSymbol(left, right) {
 
 export function typeScriptSymbolDeclarations(symbol) {
   return (symbol?.declarations ?? []).map((declaration) => declaration.resolve()).filter(Boolean)
+}
+
+function uniqueDiagnostics(diagnostics) {
+  const seen = new Set<string>()
+  return diagnostics.filter((diagnostic) => {
+    const key = [diagnostic.fileName, diagnostic.pos, diagnostic.end, diagnostic.code, diagnostic.category, diagnostic.text].join("\0")
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function isEffectDiagnostic(diagnostic) {

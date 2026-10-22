@@ -72,15 +72,17 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value());
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
-    findings.extend(scan_line_rules(&files, registry));
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
+    // The compiler pass overlaps with every other stage: started here, joined below.
+    let diagnostics = (options.strict && manifest.is_some()).then(|| crate::diagnostics::start(&ctx));
+    findings.extend(scan_line_rules(&files, registry));
     if let Some(m) = manifest.as_ref() {
         findings.extend(scan_edge_rules(&files, m, registry));
         findings.extend(crate::contracts::scan(&ctx));
         findings.extend(crate::package::scan(&ctx));
     }
-    if options.strict && manifest.is_some() {
-        findings.extend(crate::diagnostics::scan(&ctx));
+    if let Some(diagnostics) = diagnostics {
+        findings.extend(diagnostics.finish());
     }
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);

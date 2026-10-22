@@ -38,6 +38,19 @@ Known intentional differences:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
+- EFF500-504 come from the `tsc` CLI, which reports semantic diagnostics (and Effect diagnostics) only
+  for a project without syntactic errors; the TypeScript oracle (tsgo API) reports both. A project
+  with a syntax error therefore yields its syntax errors (EFF504) but no EFF500-503/semantic EFF504
+  until it is fixed; the gate fails either way. Removal condition: the tsgo CLI reports semantic
+  diagnostics despite syntax errors, or diagnostics move to the API.
+- Line numbers of EFF50x are the compiler's own; the oracle recounts `\n`/`\r\n` in the file, so they
+  can differ only for files with lone `\r` or U+2028/2029 line breaks.
+- A project containing a TypeScript solution-style `tsconfig.json` (`references`, no `files`) is not
+  followed: its files fall to the inferred project (oracle: the referenced project). Not exercised by
+  any fixture.
+- A crashing compiler run (non-zero exit, no diagnostic line) is an EFF901 finding, not a green scan;
+  an unreadable `package.json` at the tooling root is "nothing declared" (EFF901/EFF902) instead of
+  a scan failure.
 
 ## Differential harness
 
@@ -72,10 +85,35 @@ divergences (`rustFindings` in the fixture, documented fixes the TypeScript orac
 aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403). TS self-test excludes
 `rustOnly` fixtures.
 
+### Type diagnostics and toolchain (`diagnostics.rs`, `diagnostics/`)
+
+EFF500-504 and EFF901/902. One `tsc --noEmit --pretty false` CLI run per TypeScript project, parsed
+from `file(line,col): error|warning TSxxxx: message`; an Effect diagnostic is a message ending in
+`effect(<name>)` (`floatingEffect` -> EFF500, `missingEffectContext` -> 501, `missingEffectError` ->
+502, `missingLayerContext`/`unclosedLayer` -> 503; any severity), every other diagnostic of severity
+`error` is EFF504. Scope as in `findingsFromCompilerFacts`: only diagnostics of scanned source files;
+file-less (option) diagnostics never count.
+
+Why this reproduces the oracle's diagnostic set: the oracle asks the tsgo API for each scanned file's
+default project. Rust does the same assignment with the CLI: a file belongs to the nearest ancestor
+`tsconfig.json` whose program (`--listFiles`) contains it, else to the inferred project, run as
+`--ignoreConfig --allowJs --jsx react-jsx --allowImportingTsExtensions <files>` (those flags are the
+inferred-project defaults that differ from the bare CLI defaults, found by differential probing;
+the file list goes through a response file in the system temp dir, nothing is written to the target).
+Projects run concurrently. `start(ctx) -> Handle` spawns the whole stage on a thread before the other
+analyses; `Handle::finish()` joins it. The oracle's API getters overlap (bind diagnostics are returned
+twice), so the oracle now de-duplicates identical diagnostics (`compiler-facts.ts`).
+
+Toolchain policy (W9): `contracts/effect-capabilities.json` `support.*.version` is the *verified*
+toolchain, not a pin. EFF901: no local `node_modules/typescript/bin/tsc` of TypeScript major 7 with the
+`+effect-tsgo.` marker, or a declared `typescript` range of another major. EFF902: `@effect/tsgo` not
+declared, or not caret-compatible (same major; for 0.x the same minor) with the provider version in the
+compiler marker. Verified: TypeScript 7.0.2 + `@effect/tsgo` 0.56.0.
+
 ## Next
 
 1. EFF401 execution contracts on runner references (B2), EFF402 platform constructors (no
    `getTypeAtLocation`: unverifiable cases become `notProven`).
-2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
+2. Package/capability rules (EFF3xx). (Toolchain checks and EFF500-504 via the tsgo CLI: done.)
 3. Profile, signals, evidence, gate-summary, complianceHash.
 4. Single build artifact + install path; delete the TS scanner after parity.

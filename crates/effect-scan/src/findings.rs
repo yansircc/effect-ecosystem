@@ -10,6 +10,7 @@ pub struct RuleMeta {
     pub message: String,
     pub reference: Option<String>,
     pub scanner: Value,
+    pub facts: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -44,6 +45,7 @@ impl Finding {
 }
 
 /// The rule contract (contracts/rules.json): one fact about every rule's id, severity, message.
+#[derive(Clone)]
 pub struct Registry {
     pub rules: Vec<RuleMeta>,
     by_id: HashMap<String, usize>,
@@ -63,6 +65,7 @@ impl Registry {
                 message: s("message"),
                 reference: rule.get("references").and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_str).map(String::from),
                 scanner: rule.get("scanner").cloned().unwrap_or(Value::Null),
+                facts: rule.get("facts").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default(),
             });
         }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
