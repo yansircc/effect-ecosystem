@@ -74,8 +74,9 @@ pub struct RunnerRef {
 }
 
 impl RunnerRef {
-    /// Execution of the runner: what lifecycle contracts (EFF401) count. EFF400 confines the
-    /// capability itself, so it consumes every reference regardless of `site`.
+    /// Execution of the runner: the one definition both EFF400 (outside an executable edge) and the
+    /// lifecycle contracts (EFF401) count. Aliases and other value positions only name the runner;
+    /// the alias's own uses are run points of their own.
     pub fn is_run_point(&self) -> bool {
         self.site == RunSite::Applied
     }

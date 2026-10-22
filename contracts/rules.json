@@ -1203,7 +1203,7 @@
       "coverage": {
         "proves": "Effect.run*/ManagedRuntime 运行器(make 及其实例的 run*/dispose)的每个引用(被调用、作为调用或 new 的参数传递、别名初始化或其它值位置)都位于 manifest executableEdges",
         "blindSpots": [
-          "只检查运行器引用本身:经 executableEdges 内导出的包装函数在别处被调用不会被标记",
+          "只检查运行点:运行器被调用,或作为某次调用/new 的参数传入(pipe(Effect.runFork)、.map(Effect.runPromise))。仅被保存、导出或作为别名初始化的运行器不是运行点(其后续的调用才是),因此 `export const run = Effect.runPromise` 本身不报,经 executableEdges 内导出的包装函数在别处被调用也不会被标记",
           "经动态属性/函数参数取得的运行器不可见",
           "*Runtime.runMain 不属于本规则:非 executableEdges 文件里的 runMain 不被 EFF400 报告,其归属由 EFF401 的 process-main 契约校验",
           "运行器身份只按文件内的 import 与 const 别名解析,外加相对路径的重导出(export { a as b } from、export * as N from、导入后再导出;export * from 只对运行器相关的 effect/@effect 名称生效,不核对包的真实导出表);非相对路径的重导出与函数内动态 import 取得的 Effect 命名空间(const { Effect: E } = await import(\"effect\"))不可见",

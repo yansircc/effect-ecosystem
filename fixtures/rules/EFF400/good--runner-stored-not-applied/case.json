@@ -1,0 +1,10 @@
+{
+  "description": "a runner that is only stored or exported (not applied) is not a run point; its applications are",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": []
+}

@@ -11,15 +11,9 @@
     "EFF400"
   ],
   "expectRuleCounts": {
-    "EFF400": 4
+    "EFF400": 3
   },
   "expectFindings": [
-    {
-      "ruleId": "EFF400",
-      "file": "src/a.ts",
-      "line": 4,
-      "lineTextIncludes": "const direct = Effect.runPromise"
-    },
     {
       "ruleId": "EFF400",
       "file": "src/a.ts",
@@ -40,7 +34,6 @@
     }
   ],
   "expectFindingKeys": [
-    "src/a.ts:4:EFF400:error",
     "src/a.ts:5:EFF400:error",
     "src/a.ts:6:EFF400:error",
     "src/a.ts:7:EFF400:error"

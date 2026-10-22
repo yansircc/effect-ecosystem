@@ -381,7 +381,7 @@ fn scan_edge_rules(files: &[SourceFile], _manifest: &Manifest, registry: &Regist
         };
         if !file.roles.executable_edge {
             for run in &file.facts.module.runner_refs {
-                if matches!(run.kind, RunnerKind::EffectRun | RunnerKind::ManagedRun) {
+                if run.is_run_point() && matches!(run.kind, RunnerKind::EffectRun | RunnerKind::ManagedRun) {
                     findings.push(make("EFF400", run.offset));
                 }
             }
