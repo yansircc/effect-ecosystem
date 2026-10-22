@@ -176,6 +176,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The installed scanner self-scans this checkout with --strict, which needs the Effect-patched TypeScript.
+      - name: Patch TypeScript with the Effect diagnostics provider
+        run: node scripts/prepare-effect-tsgo.mjs
+
       - name: Download platform binaries
         uses: actions/download-artifact@v8
         with:
