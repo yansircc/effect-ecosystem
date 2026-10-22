@@ -65,11 +65,18 @@ pub struct RunnerRef {
     pub offset: u32,
     /// Inside a function/arrow body (as opposed to module scope).
     pub nested: bool,
+    /// The whole initializer of `const alias = <runner>` whose alias is referenced in this module:
+    /// the identity is then counted at the alias's uses, which are runner references of their own.
+    pub alias_binding_used: bool,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct ModuleFacts {
     pub runner_refs: Vec<RunnerRef>,
+    /// Constructor provenance of every `new` expression (EFF402), in source order.
+    pub ctor_sites: Vec<CtorSite>,
+    /// Exported names (`default` included) that are a project-local class/function implementation.
+    pub implementation_exports: HashSet<String>,
     /// `import * as X from "effect" | "@effect/*"` (also `import type * as`), by statement offset.
     pub effect_namespace_imports: Vec<u32>,
     /// CommonJS `require()` calls and module-scope dynamic `import()` offsets.
@@ -85,6 +92,8 @@ const MANAGED_RUNTIME_RUNNERS: [&str; 5] = ["runPromise", "runPromiseExit", "run
 
 pub struct Contract {
     pub effect_runner_members: HashSet<String>,
+    /// Platform constructor names (rules.json EFF402 `scanner.constructors`): one fact, one location.
+    pub platform_constructors: HashSet<String>,
 }
 
 impl Contract {
@@ -94,7 +103,12 @@ impl Contract {
             .as_array()
             .map(|a| a.iter().filter_map(|v| v.as_str()).filter_map(|r| r.strip_prefix("Effect.")).map(String::from).collect())
             .unwrap_or_default();
-        Self { effect_runner_members: members }
+        Self { effect_runner_members: members, platform_constructors: HashSet::new() }
+    }
+
+    pub fn with_platform_constructors(mut self, names: impl IntoIterator<Item = String>) -> Self {
+        self.platform_constructors = names.into_iter().collect();
+        self
     }
 }
 
@@ -116,15 +130,25 @@ pub fn build_resolver<'s>(program: &Program, scoping: &'s Scoping) -> Resolver<'
 }
 
 pub fn collect(program: &Program, resolver: &Resolver, contract: &Contract) -> ModuleFacts {
+    let scoping = resolver.scoping();
     let mut collector = Collector {
         resolver,
         contract,
         facts: ModuleFacts::default(),
         callee_spans: Vec::new(),
         function_depth: 0,
+        used_alias_inits: Vec::new(),
     };
     collector.visit_program(program);
-    collector.facts
+    let mut facts = collector.facts;
+    let mut decls = DeclPass { resolver: &resolver, decls: HashMap::new() };
+    decls.visit_program(program);
+    let ctors = CtorResolver { scoping, decls: decls.decls, known: &contract.platform_constructors };
+    let mut sites = CtorSites { resolver: &resolver, ctors: &ctors, sites: Vec::new() };
+    sites.visit_program(program);
+    facts.ctor_sites = sites.sites;
+    facts.implementation_exports = implementation_exports(program);
+    facts
 }
 
 struct Prepass {
@@ -168,6 +192,7 @@ impl<'a> Visit<'a> for Prepass {
     }
 }
 
+/// Import bindings and derived aliases of one parsed module; the single source of import identity.
 pub struct Resolver<'s> {
     scoping: &'s Scoping,
     imports: HashMap<SymbolId, Origin>,
@@ -187,7 +212,15 @@ pub fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
     }
 }
 
-impl Resolver<'_> {
+impl<'s> Resolver<'s> {
+    pub fn build(program: &Program, scoping: &'s Scoping) -> Self {
+        build_resolver(program, scoping)
+    }
+
+    pub fn scoping(&self) -> &'s Scoping {
+        self.scoping
+    }
+
     pub fn alias_of(&self, symbol: SymbolId) -> Option<&Path> {
         self.aliases.get(&symbol)
     }
@@ -195,6 +228,16 @@ impl Resolver<'_> {
     pub fn symbol_of(&self, ident: &IdentifierReference) -> Option<SymbolId> {
         let id = ident.reference_id.get()?;
         self.scoping.get_reference(id).symbol_id()
+    }
+
+    /// Number of resolved references to a symbol (its uses).
+    pub fn reference_count(&self, symbol: SymbolId) -> usize {
+        self.scoping.get_resolved_reference_ids(symbol).len()
+    }
+
+    /// The import binding an identifier reference resolves to, if any.
+    pub fn import_of(&self, ident: &IdentifierReference) -> Option<&Origin> {
+        self.imports.get(&self.symbol_of(ident)?)
     }
 
     pub fn path_of(&self, input: &Expression) -> Option<Path> {
@@ -388,9 +431,20 @@ struct Collector<'r, 's> {
     facts: ModuleFacts,
     callee_spans: Vec<Span>,
     function_depth: u32,
+    /// Spans of `const alias = <expr>` initializers whose alias has uses.
+    used_alias_inits: Vec<Span>,
 }
 
 impl<'a> Visit<'a> for Collector<'_, '_> {
+    fn visit_variable_declarator(&mut self, decl: &VariableDeclarator<'a>) {
+        if let (BindingPattern::BindingIdentifier(id), Some(init)) = (&decl.id, &decl.init) {
+            if id.symbol_id.get().is_some_and(|symbol| self.resolver.reference_count(symbol) > 0) {
+                self.used_alias_inits.push(unwrap(init).span());
+            }
+        }
+        walk::walk_variable_declarator(self, decl);
+    }
+
     fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
         self.function_depth += 1;
         walk::walk_function(self, func, flags);
@@ -446,6 +500,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
                     usage: if called { Usage::Called } else { Usage::Value },
                     offset: expr_span.start,
                     nested: self.function_depth > 0,
+                    alias_binding_used: self.used_alias_inits.contains(&expr_span),
                 });
             }
         }
@@ -463,6 +518,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
                     usage: if called { Usage::Called } else { Usage::Value },
                     offset: span.start,
                     nested: self.function_depth > 0,
+                    alias_binding_used: self.used_alias_inits.contains(&span),
                 });
                 // The chain is one reference; its sub-paths are not runner references of their own.
                 return;
@@ -470,4 +526,359 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         }
         walk::walk_member_expression(self, member);
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Constructor provenance (EFF402). The oracle asks the type checker; here identity comes from
+// import bindings, scopes and `const` initializers, and whatever only a type could decide is
+// reported as `Opaque` (a `notProven` fact), never guessed.
+// ---------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CtorOrigin {
+    /// Resolves to a platform constructor (`name` is one of the contract's platform constructors).
+    /// `verified`: through a global lookup and `const` bindings only.
+    Platform { name: String, verified: bool },
+    /// A project-local implementation, or a global that is not a platform constructor.
+    NotPlatform,
+    /// A binding imported from another module; `member` is set for `ns.export` of a namespace import.
+    Import { module: String, export: String, member: bool, hint: String },
+    /// Identity depends on type information (`reason` names the unresolvable construct).
+    Opaque { reason: &'static str },
+}
+
+#[derive(Debug, Clone)]
+pub struct CtorSite {
+    pub offset: u32,
+    pub origin: CtorOrigin,
+}
+
+/// An expression reduced to what constructor provenance can follow; owned, so declarations can be
+/// recorded during one walk and chased during another.
+#[derive(Clone)]
+enum Src {
+    /// Class, function or arrow expression: a concrete implementation.
+    Impl,
+    Ident { name: String, symbol: Option<SymbolId>, import: Option<Origin> },
+    Member { object: Box<Src>, name: String },
+    /// `x as T` / `<T>x`: the value is `x`, the static type is not.
+    Cast(Box<Src>),
+    Opaque(&'static str),
+}
+
+enum Decl {
+    Implementation,
+    Var { init: Option<Src>, is_const: bool },
+    /// `const { key: local } = init`
+    Binding { key: String, init: Src, is_const: bool },
+}
+
+struct DeclPass<'r, 's> {
+    resolver: &'r Resolver<'s>,
+    decls: HashMap<SymbolId, Decl>,
+}
+
+fn src_of(resolver: &Resolver, input: &Expression) -> Src {
+    match input {
+        Expression::ParenthesizedExpression(e) => src_of(resolver, &e.expression),
+        Expression::TSNonNullExpression(e) => src_of(resolver, &e.expression),
+        Expression::TSSatisfiesExpression(e) => src_of(resolver, &e.expression),
+        Expression::TSAsExpression(e) => Src::Cast(Box::new(src_of(resolver, &e.expression))),
+        Expression::TSTypeAssertion(e) => Src::Cast(Box::new(src_of(resolver, &e.expression))),
+        Expression::ClassExpression(_) | Expression::FunctionExpression(_) | Expression::ArrowFunctionExpression(_) => Src::Impl,
+        Expression::Identifier(ident) => Src::Ident {
+            name: ident.name.to_string(),
+            symbol: resolver.symbol_of(ident),
+            import: resolver.import_of(ident).cloned(),
+        },
+        other => match other.as_member_expression() {
+            Some(MemberExpression::StaticMemberExpression(m)) => {
+                Src::Member { object: Box::new(src_of(resolver, &m.object)), name: m.property.name.to_string() }
+            }
+            Some(MemberExpression::ComputedMemberExpression(m)) => match &m.expression {
+                Expression::StringLiteral(s) => Src::Member { object: Box::new(src_of(resolver, &m.object)), name: js(s.value) },
+                _ => Src::Opaque("computed constructor member"),
+            },
+            Some(MemberExpression::PrivateFieldExpression(_)) => Src::Opaque("private constructor member"),
+            None => Src::Opaque("constructor expression is not a name or member access"),
+        },
+    }
+}
+
+impl<'a> Visit<'a> for DeclPass<'_, '_> {
+    fn visit_class(&mut self, class: &Class<'a>) {
+        if class.r#type == ClassType::ClassDeclaration {
+            if let Some(symbol) = class.id.as_ref().and_then(|id| id.symbol_id.get()) {
+                self.decls.insert(symbol, Decl::Implementation);
+            }
+        }
+        walk::walk_class(self, class);
+    }
+
+    fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
+        if matches!(func.r#type, FunctionType::FunctionDeclaration | FunctionType::TSDeclareFunction) {
+            if let Some(symbol) = func.id.as_ref().and_then(|id| id.symbol_id.get()) {
+                self.decls.insert(symbol, Decl::Implementation);
+            }
+        }
+        walk::walk_function(self, func, flags);
+    }
+
+    fn visit_variable_declaration(&mut self, decl: &VariableDeclaration<'a>) {
+        let is_const = decl.kind == VariableDeclarationKind::Const;
+        for declarator in &decl.declarations {
+            self.declare(declarator, is_const);
+        }
+        walk::walk_variable_declaration(self, decl);
+    }
+}
+
+impl DeclPass<'_, '_> {
+    fn declare(&mut self, declarator: &VariableDeclarator, is_const: bool) {
+        match &declarator.id {
+            BindingPattern::BindingIdentifier(id) => {
+                if let Some(symbol) = id.symbol_id.get() {
+                    let init = declarator.init.as_ref().map(|e| src_of(self.resolver, e));
+                    self.decls.insert(symbol, Decl::Var { init, is_const });
+                }
+            }
+            BindingPattern::ObjectPattern(object) => {
+                let Some(init) = &declarator.init else { return };
+                for property in &object.properties {
+                    let PropertyKey::StaticIdentifier(key) = &property.key else { continue };
+                    let target = match &property.value {
+                        BindingPattern::AssignmentPattern(assign) => &assign.left,
+                        other => other,
+                    };
+                    if let BindingPattern::BindingIdentifier(id) = target {
+                        if let Some(symbol) = id.symbol_id.get() {
+                            self.decls.insert(symbol, Decl::Binding { key: key.name.to_string(), init: src_of(self.resolver, init), is_const });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+enum Res {
+    Found(CtorOrigin),
+    /// Unresolved without types.
+    Undef(&'static str),
+}
+
+struct CtorResolver<'r> {
+    scoping: &'r Scoping,
+    decls: HashMap<SymbolId, Decl>,
+    known: &'r HashSet<String>,
+}
+
+const GLOBAL_OBJECTS: [&str; 3] = ["globalThis", "window", "self"];
+
+fn with_const(origin: CtorOrigin, is_const: bool) -> CtorOrigin {
+    match origin {
+        CtorOrigin::Platform { name, verified } => CtorOrigin::Platform { name, verified: verified && is_const },
+        other => other,
+    }
+}
+
+fn strip_casts(mut src: &Src) -> &Src {
+    while let Src::Cast(inner) = src {
+        src = inner;
+    }
+    src
+}
+
+impl CtorResolver<'_> {
+    fn known(&self, name: &str) -> bool {
+        self.known.contains(name)
+    }
+
+    fn origin(&self, callee: &Src) -> CtorOrigin {
+        match self.resolve(callee, &mut HashSet::new()) {
+            Res::Found(origin) => origin,
+            Res::Undef(reason) => CtorOrigin::Opaque { reason },
+        }
+    }
+
+    /// A binding with no resolvable implementation is identified by its declared name only.
+    fn leaf(&self, names: &[&str], otherwise: &'static str) -> Res {
+        match names.iter().find(|n| self.known(n)) {
+            Some(name) => Res::Found(CtorOrigin::Platform { name: name.to_string(), verified: false }),
+            None => Res::Undef(otherwise),
+        }
+    }
+
+    fn resolve(&self, src: &Src, seen: &mut HashSet<SymbolId>) -> Res {
+        match strip_casts(src) {
+            Src::Impl => Res::Found(CtorOrigin::NotPlatform),
+            Src::Opaque(reason) => Res::Undef(reason),
+            Src::Cast(_) => unreachable!("casts are stripped"),
+            Src::Ident { name, symbol, import } => self.identifier(name, *symbol, import.as_ref(), seen),
+            Src::Member { object, name } => self.member(object, name),
+        }
+    }
+
+    fn identifier(&self, name: &str, symbol: Option<SymbolId>, import: Option<&Origin>, seen: &mut HashSet<SymbolId>) -> Res {
+        let Some(symbol) = symbol else {
+            // A global lookup: the platform constructors are ambient globals (a program without them does
+            // not compile, which EFF504 reports); any other global is not a platform constructor.
+            return Res::Found(if self.known(name) {
+                CtorOrigin::Platform { name: name.to_string(), verified: true }
+            } else {
+                CtorOrigin::NotPlatform
+            });
+        };
+        if let Some(origin) = import {
+            return Res::Found(CtorOrigin::Import { module: origin.module.clone(), export: origin.export.clone(), member: false, hint: name.to_string() });
+        }
+        let symbol_name = self.scoping.symbol_name(symbol);
+        let leaf = |otherwise| self.leaf(&[symbol_name, name], otherwise);
+        match self.decls.get(&symbol) {
+            Some(Decl::Implementation) => Res::Found(CtorOrigin::NotPlatform),
+            Some(Decl::Var { init: Some(init), is_const }) => {
+                if !seen.insert(symbol) {
+                    return leaf("cyclic constructor alias");
+                }
+                match self.resolve(init, seen) {
+                    Res::Found(origin) => Res::Found(with_const(origin, *is_const)),
+                    Res::Undef(reason) => leaf(reason),
+                }
+            }
+            Some(Decl::Binding { key, init, is_const }) => {
+                let global = self.is_global_object(init, &mut HashSet::new());
+                if self.known(key) {
+                    Res::Found(CtorOrigin::Platform { name: key.clone(), verified: global && *is_const })
+                } else if global {
+                    Res::Found(CtorOrigin::NotPlatform)
+                } else {
+                    leaf("destructured constructor of a non-global object")
+                }
+            }
+            _ => leaf("constructor is a parameter or declaration without initializer"),
+        }
+    }
+
+    fn member(&self, object: &Src, name: &str) -> Res {
+        if self.is_global_object(object, &mut HashSet::new()) {
+            return Res::Found(if self.known(name) {
+                CtorOrigin::Platform { name: name.to_string(), verified: true }
+            } else {
+                CtorOrigin::NotPlatform
+            });
+        }
+        if let Src::Ident { import: Some(origin), .. } = strip_casts(object) {
+            if origin.kind == OriginKind::Namespace {
+                return Res::Found(CtorOrigin::Import { module: origin.module.clone(), export: name.to_string(), member: true, hint: name.to_string() });
+            }
+        }
+        if self.known(name) {
+            return Res::Found(CtorOrigin::Platform { name: name.to_string(), verified: false });
+        }
+        Res::Undef("constructor is a property of a non-global object")
+    }
+
+    /// The global object, or a variable initialized with it (its type is `typeof globalThis`).
+    /// Type assertions are not looked through: `(globalThis as any)` has no lib-declared members.
+    fn is_global_object(&self, src: &Src, seen: &mut HashSet<SymbolId>) -> bool {
+        let Src::Ident { name, symbol, .. } = src else { return false };
+        match symbol {
+            None => GLOBAL_OBJECTS.contains(&name.as_str()),
+            Some(symbol) => match self.decls.get(symbol) {
+                Some(Decl::Var { init: Some(init), .. }) if seen.insert(*symbol) => self.is_global_object(init, seen),
+                _ => false,
+            },
+        }
+    }
+}
+
+struct CtorSites<'r, 's> {
+    resolver: &'r Resolver<'s>,
+    ctors: &'r CtorResolver<'r>,
+    sites: Vec<CtorSite>,
+}
+
+impl<'a> Visit<'a> for CtorSites<'_, '_> {
+    fn visit_new_expression(&mut self, expr: &NewExpression<'a>) {
+        let callee = src_of(self.resolver, &expr.callee);
+        self.sites.push(CtorSite { offset: expr.span.start, origin: self.ctors.origin(&callee) });
+        walk::walk_new_expression(self, expr);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Names a module exports as a project-local class/function implementation: what an importer's
+// `new X()` provably constructs without a type.
+// ---------------------------------------------------------------------------------------------
+
+fn is_implementation_expr(expr: &Expression) -> bool {
+    matches!(unwrap(expr), Expression::ClassExpression(_) | Expression::FunctionExpression(_) | Expression::ArrowFunctionExpression(_))
+}
+
+fn implementation_names(decl: &Declaration) -> Vec<String> {
+    match decl {
+        Declaration::ClassDeclaration(c) => c.id.iter().map(|id| id.name.to_string()).collect(),
+        Declaration::FunctionDeclaration(f) => f.id.iter().map(|id| id.name.to_string()).collect(),
+        Declaration::VariableDeclaration(v) => v
+            .declarations
+            .iter()
+            .filter(|d| d.init.as_ref().is_some_and(is_implementation_expr))
+            .filter_map(|d| match &d.id {
+                BindingPattern::BindingIdentifier(id) => Some(id.name.to_string()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn implementation_exports(program: &Program) -> HashSet<String> {
+    let mut local: HashSet<String> = HashSet::new();
+    let mut exported: HashSet<String> = HashSet::new();
+    for statement in &program.body {
+        if let Some(decl) = statement.as_declaration() {
+            local.extend(implementation_names(decl));
+        }
+        match statement {
+            Statement::ExportDeclaration(export) => {
+                for name in implementation_names(&export.declaration) {
+                    local.insert(name.clone());
+                    exported.insert(name);
+                }
+            }
+            Statement::ExportDefaultDeclaration(export) => {
+                let implementation = match &export.declaration {
+                    ExportDefaultDeclarationKind::FunctionDeclaration(_) | ExportDefaultDeclarationKind::ClassDeclaration(_) => true,
+                    ExportDefaultDeclarationKind::TSInterfaceDeclaration(_) => false,
+                    other => other.as_expression().is_some_and(is_implementation_expr),
+                };
+                if implementation {
+                    exported.insert("default".to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    // `export { local as exported }` and `export default local` refer to declarations above.
+    for statement in &program.body {
+        match statement {
+            Statement::ExportNamedDeclaration(export) => {
+                for spec in &export.specifiers {
+                    if local.contains(&module_export_name(&spec.local)) {
+                        exported.insert(module_export_name(&spec.exported));
+                    }
+                }
+            }
+            Statement::ExportDefaultDeclaration(export) => {
+                if let Some(Expression::Identifier(id)) = export.declaration.as_expression().map(unwrap) {
+                    if local.contains(id.name.as_str()) {
+                        exported.insert("default".to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    exported
 }

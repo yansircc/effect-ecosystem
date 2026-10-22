@@ -36,6 +36,14 @@ forEachFixtureCase((testCase, scanRoot, rulesPath) => {
   if (JSON.stringify(expected) !== JSON.stringify(actual)) {
     mismatches.push(`${testCase.name}:\n  ts   ${JSON.stringify(expected)}\n  rust ${JSON.stringify(actual)}`)
   }
+  // `rustNotProven` pins verdicts the Rust scanner reports as not proven (needs type information).
+  if (testCase.rustNotProven) {
+    const expectedNotProven = [...testCase.rustNotProven].sort()
+    const actualNotProven = (rust.notProvenFacts ?? []).map((item) => `${item.file}:${item.line}:${item.ruleId}`).sort()
+    if (JSON.stringify(expectedNotProven) !== JSON.stringify(actualNotProven)) {
+      mismatches.push(`${testCase.name} (notProven):\n  expected ${JSON.stringify(expectedNotProven)}\n  rust     ${JSON.stringify(actualNotProven)}`)
+    }
+  }
 })
 
 for (const mismatch of mismatches) console.error(`[diff] ${mismatch}`)

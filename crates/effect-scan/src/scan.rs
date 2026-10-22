@@ -71,15 +71,18 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let loaded = manifest::load(root, options.strict, options.manifest_path.as_deref(), registry);
     let mut findings = loaded.findings;
     let manifest = loaded.manifest;
-    let contract = Contract::from_manifest_schema(&manifest::schema_value());
+    let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
     // The compiler pass overlaps with every other stage: started here, joined below.
     let diagnostics = (options.strict && manifest.is_some()).then(|| crate::diagnostics::start(&ctx));
     findings.extend(scan_source_rules(&files, registry));
+    let mut not_proven_facts: Vec<crate::contracts::NotProven> = Vec::new();
     if let Some(m) = manifest.as_ref() {
         findings.extend(scan_edge_rules(&files, m, registry));
-        findings.extend(crate::contracts::scan(&ctx));
+        let (contract_findings, not_proven) = crate::contracts::scan(&ctx);
+        findings.extend(contract_findings);
+        not_proven_facts = not_proven;
         findings.extend(crate::package::scan(&ctx));
     }
     if let Some(diagnostics) = diagnostics {
@@ -93,7 +96,8 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     findings.sort_by(|a, b| {
         locale_compare(&a.file, &b.file).then(a.line.cmp(&b.line)).then(locale_compare(&a.rule_id, &b.rule_id))
     });
-    let extras = crate::projection::build(&ctx, &findings, &loaded.warnings);
+    let mut extras = crate::projection::build(&ctx, &findings, &loaded.warnings);
+    extras.insert("notProvenFacts".into(), Value::Array(not_proven_facts.iter().map(crate::contracts::NotProven::to_json).collect()));
     Ok(ScanResult { findings, warnings: loaded.warnings, extras })
 }
 

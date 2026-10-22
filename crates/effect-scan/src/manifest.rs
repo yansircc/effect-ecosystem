@@ -42,6 +42,13 @@ pub struct NativeDependencyBoundary {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExecutableEdge {
+    pub path: String,
+    /// The raw `execution` object; its shape is the manifest schema's `executableEdge.execution`.
+    pub execution: Value,
+}
+
+#[derive(Debug, Clone)]
 pub struct AllowedAdapter {
     pub path: String,
     pub rules: Vec<String>,
@@ -51,6 +58,7 @@ pub struct AllowedAdapter {
 pub struct Manifest {
     pub packages: Vec<Package>,
     pub executable_edge_paths: Vec<String>,
+    pub executable_edges: Vec<ExecutableEdge>,
     pub allowed_adapters: Vec<AllowedAdapter>,
     pub generated_globs: Vec<String>,
     pub host_tooling_paths: Vec<String>,
@@ -199,6 +207,13 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
     Manifest {
         packages,
         executable_edge_paths: paths("executableEdges"),
+        executable_edges: path_items(raw.get("executableEdges"))
+            .iter()
+            .map(|i| ExecutableEdge {
+                path: to_posix(i.get("path").and_then(Value::as_str).unwrap_or("")),
+                execution: i.get("execution").cloned().unwrap_or(Value::Null),
+            })
+            .collect(),
         allowed_adapters: path_items(raw.get("allowedAdapters"))
             .iter()
             .map(|i| AllowedAdapter { path: to_posix(i.get("path").and_then(Value::as_str).unwrap_or("")), rules: strings(i.get("rules")) })

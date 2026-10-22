@@ -3390,7 +3390,7 @@
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"]}",
         "package.json": "{\"devDependencies\": {\"@effect/vitest\": \"4.0.0-beta.98\"}}",
-        "src/example.test.ts": "declare const Response: any\nnew Response(\"body\")\nconst Reply = Response\nnew Reply(\"body\")\nexport {}\nconst FromFactory: typeof globalThis.Request = choose()\nnew FromFactory(\"https://example.invalid\")\n"
+        "src/example.test.ts": "declare const Response: any\nnew Response(\"body\")\nconst Reply = Response\nnew Reply(\"body\")\nexport {}\nimport { Request } from \"undici\"\nnew Request(\"https://example.invalid\")\n"
       },
       "expectExit": 1,
       "expectRules": [
@@ -3488,14 +3488,14 @@
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
         "package.json": "{\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
-        "src/typed.test.ts": "export function parameter(Ctor: typeof Response) { return new Ctor() }\ndeclare const Ctor: typeof Response\nnew Ctor()\ntype Alias = typeof Response\ndeclare const Aliased: Alias\nnew Aliased()\ndeclare const Choice: typeof Response | typeof Request\nnew Choice(\"https://example.invalid\")\nexport function generic<T extends typeof Response>(Ctor: T) { return new Ctor() }\ndeclare function factory(): typeof Response\nnew (factory())()\n"
+        "src/typed.test.ts": "import { Request } from \"undici\"\nimport * as undici from \"undici\"\nexport function parameter(Response: typeof globalThis.Response) { return new Response() }\nnew Request(\"https://example.invalid\")\nnew undici.Response(\"body\")\ndeclare const Response: typeof globalThis.Response\nnew Response()\nconst Alias = Response\nnew Alias()\n"
       },
       "expectExit": 1,
       "expectRules": [
         "EFF402"
       ],
       "expectRuleCounts": {
-        "EFF402": 6
+        "EFF402": 5
       },
       "exact": true
     },
@@ -4795,6 +4795,170 @@
         "src/a.ts:17:EFF001:error",
         "src/a.ts:5:EFF003:error",
         "src/a.ts:5:EFF004:error"
+      ]
+    },
+    {
+      "name": "typed-constructor-origin-not-proven",
+      "suites": [
+        "platform-constructor-identity",
+        "red-green-fixtures"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
+        "src/typed.test.ts": "export function parameter(Ctor: typeof Response) { return new Ctor() }\ndeclare const Ctor: typeof Response\nnew Ctor()\ntype Alias = typeof Response\ndeclare const Aliased: Alias\nnew Aliased()\ndeclare const Choice: typeof Response | typeof Request\nnew Choice(\"https://example.invalid\")\nexport function generic<T extends typeof Response>(Ctor: T) { return new Ctor() }\ndeclare function factory(): typeof Response\nnew (factory())()\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": [],
+      "rustNotProven": [
+        "src/typed.test.ts:1:EFF402",
+        "src/typed.test.ts:3:EFF402",
+        "src/typed.test.ts:6:EFF402",
+        "src/typed.test.ts:8:EFF402",
+        "src/typed.test.ts:9:EFF402",
+        "src/typed.test.ts:11:EFF402"
+      ]
+    },
+    {
+      "name": "process-main-pipe-run-main-green",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { NodeRuntime } from \"@effect/platform-node\"\ndeclare const program: Effect.Effect<void>\nprogram.pipe(NodeRuntime.runMain)\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": []
+    },
+    {
+      "name": "process-main-pipe-run-main-alias-green",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { NodeRuntime } from \"@effect/platform-node\"\ndeclare const program: Effect.Effect<void>\nconst main = NodeRuntime.runMain\nmain(program)\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": []
+    },
+    {
+      "name": "process-main-pipe-run-main-duplicate-red",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { NodeRuntime } from \"@effect/platform-node\"\ndeclare const program: Effect.Effect<void>\nprogram.pipe(NodeRuntime.runMain)\nNodeRuntime.runMain(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "rustFindings": [
+        "src/main.ts:5:EFF401:error"
+      ]
+    },
+    {
+      "name": "process-main-pipe-run-main-nested-red",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { NodeRuntime } from \"@effect/platform-node\"\ndeclare const program: Effect.Effect<void>\nexport function start() { return program.pipe(NodeRuntime.runMain) }\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "rustFindings": [
+        "src/main.ts:4:EFF401:error"
+      ]
+    },
+    {
+      "name": "process-main-pipe-run-main-wrong-runtime-red",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { BunRuntime } from \"@effect/platform-bun\"\ndeclare const program: Effect.Effect<void>\nprogram.pipe(BunRuntime.runMain)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "rustFindings": [
+        "src/main.ts:4:EFF401:error"
+      ]
+    },
+    {
+      "name": "process-main-unbound-pipe-run-main-red",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "declare const program: unknown\nprogram.pipe(NodeRuntime.runMain)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "rustFindings": [
+        "src/main.ts:2:EFF401:error"
+      ]
+    },
+    {
+      "name": "process-main-effect-run-value-red",
+      "suites": [
+        "runner-facts",
+        "edge-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"],\"executableEdges\":[{\"path\":\"src/main.ts\",\"owner\":\"@a\",\"reason\":\"entry\",\"execution\":{\"lifecycle\":\"process-main\",\"runner\":\"NodeRuntime.runMain\"}}]}",
+        "package.json": "{}",
+        "src/main.ts": "import { Effect } from \"effect\"\nimport { NodeRuntime } from \"@effect/platform-node\"\ndeclare const program: Effect.Effect<void>\nprogram.pipe(Effect.runFork)\nNodeRuntime.runMain(program)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF401"
+      ],
+      "rustFindings": [
+        "src/main.ts:4:EFF401:error"
       ]
     }
   ]
