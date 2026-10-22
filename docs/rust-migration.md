@@ -190,6 +190,30 @@ Other differences:
 - EFF401 `wrangler-workflow` resolves "main exports the class" through relative re-exports on the file
   system instead of the checker; a default export count other than one is a mismatch (the oracle throws).
 
+- EFF908 fails closed (review B2/H6/M8): the major is carried as a number, not as "3 or 4", every
+  `(field, name)` declaration of `effect` is a candidate (a `dependencies` range no longer hides a
+  `peerDependencies` one), and any candidate that is out of range or cannot be proven (unresolvable
+  `catalog:`, `latest`, non-string range, unreadable installed `effect`) is EFF908. The support range
+  is `>=4.0.5 <5.0.0-0` (`<5.0.0` admitted `5.0.0-beta.1`). The pnpm lockfile pin is the one of the
+  `.` importer, not the first `effect:` entry of the file. Peer metadata that exists but cannot be
+  read is an EFF326/EFF323 finding. A `package.json` with a BOM is read. Fixtures: `EFF908/*`,
+  `EFF324/*pnpm-lock*`, `EFF326/*unreadable`.
+- Strict diagnostics (review H4/H5): project runs add `--incremental false --composite false` (no
+  build info is written or trusted: fixtures `EFF504/*stale-tsbuildinfo*`, `*composite*`). The
+  inferred-project run lists its program and is a verdict only if it contains every scanned file;
+  file names that cannot go through a response file (`"`) are passed as arguments, names the compiler
+  cannot address (a backslash on POSIX) are an EFF901 error. Response files are private (0600),
+  uniquely named and removed on drop. Each run has a deadline (`EFFECT_SCAN_TSC_TIMEOUT_SECS`,
+  default 900; exceeding it is EFF901) and at most `EFFECT_SCAN_TSC_JOBS` runs are in flight
+  (default min(cores, 4)).
+- Source discovery (review M7): an unreadable directory is an error (exit 2), never a shorter file
+  list; symlinks are never followed in either mode (no cycles), and a symlink to a source file or
+  directory is reported as a warning instead of being silently dropped. A source file that is not
+  valid UTF-8 is decoded lossily. Pinned by unit tests in `util.rs` (the fixture runner cannot
+  materialize symlinks or modes) and `scenarios/source-file-not-utf8`.
+- `jsonc.rs` bounds container nesting at 256 (`MaxDepthExceeded`, EFF905 for a wrangler config)
+  instead of overflowing the stack: fixture `EFF905/bad--cf-wrangler-nesting-too-deep`.
+
 ## Command line and suppression
 
 `effect-scan [root] [flags]`; the usage text (`--help`) lists every flag and the exit codes and is the reference.
@@ -288,7 +312,7 @@ Which files are scanned (`util.rs`):
 1. Inside a Git repository: `git ls-files --cached --others --exclude-standard`. Git is the authority for what is
    source: build output is excluded because `.gitignore` excludes it, a tracked or unignored `build/`, `out/` or
    `dist/` is the project's own source and is scanned.
-2. Outside a repository: a directory walk, which has no ignore information and therefore skips generated-output
+2. Outside a repository: a directory walk (symlinks are not followed), which has no ignore information and therefore skips generated-output
    directories whose names are unambiguous: `dist`, `coverage`, `.next`. `build` and `out` are scanned (they are
    common names for source directories; silently hiding source from a gate is worse than scanning generated
    code, which `generatedPaths` / `hostTooling` exclude explicitly).

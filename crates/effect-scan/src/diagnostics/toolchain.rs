@@ -68,10 +68,7 @@ pub fn provider_matches_declared(provider_version: &str, (major, minor): (u64, u
 
 pub fn strict_prerequisites(registry: &Registry, tooling_root: &Path, compiler: Option<&CompilerVersion>) -> Vec<Finding> {
     let support = support();
-    let package_json: Value = fs::read_to_string(tooling_root.join("package.json"))
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or(Value::Null);
+    let package_json: Value = crate::util::read_json_file(&tooling_root.join("package.json")).unwrap_or(Value::Null);
     let declared = |name: &str| -> Option<(u64, u64)> {
         let range = ["dependencies", "devDependencies"].iter().rev().find_map(|k| package_json[k][name].as_str())?;
         declared_version_line(&resolve_catalog(tooling_root, name, range)?)

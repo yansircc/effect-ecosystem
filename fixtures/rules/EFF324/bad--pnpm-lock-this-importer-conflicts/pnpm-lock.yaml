@@ -1,0 +1,20 @@
+lockfileVersion: '9.0'
+
+importers:
+
+  packages/x:
+    dependencies:
+      effect:
+        specifier: ^4.0.5
+        version: 4.0.5(typescript@7.0.2)
+
+  .:
+    dependencies:
+      effect:
+        specifier: ^3.21.2
+        version: 3.21.2
+
+packages:
+
+  effect@4.0.5:
+    resolution: {integrity: sha512-x}

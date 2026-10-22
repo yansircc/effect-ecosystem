@@ -1,0 +1,16 @@
+{
+  "description": "a file whose name contains a double quote is itself checked",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "src/we\"ird.ts:1:EFF504:error"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "incremental project with a stale tsbuildinfo that recorded no errors still reports the type error",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF504:error"
+  ]
+}

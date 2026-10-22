@@ -1,0 +1,28 @@
+{
+  "description": "cf-wrangler-nesting-too-deep-red",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF905"
+  ],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "errors.0.code": "invalid-wrangler-config",
+        "errors.0.source.line": 1,
+        "bindings": [],
+        "errors.0.message": "JSONC parse error: MaxDepthExceeded"
+      }
+    }
+  ]
+}

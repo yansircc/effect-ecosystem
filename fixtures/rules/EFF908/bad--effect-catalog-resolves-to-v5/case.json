@@ -1,0 +1,17 @@
+{
+  "description": "effect-catalog-resolves-to-v5-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF908"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "package.json:1:EFF908:error"
+  ]
+}

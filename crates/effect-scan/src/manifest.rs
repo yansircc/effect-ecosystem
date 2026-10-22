@@ -21,7 +21,8 @@ pub struct Package {
     /// Posix path relative to the scan root.
     pub wrangler_path: Option<String>,
     pub package_json: Value,
-    /// `dependencies` + `devDependencies` + `peerDependencies` + `optionalDependencies`, merged in that order.
+    /// Name-keyed view of `DEPENDENCY_FIELDS` (later fields overwrite the range): which packages are
+    /// declared, never which ranges. Ranges are judged per declaration through `dependency_entries`.
     pub deps: Map<String, Value>,
     pub dev_deps: Map<String, Value>,
     pub relative_package_json: String,
@@ -95,7 +96,7 @@ pub fn load(root: &Path, strict: bool, manifest_path: Option<&str>, registry: &R
             LoadResult { manifest: None, warnings: vec![format!("{relative} not found; running syntax-only scanner")], findings: vec![] }
         };
     }
-    let raw: Value = match fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string())) {
+    let raw: Value = match crate::util::read_json_file(&path) {
         Ok(v) => v,
         Err(e) => {
             return LoadResult {
@@ -148,6 +149,33 @@ fn path_items(value: Option<&Value>) -> Vec<&Value> {
     value.and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default()
 }
 
+/// Declaration fields, in precedence order for the name-keyed view (`Package::deps`).
+pub const DEPENDENCY_FIELDS: [&str; 4] = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+
+/// One declaration: `package.json` field, package name, range as written.
+pub struct DependencyEntry<'a> {
+    pub field: &'static str,
+    pub name: &'a str,
+    pub range: &'a Value,
+}
+
+impl Package {
+    /// Every `(field, name)` declaration of `package.json`. The name-keyed `deps` map collapses
+    /// duplicates across fields (presence checks only); anything that judges a *range* iterates this.
+    pub fn dependency_entries(&self) -> Vec<DependencyEntry<'_>> {
+        DEPENDENCY_FIELDS
+            .iter()
+            .flat_map(|field| {
+                self.package_json
+                    .get(*field)
+                    .and_then(Value::as_object)
+                    .into_iter()
+                    .flat_map(move |entries| entries.iter().map(move |(name, range)| DependencyEntry { field, name, range }))
+            })
+            .collect()
+    }
+}
+
 fn dependency_map(package_json: &Value, fields: &[&str]) -> Map<String, Value> {
     let mut out = Map::new();
     for field in fields {
@@ -179,8 +207,8 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
         let package_root = root.join(path);
         let dependency_root = if dependency_owner == "workspace-root" { workspace.workspace_root.clone() } else { package_root.clone() };
         let package_json_path = dependency_root.join("package.json");
-        let package_json = match fs::read_to_string(&package_json_path) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
+        let package_json = match fs::read(&package_json_path) {
+            Ok(bytes) => crate::util::parse_json_bytes(&bytes).unwrap_or_else(|e| {
                 // The TypeScript scanner aborts the whole scan here; a stage cannot fail the load, so surface it.
                 warnings.push(format!("{} is not valid JSON ({e}); treated as empty", package_json_path.display()));
                 Value::Object(Map::new())
@@ -196,7 +224,7 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
             dependency_owner_reason: pkg.get("dependencyOwnerReason").and_then(Value::as_str).map(String::from),
             dependency_root,
             wrangler_path: pkg.get("wranglerPath").and_then(Value::as_str).filter(|w| !w.is_empty()).map(|w| to_posix(&if path == "." { w.to_string() } else { format!("{path}/{w}") })),
-            deps: dependency_map(&package_json, &["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]),
+            deps: dependency_map(&package_json, &DEPENDENCY_FIELDS),
             dev_deps: dependency_map(&package_json, &["devDependencies"]),
             package_json,
             relative_package_json,

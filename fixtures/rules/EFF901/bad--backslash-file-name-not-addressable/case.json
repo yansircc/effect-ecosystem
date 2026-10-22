@@ -1,0 +1,16 @@
+{
+  "description": "a file the compiler cannot be given is an error, not a green scan",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF901"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "package.json:1:EFF901:error"
+  ]
+}

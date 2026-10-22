@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "effect": "^4.0.5"
+  },
+  "peerDependencies": {
+    "effect": "^3.10.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}

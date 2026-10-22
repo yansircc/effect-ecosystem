@@ -290,6 +290,9 @@ function effectCapabilities({ env }: SuiteContext): string[] {
     if (!requirementRuleIds.has(ruleId)) failures.push(`effect-capabilities: missing ${ruleId}`)
   }
   if (contract.support.effect.major !== 4) failures.push("effect-capabilities: Effect v4 is not the only supported major")
+  if (!contract.support.effect.range.endsWith(` <${contract.support.effect.major + 1}.0.0-0`)) {
+    failures.push(`effect-capabilities: support.effect.range must end with "<${contract.support.effect.major + 1}.0.0-0" (a bare upper bound admits next-major prereleases)`)
+  }
   if (contract.support.typescript.major !== 7) failures.push("effect-capabilities: TypeScript 7 is not the only supported major")
   if (contract.support.diagnostics.package !== "@effect/tsgo") failures.push("effect-capabilities: diagnostics provider is not @effect/tsgo")
   return failures

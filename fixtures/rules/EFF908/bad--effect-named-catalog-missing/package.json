@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "effect": "catalog:evergreen"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}
