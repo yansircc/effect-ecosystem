@@ -428,3 +428,19 @@ Command name, arguments, exit codes (0/1/2/64) and the output contracts are unch
   covers Rust sources, so the first release of this layout re-baselines.
 4. (done) Delete the TS scanner after parity. Open: single build artifact + install path (Makefile `install` / `package`,
    `package.json` `bin`, SKILL.md runtime paths still name `validator/scan.js`).
+
+## Open items (not done in this change)
+
+- Linux binaries were never built or run locally; the CI matrix (ubuntu-24.04, ubuntu-24.04-arm) is their first real build.
+  They need glibc >= 2.39; older glibc or musl is a new entry in `scripts/release/platforms.mjs` and the matrix.
+- `compiler.fingerprint` hashes absolute scanned paths, so `scanner.fullHash` differs between checkout locations
+  (`inputHash` and `complianceHash` do not). Fix: fingerprint root-relative paths.
+- A project with a TypeScript syntax error reports its syntax errors (EFF504) but no EFF500-503 until fixed; the tsc CLI
+  skips semantic diagnostics then. The gate fails either way.
+- Solution-style `tsconfig.json` (references, no `files`) is not followed; its files fall to the inferred project.
+- Shapes `bun`, `browser` and `workflow` have no package rule (no v4 package is mandatory for them); this is a declared blind
+  spot, not a verdict.
+- EFF020/EFF021 (node fs/path) still run alongside tsgo's own diagnostics for the same imports; deduplicating them against
+  tsgo diagnostic names needs a policy decision on which side owns the verdict.
+- `locale_compare` is exact only for ASCII path keys.
+- The first release in this layout re-baselines `complianceHash` (build-id derivation now covers `crates/`, `Cargo.*`, `packaging/`).
