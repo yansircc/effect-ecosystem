@@ -51,6 +51,11 @@ pub fn analyze(path: &str, source: &str) -> SourceFacts {
     facts
 }
 
+/// Module specifiers are JS strings; lone surrogates cannot occur in a real specifier, so lossy display is exact.
+fn js(value: oxc_str::JSStr<'_>) -> String {
+    value.display().to_string()
+}
+
 struct LineIndex {
     starts: Vec<u32>,
 }
@@ -164,38 +169,36 @@ impl<'a> Visit<'a> for Collector<'_> {
     }
 
     fn visit_import_declaration(&mut self, decl: &ImportDeclaration<'a>) {
-        self.add_import(decl.source.span, &decl.source.value, false);
+        self.add_import(decl.source.span, &js(decl.source.value), false);
         walk::walk_import_declaration(self, decl);
     }
 
     fn visit_export_all_declaration(&mut self, decl: &ExportAllDeclaration<'a>) {
-        self.add_import(decl.source.span, &decl.source.value, false);
+        self.add_import(decl.source.span, &js(decl.source.value), false);
         walk::walk_export_all_declaration(self, decl);
     }
 
-    fn visit_export_named_declaration(&mut self, decl: &ExportNamedDeclaration<'a>) {
-        if let Some(source) = &decl.source {
-            self.add_import(source.span, &source.value, false);
-        }
-        walk::walk_export_named_declaration(self, decl);
+    fn visit_export_from_declaration(&mut self, decl: &ExportFromDeclaration<'a>) {
+        self.add_import(decl.source.span, &js(decl.source.value), false);
+        walk::walk_export_from_declaration(self, decl);
     }
 
     fn visit_import_expression(&mut self, expr: &ImportExpression<'a>) {
         if let Expression::StringLiteral(lit) = &expr.source {
-            self.add_import(lit.span, &lit.value, true);
+            self.add_import(lit.span, &js(lit.value), true);
         }
         walk::walk_import_expression(self, expr);
     }
 
     fn visit_ts_import_equals_declaration(&mut self, decl: &TSImportEqualsDeclaration<'a>) {
         if let TSModuleReference::ExternalModuleReference(r) = &decl.module_reference {
-            self.add_import(r.expression.span, &r.expression.value, false);
+            self.add_import(r.expression.span, &js(r.expression.value), false);
         }
         walk::walk_ts_import_equals_declaration(self, decl);
     }
 
     fn visit_ts_import_type(&mut self, ty: &TSImportType<'a>) {
-        self.add_import(ty.source.span, &ty.source.value, true);
+        self.add_import(ty.source.span, &js(ty.source.value), true);
         walk::walk_ts_import_type(self, ty);
     }
 }
