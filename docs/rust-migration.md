@@ -38,6 +38,24 @@ Known intentional differences:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
+- EFF401 (B2/W2): a terminal runner reference counts whether it is called or passed as a value, for
+  `runMain` (`program.pipe(NodeRuntime.runMain)` is the one `runMain` reference, accepted) and for
+  `Effect.run*` / `ManagedRuntime` runners (`program.pipe(Effect.runFork)` inside an edge is a runner
+  reference like any call). The oracle only counts calls. Pinned by the `process-main-*pipe*` and
+  `process-main-effect-run-value-red` rustOnly fixtures. An alias initializer
+  (`const run = NodeRuntime.runMain`) whose alias is used is not counted itself; its uses are.
+- EFF402: no type checker. Constructor identity comes from import bindings, scopes and `const`
+  initializers; a global lookup of a platform constructor is `verified`. What only a type decides
+  (`new Ctor()` for a parameter, a call result, a conditional, a property of a non-global object, an
+  import of a relative module that is not a class/function export) yields no finding and one
+  `notProvenFacts` entry `{ruleId, file, line, reason}` in the raw result. Assumptions: an unresolved
+  global that is not a platform constructor, and a bare-package import whose export/local name is not a
+  platform constructor, are not platform constructors. The oracle's type-only reds
+  (`typed-constructor-origin-unknown-red`, the typed factory in `unknown-http-fixture-origin-red`) were
+  rewritten as import/declaration-provable equivalents; `typed-constructor-origin-not-proven` pins the
+  type-only form (`rustNotProven`, compared by the differential harness).
+- EFF401 `wrangler-workflow` resolves "main exports the class" through relative re-exports on the file
+  system instead of the checker; a default export count other than one is a mismatch (the oracle throws).
 
 ## Differential harness
 
@@ -74,8 +92,9 @@ aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403). TS self-tes
 
 ## Next
 
-1. EFF401 execution contracts on runner references (B2), EFF402 platform constructors (no
-   `getTypeAtLocation`: unverifiable cases become `notProven`).
+1. (done) EFF401 execution contracts on runner references (B2), EFF402 platform constructors
+   (`contracts.rs` + `contracts/{model,verify,modules,wrangler}.rs`; `contracts/wrangler.rs` is the
+   shared minimal Wrangler config reader).
 2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
 3. Profile, signals, evidence, gate-summary, complianceHash.
 4. Single build artifact + install path; delete the TS scanner after parity.

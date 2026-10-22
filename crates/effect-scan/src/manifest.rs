@@ -12,6 +12,15 @@ pub struct Package {
     pub path: String,
     pub root: PathBuf,
     pub shape: Vec<String>,
+    /// Wrangler config path relative to the scan root (package path joined), as the TS manifest normalizes it.
+    pub wrangler_path: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecutableEdge {
+    pub path: String,
+    /// The raw `execution` object; its shape is the manifest schema's `executableEdge.execution`.
+    pub execution: Value,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +33,7 @@ pub struct AllowedAdapter {
 pub struct Manifest {
     pub packages: Vec<Package>,
     pub executable_edge_paths: Vec<String>,
+    pub executable_edges: Vec<ExecutableEdge>,
     pub allowed_adapters: Vec<AllowedAdapter>,
     pub generated_globs: Vec<String>,
     pub host_tooling_paths: Vec<String>,
@@ -106,16 +116,30 @@ fn normalize(root: &Path, raw: &Value) -> Manifest {
         let path = to_posix(pkg.get("path").and_then(Value::as_str).unwrap_or("."));
         let path = path.trim_end_matches('/');
         let path = if path.is_empty() { "." } else { path };
-        Package { path: path.to_string(), root: root.join(path), shape: strings(pkg.get("shape")) }
+        let wrangler_path = pkg.get("wranglerPath").and_then(Value::as_str).filter(|p| !p.is_empty()).map(|p| {
+            to_posix(&if path == "." { p.to_string() } else { format!("{path}/{p}") })
+        });
+        Package { path: path.to_string(), root: root.join(path), shape: strings(pkg.get("shape")), wrangler_path }
     };
     let packages = match raw.get("packages").and_then(Value::as_array) {
         Some(list) => list.iter().map(package).collect(),
-        None => vec![package(&serde_json::json!({ "path": ".", "shape": raw.get("shape").cloned().unwrap_or(Value::Null) }))],
+        None => vec![package(&serde_json::json!({
+            "path": ".",
+            "shape": raw.get("shape").cloned().unwrap_or(Value::Null),
+            "wranglerPath": raw.get("wranglerPath").cloned().unwrap_or(Value::Null),
+        }))],
     };
     let paths = |key: &str| path_items(raw.get(key)).iter().map(|i| to_posix(i.get("path").and_then(Value::as_str).unwrap_or(""))).collect();
     Manifest {
         packages,
         executable_edge_paths: paths("executableEdges"),
+        executable_edges: path_items(raw.get("executableEdges"))
+            .iter()
+            .map(|i| ExecutableEdge {
+                path: to_posix(i.get("path").and_then(Value::as_str).unwrap_or("")),
+                execution: i.get("execution").cloned().unwrap_or(Value::Null),
+            })
+            .collect(),
         allowed_adapters: path_items(raw.get("allowedAdapters"))
             .iter()
             .map(|i| AllowedAdapter { path: to_posix(i.get("path").and_then(Value::as_str).unwrap_or("")), rules: strings(i.get("rules")) })
