@@ -1,0 +1,23 @@
+{
+  "packages": [
+    {
+      "path": ".",
+      "shape": [
+        "ai"
+      ]
+    },
+    {
+      "path": "packages/transport",
+      "shape": [
+        "ai"
+      ]
+    }
+  ],
+  "aiProviderTransports": [
+    {
+      "path": "packages/transport/src/provider-transport.ts",
+      "owner": "@ai-transport",
+      "reason": "terminal provider HTTP transport of packages/transport"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "shape": [
+    "library"
+  ],
+  "hostTooling": [
+    {
+      "path": "scripts/**",
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "bin/**",
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "docs/**",
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "tools/gen.ts",
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "tools/live/*.ts",
+      "owner": "@owner",
+      "reason": "declared"
+    }
+  ]
+}

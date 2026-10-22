@@ -1,0 +1,17 @@
+{
+  "shape": [
+    "library"
+  ],
+  "aiProviderTransports": [
+    {
+      "path": "src/does/not/exist.ts",
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "src/live.ts",
+      "owner": "@owner",
+      "reason": "declared"
+    }
+  ]
+}

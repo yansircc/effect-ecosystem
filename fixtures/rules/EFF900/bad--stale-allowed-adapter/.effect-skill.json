@@ -1,0 +1,38 @@
+{
+  "shape": [
+    "library"
+  ],
+  "allowedAdapters": [
+    {
+      "path": "src/platform/missing.ts",
+      "rules": [
+        "EFF402"
+      ],
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "src/platform/*.ts",
+      "rules": [
+        "EFF402"
+      ],
+      "owner": "@owner",
+      "reason": "declared"
+    },
+    {
+      "path": "scripts/adapter.ts",
+      "rules": [
+        "EFF402"
+      ],
+      "owner": "@owner",
+      "reason": "declared"
+    }
+  ],
+  "hostTooling": [
+    {
+      "path": "scripts/**",
+      "owner": "@owner",
+      "reason": "declared"
+    }
+  ]
+}

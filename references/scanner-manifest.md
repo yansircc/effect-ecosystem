@@ -97,7 +97,15 @@ be forbidden by an active capability requirement for its shape. A declaration
 admits only that forbidden dependency fact: other dependencies and missing
 Effect capabilities still fail. Unknown packages, duplicate pairs, removed
 dependencies, and no-longer-applicable restrictions fail with EFF900 rather than
-silently retaining an unused allowance. Owner and reason are mandatory. This
+silently retaining an unused allowance.
+
+An admitted boundary for a dependency that a requirement forbids also declares
+who owns that requirement's provider role in that package. For shape `ai` the
+provider (`@effect/ai-*` or `aiProviderTransports[]`) is the AI loop owner, an
+ownership choice rather than a capability: when the host framework owns the loop
+and requires `ai` / `@ai-sdk/*` (for example a Cloudflare Think app), the admitted
+boundary for that dependency is the declared owner, and no `@effect/ai-*`
+provider or transport is demanded in addition. Owner and reason are mandatory. This
 mechanism does not admit source imports or runtime execution; those rules retain
 their own independently verified boundaries.
 
@@ -337,6 +345,21 @@ Missing `.effect-skill.json` is an infra error.
 
 Invalid manifest JSON or schema shape is an infra error.
 
+Stale declarations are EFF900 too. A manifest selector that grants an exemption,
+ownership or reclassification must match at least one file it applies to:
+
+- `allowedAdapters[].path` and `aiProviderTransports[].path`: a scanned source
+  file (so a selector inside `hostTooling`, which is never scanned, is stale);
+- `hostTooling[].path`: a discovered source file (a pruned `<dir>/**` counts when
+  the directory holds source).
+
+Not validated as file selectors: `executableEdges[].path` (a missing edge file is
+already EFF401), `generatedPaths[].glob` (generated output may be absent before
+codegen and is usually gitignored, and the glob also covers non-source files such
+as `.d.ts`), `testGlobs` (a naming convention for files as they are added),
+`packages[].path` and `wranglerPath` (a missing package fails every shape
+requirement; a missing wrangler config is EFF905), and `gate.notProven` ids.
+
 ### EFF901 missing-tsc
 
 Strict mode requires a project-local TypeScript of the supported major (7)
@@ -405,8 +428,11 @@ Effect major.
 The supported v4 HTTP capability requires `effect` (including unstable HTTP).
 Forbidden native dependency findings are emitted independently per dependency;
 missing capability findings are separate. An exact `nativeDependencyBoundaries`
-declaration can admit a host-required dependency, never the missing capability
-or an unrelated forbidden dependency.
+declaration can admit a host-required dependency, never a missing capability
+(`allOf` / `anyOf`, e.g. `effect`) or an unrelated forbidden dependency. A
+requirement's provider (`providerPrefixAnyOf`, EFF312) is not a capability but
+the declared owner of the loop; an admitted boundary for a dependency forbidden
+by that same requirement, in that same package, declares the host as that owner.
 
 ### EFF311 http-client-without-effect-platform
 
@@ -415,8 +441,18 @@ HTTP client libraries.
 
 ### EFF312 ai-without-effect-ai
 
-AI capability must be owned by `@effect/ai` in v3 or the v4 capability
-contract. Provider SDKs are terminal adapters only.
+Shape `ai` requires `effect` (`effect/ai`); that capability is never admitted by a
+boundary. The package's AI loop must also have a declared owner, one of:
+
+- `effect/ai`: an `@effect/ai-*` provider package, or an `aiProviderTransports[]`
+  entry owned by this package (the longest matching manifest package path; a
+  transport in a nested package never satisfies its parent);
+- the host: an admitted `nativeDependencyBoundaries` entry for this package whose
+  dependency EFF312 forbids (`ai`, `@ai-sdk/*`, ...), meaning the host framework
+  owns the loop and requires that SDK.
+
+Forbidden provider SDK dependencies without an admitted boundary are findings of
+their own. Provider SDKs are terminal adapters only.
 
 ### EFF321 missing-effect-vitest
 

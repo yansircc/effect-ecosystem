@@ -1040,7 +1040,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.",
+      "message": "shape ai requires effect (effect/ai) and a declared AI loop owner: an @effect/ai-* provider package or an aiProviderTransports entry owned by the package (effect/ai owns the loop), or an admitted nativeDependencyBoundaries entry for a dependency this rule forbids (the host owns the loop); direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden unless admitted by such a boundary.",
       "references": [
         "references/scanner-manifest.md §EFF312 ai-without-effect-ai"
       ],
@@ -1051,7 +1051,7 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 ai 的包声明了 effect,并有 @effect/ai-* 提供方包或 manifest 声明的 aiProviderTransports",
+        "proves": "声明 ai 的包声明了 effect,且其 AI loop 有声明的 owner:@effect/ai-* 提供方包、归属本包(最长匹配包路径)的 aiProviderTransports,或本包内被接纳、且依赖被本规则禁止的 nativeDependencyBoundaries(宿主拥有 loop);边界从不替代 effect 能力",
         "blindSpots": [
           "只读声明的依赖:提供方是否被接入 AI 循环、直接 SDK 的使用不在本规则证明范围"
         ]
@@ -1459,7 +1459,7 @@
       "profiles": [
         "core"
       ],
-      "message": ".effect-skill.json failed schema validation.",
+      "message": ".effect-skill.json failed schema validation or declares a stale entry (nativeDependencyBoundaries, or an allowedAdapters/aiProviderTransports/hostTooling selector that matches no file).",
       "references": [
         "references/scanner-manifest.md §EFF900 invalid-manifest"
       ],

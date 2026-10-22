@@ -1,0 +1,28 @@
+{
+  "description": "stale-allowed-adapter-red: an allowedAdapters selector that matches no scanned source file (including one inside hostTooling, which is never scanned) is a stale suppression",
+  "suites": [
+    "manifest-schema",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectRuleCounts": {
+    "EFF900": 2
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "allowedAdapters src/platform/missing.ts: selector matches no scanned source file"
+    },
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "allowedAdapters scripts/adapter.ts: selector matches no scanned source file"
+    }
+  ]
+}

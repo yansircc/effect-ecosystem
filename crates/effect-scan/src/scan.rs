@@ -1,5 +1,5 @@
 use crate::findings::{Finding, Registry};
-use crate::manifest::{self, Manifest};
+use crate::manifest::{self, Manifest, SelectorScope, MANIFEST_NAME};
 use crate::facts::{Contract, RunnerKind};
 use crate::projection::Timings;
 use crate::rules::ImportMatcher;
@@ -91,7 +91,11 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     }
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
-    let (files, skipped_symlinks) = collect_source_files(root, manifest.as_ref(), &contract)?;
+    let (files, skipped_symlinks, discovered) = collect_source_files(root, manifest.as_ref(), &contract)?;
+    if let Some(m) = manifest.as_ref() {
+        let manifest_file = util::to_posix(options.manifest_path.as_deref().unwrap_or(MANIFEST_NAME));
+        findings.extend(stale_selector_findings(m, &manifest_file, &files, &discovered, registry));
+    }
     warnings.extend(skipped_symlinks.iter().map(|link| format!("{link} is a symlink and was not scanned (symlinks are not followed; its target is scanned at its own path)")));
     timings.mark("collectSourceFiles");
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
@@ -138,27 +142,61 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     Ok(ScanResult { findings, warnings, extras })
 }
 
+/// The directory a hostTooling glob of the form `<literal dir>/**` excludes whole: discovery prunes it.
+fn prune_root(glob: &str) -> Option<String> {
+    static DIR_GLOB: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([^*?\[\]{}()!]+)/\*\*$").unwrap());
+    let normalized = util::to_posix(glob).trim_end_matches('/').to_string();
+    let prefix = DIR_GLOB.captures(&normalized)?.get(1)?.as_str().trim_end_matches('/').to_string();
+    (!prefix.is_empty() && prefix != "." && !prefix.contains("..")).then_some(prefix)
+}
+
 fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
-    let re = Regex::new(r"^([^*?\[\]{}()!]+)/\*\*$").unwrap();
-    let mut out: Vec<String> = manifest
-        .map(|m| m.host_tooling_paths.iter())
-        .into_iter()
-        .flatten()
-        .filter_map(|glob| {
-            let normalized = util::to_posix(glob).trim_end_matches('/').to_string();
-            let prefix = re.captures(&normalized)?.get(1)?.as_str().trim_end_matches('/').to_string();
-            (!prefix.is_empty() && prefix != "." && !prefix.contains("..")).then_some(prefix)
-        })
-        .collect();
+    let mut out: Vec<String> = manifest.map(|m| m.host_tooling_paths.iter()).into_iter().flatten().filter_map(|glob| prune_root(glob)).collect();
     out.sort();
     out.dedup();
     out
 }
 
-fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<(Vec<SourceFile>, Vec<String>), String> {
+/// Source discovery before hostTooling exclusion: the listed files plus the pruned hostTooling
+/// directories known to hold source. The universe of `SelectorScope::Discovered`.
+struct Discovered {
+    files: Vec<String>,
+    pruned_with_source: Vec<String>,
+}
+
+/// EFF900 for every validated manifest selector (`Manifest::path_selectors`) that matches no file of
+/// its scope: a stale declaration, reported like a stale `nativeDependencyBoundaries` entry.
+fn stale_selector_findings(manifest: &Manifest, manifest_file: &str, files: &[SourceFile], discovered: &Discovered, registry: &Registry) -> Vec<Finding> {
+    manifest
+        .path_selectors()
+        .into_iter()
+        .filter(|selector| {
+            let matches = |path: &str| matches_any(path, std::slice::from_ref(&selector.pattern.to_string()));
+            let live = match selector.scope {
+                SelectorScope::Scanned => files.iter().any(|f| matches(&f.relative)),
+                SelectorScope::Discovered => {
+                    discovered.files.iter().any(|f| matches(f)) || prune_root(selector.pattern).is_some_and(|r| discovered.pruned_with_source.contains(&r))
+                }
+            };
+            !live
+        })
+        .map(|selector| {
+            let scope = match selector.scope {
+                SelectorScope::Scanned => "scanned source file",
+                SelectorScope::Discovered => "source file",
+            };
+            let message = format!("{} {}: selector matches no {scope} under the scan root (stale declaration)", selector.entry, selector.pattern);
+            let package = manifest.package_for_file(selector.pattern).map(|p| p.path.as_str());
+            registry.finding("EFF900", manifest_file, 1, "", Some(&message), package)
+        })
+        .collect()
+}
+
+fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<(Vec<SourceFile>, Vec<String>, Discovered), String> {
     let prune = host_tooling_prune_dirs(manifest);
     let collected = util::collect_files(root, &prune)?;
     let paths = collected.files;
+    let mut discovered = Discovered { files: Vec::new(), pruned_with_source: collected.pruned_with_source };
     let default_tests = util::default_test_globs();
     let mut files = Vec::new();
     for path in paths {
@@ -166,6 +204,7 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
         if relative.ends_with(".d.ts") || relative.ends_with(".d.mts") || relative.ends_with(".d.cts") {
             continue;
         }
+        discovered.files.push(relative.clone());
         // Lossy decoding: a source file in another encoding (latin-1 comments) still has facts; a file that is
         // not valid UTF-8 must not abort the scan of every other file.
         let text = String::from_utf8_lossy(&fs::read(&path).map_err(|e| format!("cannot read {relative}: {e}"))?).into_owned();
@@ -192,7 +231,7 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
         });
     }
     link_reexports(root, &mut files, contract);
-    Ok((files, collected.skipped_symlinks))
+    Ok((files, collected.skipped_symlinks, discovered))
 }
 
 fn abs_path(root: &Path, relative: &str) -> PathBuf {

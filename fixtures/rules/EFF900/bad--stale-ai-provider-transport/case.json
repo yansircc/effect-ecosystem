@@ -1,0 +1,23 @@
+{
+  "description": "stale-ai-provider-transport-red: an aiProviderTransports path that matches no scanned source file is a stale declaration",
+  "suites": [
+    "manifest-schema",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectRuleCounts": {
+    "EFF900": 1
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "aiProviderTransports src/does/not/exist.ts: selector matches no scanned source file"
+    }
+  ]
+}

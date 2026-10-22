@@ -1,9 +1,8 @@
 //! Profile (`buildProfile`), active profiles (`activeProfilesFor`) and reference routing
 //! (`requiredReferencesFor`): which references this scan obliges the agent to read.
-use super::signals::belongs_to_package;
 use super::toolchain::ToolchainMeta;
 use crate::findings::Finding;
-use crate::manifest::Manifest;
+use crate::manifest::{Manifest, Package};
 use crate::package::resolver::{effect_version_from_resolution, Comparison, ScanState};
 use crate::scan::SourceFile;
 use serde_json::{json, Map, Value};
@@ -51,8 +50,8 @@ pub fn effect_support(state: &ScanState, effect_version: &Option<String>) -> &'s
     }
 }
 
-fn paths_in_package(package_path: &str, paths: &[String]) -> Value {
-    json!(paths.iter().filter(|p| belongs_to_package(package_path, p)).collect::<Vec<_>>())
+fn paths_in_package(manifest: &Manifest, pkg: &Package, paths: &[String]) -> Value {
+    json!(paths.iter().filter(|p| manifest.owns(pkg, p)).collect::<Vec<_>>())
 }
 
 /// Families of the default rule contract (`contracts/rules.json`), sorted.
@@ -76,9 +75,9 @@ pub fn build(manifest: Option<&Manifest>, files: &[SourceFile], toolchain: &Tool
                         "path": pkg.path,
                         "shape": pkg.shape,
                         "dependencyOwner": pkg.dependency_owner,
-                        "edges": paths_in_package(&pkg.path, &m.executable_edge_paths),
-                        "adapters": paths_in_package(&pkg.path, &adapters),
-                        "aiProviderTransports": paths_in_package(&pkg.path, &m.ai_provider_transport_paths),
+                        "edges": paths_in_package(m, pkg, &m.executable_edge_paths),
+                        "adapters": paths_in_package(m, pkg, &adapters),
+                        "aiProviderTransports": paths_in_package(m, pkg, &m.ai_provider_transport_paths),
                         "tests": files.iter().filter(|f| f.package.as_deref() == Some(pkg.path.as_str()) && f.roles.test).map(|f| &f.relative).collect::<Vec<_>>(),
                         "depsResolved": depends,
                     })

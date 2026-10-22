@@ -1,0 +1,44 @@
+{
+  "description": "transport-in-subpackage-not-root-red: a transport is owned by the longest matching package only; the root package's loop has no owner",
+  "suites": [
+    "package-presence",
+    "monorepo-dependency-resolution",
+    "evil-monorepo-root-leak",
+    "evil-fixtures"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF312"
+  ],
+  "expectFindings": [
+    {
+      "ruleId": "EFF312",
+      "count": 1,
+      "file": "package.json",
+      "messageIncludes": "missing a loop owner"
+    }
+  ],
+  "expectSignalFacts": [
+    {
+      "kind": "ai-runtime-facts",
+      "package": ".",
+      "facts": {
+        "declaredProviderTransports": []
+      }
+    },
+    {
+      "kind": "ai-runtime-facts",
+      "package": "packages/transport",
+      "facts": {
+        "declaredProviderTransports": [
+          {
+            "path": "packages/transport/src/provider-transport.ts",
+            "owner": "@ai-transport"
+          }
+        ]
+      }
+    }
+  ]
+}

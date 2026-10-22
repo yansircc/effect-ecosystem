@@ -21,11 +21,6 @@
       "reason": "Registry generation and verification scripts for the skill itself."
     },
     {
-      "path": "packaging/**",
-      "owner": "@effect-ecosystem-skill",
-      "reason": "Delivery shim (skill launcher) that locates and exec the native scanner; not Effect application code."
-    },
-    {
       "path": "fixtures/**",
       "owner": "@effect-ecosystem-skill",
       "reason": "Scanner fixtures: deliberately violating and compliant scan targets, not source of this repository."

@@ -1,0 +1,31 @@
+{
+  "description": "host-owned-loop-without-boundary-red: without admitted boundaries the AI SDK dependencies are forbidden and the loop has no declared owner",
+  "suites": [
+    "package-presence",
+    "native-dependency-boundaries",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF312"
+  ],
+  "expectRuleCounts": {
+    "EFF312": 3
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF312",
+      "messageIncludes": "forbidden direct dependency ai"
+    },
+    {
+      "ruleId": "EFF312",
+      "messageIncludes": "forbidden direct dependency @ai-sdk/openai"
+    },
+    {
+      "ruleId": "EFF312",
+      "messageIncludes": "missing a loop owner"
+    }
+  ]
+}

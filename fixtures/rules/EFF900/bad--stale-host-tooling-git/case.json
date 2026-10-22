@@ -1,0 +1,34 @@
+{
+  "description": "stale-host-tooling-git-red: git ls-files discovery; same verdicts as the directory walk",
+  "suites": [
+    "manifest-schema",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "git": {},
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectRuleCounts": {
+    "EFF900": 3
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling scripts/**: selector matches no source file"
+    },
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling docs/**: selector matches no source file"
+    },
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling tools/gen.ts: selector matches no source file"
+    }
+  ]
+}

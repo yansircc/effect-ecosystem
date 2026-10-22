@@ -1,0 +1,25 @@
+{
+  "description": "host-boundary-does-not-admit-effect-red: a host loop owner satisfies only the provider (ownership) requirement; the effect capability is still required; without effect the Effect line is also unsupported (EFF908)",
+  "suites": [
+    "package-presence",
+    "native-dependency-boundaries",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF312",
+    "EFF908"
+  ],
+  "expectRuleCounts": {
+    "EFF312": 1
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF312",
+      "count": 1,
+      "messageIncludes": "missing effect"
+    }
+  ]
+}

@@ -94,6 +94,9 @@ pub struct Collected {
     /// symlink is an alias, its target is scanned at its own path when that path is inside the root, and an
     /// outside target is not part of the project. Reported so that unscanned source is never silent.
     pub skipped_symlinks: Vec<String>,
+    /// The ignored directories (as passed, posix) that hold at least one source file. Their files are not
+    /// listed, but a manifest selector that prunes a directory is validated against this fact.
+    pub pruned_with_source: Vec<String>,
 }
 
 /// Files under `root`: the git working tree when inside a repository, otherwise a directory walk. Neither
@@ -127,6 +130,9 @@ fn walk(root: &Path, dir: &Path, ignored: &[String], out: &mut Collected) -> Res
             }
             let relative = rel(root, &path);
             if ignored.iter().any(|d| *d == relative) {
+                if contains_source(root, &path)? {
+                    out.pruned_with_source.push(relative);
+                }
                 continue;
             }
             walk(root, &path, ignored, out)?;
@@ -135,6 +141,24 @@ fn walk(root: &Path, dir: &Path, ignored: &[String], out: &mut Collected) -> Res
         }
     }
     Ok(())
+}
+
+/// Whether the walk would find a source file under `dir` (same skips, symlinks not followed); stops at the first.
+fn contains_source(root: &Path, dir: &Path) -> Result<bool, String> {
+    let failure = |path: &Path, e: std::io::Error| format!("cannot read directory {}: {e}", rel(root, path));
+    for entry in fs::read_dir(dir).map_err(|e| failure(dir, e))? {
+        let entry = entry.map_err(|e| failure(dir, e))?;
+        let kind = entry.file_type().map_err(|e| failure(&entry.path(), e))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if kind.is_dir() && !ALWAYS_IGNORED_DIRS.contains(&name.as_str()) && !WALK_FALLBACK_IGNORED_DIRS.contains(&name.as_str()) {
+            if contains_source(root, &entry.path())? {
+                return Ok(true);
+            }
+        } else if kind.is_file() && is_source(&name) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn git_files(root: &Path, ignored: &[String]) -> Result<Collected, String> {
@@ -161,9 +185,15 @@ fn git_files(root: &Path, ignored: &[String]) -> Result<Collected, String> {
             let segments: Vec<&str> = p.split('/').collect();
             !segments[..segments.len() - 1].iter().any(|s| ALWAYS_IGNORED_DIRS.contains(s))
         })
-        .filter(|p| !roots.iter().any(|r| p == r || p.starts_with(&format!("{r}/"))))
         .collect::<Vec<_>>();
     for relative in listed {
+        if let Some(r) = roots.iter().find(|r| relative == **r || relative.starts_with(&format!("{r}/"))) {
+            let is_file = fs::symlink_metadata(root.join(&relative)).is_ok_and(|m| m.is_file());
+            if is_file && is_source(&relative) && !out.pruned_with_source.contains(r) {
+                out.pruned_with_source.push(r.clone());
+            }
+            continue;
+        }
         let path = root.join(&relative);
         // A listed path that is gone (tracked, deleted in the working tree) is not a file of the tree.
         let Ok(meta) = fs::symlink_metadata(&path) else { continue };

@@ -15,10 +15,17 @@ v4 **没有** `@effect/ai-google`（Gemini）与 `@effect/ai-amazon-bedrock` 对
 
 ## Provider ownership
 
-业务循环、tool 调用、结构化输出、重试、timeout、span 归 `effect/ai` 所有。平台暂缺 provider 包时，可以在
-`.effect-skill.json` 用 `aiProviderTransports[]` 声明 repo-owned terminal
-transport，但 transport 只能是最外层适配器，不能重新拥有 agent loop
-语义。
+一个包的 AI loop 必须有声明的 owner，二选一。provider 是归属选择，不是能力；`effect`（`effect/ai`）
+能力始终必需。
+
+- `effect/ai` 拥有 loop（默认）：业务循环、tool 调用、结构化输出、重试、timeout、span 归
+  `effect/ai`。owner 是 `@effect/ai-*` provider 包；平台暂缺 provider 包时，可以在
+  `.effect-skill.json` 用 `aiProviderTransports[]` 声明本包内（最长匹配的 manifest 包路径）的
+  repo-owned terminal transport，但 transport 只能是最外层适配器，不能重新拥有 agent loop 语义。
+- 宿主框架拥有 loop（例如 Cloudflare Think：loop 由宿主驱动且要求 AI SDK model）：为本包被
+  EFF312 禁止的依赖（`ai`、`@ai-sdk/*`）声明 `nativeDependencyBoundaries`，被接纳的边界就是
+  owner；不要再为满足 EFF312 添加未使用的 `@effect/ai-*` 包或语义为假的 transport 声明。
+  Effect 代码只拥有宿主回调里的业务程序。
 
 ## 2. 业务侧：与 provider 解耦
 
@@ -302,7 +309,7 @@ export const test = LanguageModel.generateText({ prompt: "hello" }).pipe(
 
 ## 11. 禁忌
 
-- 严禁直接 `import OpenAI from "openai"` / `import Anthropic from "@anthropic-ai/sdk"` 在业务代码里调用 — 默认用 `@effect/ai-openai` / `@effect/ai-anthropic` / `@effect/ai-openrouter`；若平台暂缺 provider 包，必须在 `.effect-skill.json` 用 `aiProviderTransports[]` 声明 repo-owned terminal transport，且 agent loop / tool semantics 仍由 `effect/ai` 拥有。
+- 严禁直接 `import OpenAI from "openai"` / `import Anthropic from "@anthropic-ai/sdk"` 在业务代码里调用 — 默认用 `@effect/ai-openai` / `@effect/ai-anthropic` / `@effect/ai-openrouter`；若平台暂缺 provider 包，必须在 `.effect-skill.json` 用 `aiProviderTransports[]` 声明 repo-owned terminal transport，且 agent loop / tool semantics 仍由 `effect/ai` 拥有；宿主框架拥有 loop 时改用 `nativeDependencyBoundaries`（见 Provider ownership）。
 - 严禁依赖 `@effect/ai`、`@effect/ai-google`、`@effect/ai-amazon-bedrock`（v4 无对应包）。
 - 严禁把 API key 写死或直接读 `process.env` — 用 `Config.Redacted`。
 - 严禁裸调 LLM 不加 `Effect.timeout` + `Effect.retry` + `Effect.withSpan`。

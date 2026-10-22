@@ -1,0 +1,19 @@
+{
+  "shape": [
+    "ai"
+  ],
+  "nativeDependencyBoundaries": [
+    {
+      "package": ".",
+      "dependency": "ai",
+      "owner": "@host/think",
+      "reason": "The Think host framework owns the agent loop and requires AI SDK models."
+    },
+    {
+      "package": ".",
+      "dependency": "@ai-sdk/openai",
+      "owner": "@host/think",
+      "reason": "AI SDK model provider required by the Think host loop."
+    }
+  ]
+}

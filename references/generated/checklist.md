@@ -40,7 +40,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF304 shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency.
 - [ ] EFF310 shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.
 - [ ] EFF311 shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies.
-- [ ] EFF312 shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.
+- [ ] EFF312 shape ai requires effect (effect/ai) and a declared AI loop owner: an @effect/ai-* provider package or an aiProviderTransports entry owned by the package (effect/ai owns the loop), or an admitted nativeDependencyBoundaries entry for a dependency this rule forbids (the host owns the loop); direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden unless admitted by such a boundary.
 - [ ] EFF321 non-empty shape requires @effect/vitest in devDependencies.
 - [ ] EFF323 Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges.
 - [ ] EFF325 Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json).
@@ -56,7 +56,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF502 The Effect diagnostics provider reported an unhandled error channel.
 - [ ] EFF503 The Effect diagnostics provider reported an unclosed Layer dependency/error channel.
 - [ ] EFF504 TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant.
-- [ ] EFF900 .effect-skill.json failed schema validation.
+- [ ] EFF900 .effect-skill.json failed schema validation or declares a stale entry (nativeDependencyBoundaries, or an allowedAdapters/aiProviderTransports/hostTooling selector that matches no file).
 - [ ] EFF901 --strict requires a project-local TypeScript compiler.
 - [ ] EFF902 --strict requires the Effect diagnostics provider matching the installed TypeScript major.
 - [ ] EFF903 --strict requires a non-empty package shape.

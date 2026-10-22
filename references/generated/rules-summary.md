@@ -42,7 +42,7 @@ Source of truth: `contracts/rules.json`.
 | EFF304 | clickhouse-without-effect-sql | error | core | shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency. |
 | EFF310 | http-server-without-effect-platform | error | core | shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration. |
 | EFF311 | http-client-without-effect-platform | error | core | shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies. |
-| EFF312 | ai-without-effect-ai | error | core | shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden. |
+| EFF312 | ai-without-effect-ai | error | core | shape ai requires effect (effect/ai) and a declared AI loop owner: an @effect/ai-* provider package or an aiProviderTransports entry owned by the package (effect/ai owns the loop), or an admitted nativeDependencyBoundaries entry for a dependency this rule forbids (the host owns the loop); direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden unless admitted by such a boundary. |
 | EFF321 | missing-effect-vitest | error | core | non-empty shape requires @effect/vitest in devDependencies. |
 | EFF323 | v4-opentelemetry-missing-peer | error | core | Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges. |
 | EFF325 | v3-line-package | error | core | Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json). |
@@ -58,7 +58,7 @@ Source of truth: `contracts/rules.json`.
 | EFF502 | missing-effect-error | error | core | The Effect diagnostics provider reported an unhandled error channel. |
 | EFF503 | unclosed-layer | error | core | The Effect diagnostics provider reported an unclosed Layer dependency/error channel. |
 | EFF504 | typescript-compile-error | error | core | TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant. |
-| EFF900 | invalid-manifest | error | core | .effect-skill.json failed schema validation. |
+| EFF900 | invalid-manifest | error | core | .effect-skill.json failed schema validation or declares a stale entry (nativeDependencyBoundaries, or an allowedAdapters/aiProviderTransports/hostTooling selector that matches no file). |
 | EFF901 | missing-tsc | error | core | --strict requires a project-local TypeScript compiler. |
 | EFF902 | missing-effect-diagnostics-provider | error | core | --strict requires the Effect diagnostics provider matching the installed TypeScript major. |
 | EFF903 | empty-shape | error | core | --strict requires a non-empty package shape. |
@@ -299,7 +299,7 @@ Rule: shape http-client requires effect (effect/http HttpClient) and forbids dir
 
 Profiles: core
 
-Rule: shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.
+Rule: shape ai requires effect (effect/ai) and a declared AI loop owner: an @effect/ai-* provider package or an aiProviderTransports entry owned by the package (effect/ai owns the loop), or an admitted nativeDependencyBoundaries entry for a dependency this rule forbids (the host owns the loop); direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden unless admitted by such a boundary.
 
 ## EFF321 missing-effect-vitest
 
@@ -395,7 +395,7 @@ Rule: TypeScript reported a compile error; code that does not compile against th
 
 Profiles: core
 
-Rule: .effect-skill.json failed schema validation.
+Rule: .effect-skill.json failed schema validation or declares a stale entry (nativeDependencyBoundaries, or an allowedAdapters/aiProviderTransports/hostTooling selector that matches no file).
 
 ## EFF901 missing-tsc
 

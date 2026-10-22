@@ -268,6 +268,23 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
     }
 }
 
+/// The files a selector can grant anything to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectorScope {
+    /// The scanned source files (after hostTooling exclusion): the input of every rule stage.
+    Scanned,
+    /// Source discovery before hostTooling exclusion: what hostTooling itself removes.
+    Discovered,
+}
+
+/// A manifest path/glob selector that grants an exemption, ownership or reclassification.
+pub struct PathSelector<'a> {
+    /// Manifest key of the entry (`allowedAdapters`, ...).
+    pub entry: &'static str,
+    pub pattern: &'a str,
+    pub scope: SelectorScope,
+}
+
 impl Manifest {
     /// The package that owns `relative_file`: the longest matching package path.
     pub fn package_for_file(&self, relative_file: &str) -> Option<&Package> {
@@ -275,5 +292,34 @@ impl Manifest {
         let mut sorted: Vec<&Package> = self.packages.iter().collect();
         sorted.sort_by_key(|p| std::cmp::Reverse(p.path.len()));
         sorted.into_iter().find(|p| p.path == "." || normalized == p.path || normalized.starts_with(&format!("{}/", p.path)))
+    }
+
+    /// Every selector validated against the tree: one that matches no file of its scope grants nothing
+    /// today and silently grants it to whatever file lands there later, so it is a stale declaration
+    /// (EFF900). Selectors that are deliberately not validated here:
+    /// - `executableEdges[].path`: an edge is a verified contract; a path that is not a scanned source
+    ///   file already fails as EFF401 at that path (one fact, one finding).
+    /// - `generatedPaths[].glob`: generated output is legitimately absent before codegen/build and is
+    ///   usually gitignored (never discovered), and the glob also covers files outside source discovery
+    ///   (`.d.ts`, compiler-reported files); matching nothing is not evidence of staleness.
+    /// - `testGlobs`: a naming convention for files as they are added (the default list itself holds
+    ///   globs that match nothing in most trees), not a declaration about existing files.
+    /// - `packages[].path`, `wranglerPath`: not file selectors; a missing package has no `package.json`
+    ///   and fails every shape requirement, a missing wrangler config fails as EFF905.
+    /// - `nativeDependencyBoundaries`: dependency selectors, validated in `package::rules`.
+    pub fn path_selectors(&self) -> Vec<PathSelector<'_>> {
+        let scanned = SelectorScope::Scanned;
+        let mut out: Vec<PathSelector<'_>> = Vec::new();
+        out.extend(self.allowed_adapters.iter().map(|a| PathSelector { entry: "allowedAdapters", pattern: &a.path, scope: scanned }));
+        out.extend(self.ai_provider_transport_paths.iter().map(|p| PathSelector { entry: "aiProviderTransports", pattern: p, scope: scanned }));
+        out.extend(self.host_tooling_paths.iter().map(|p| PathSelector { entry: "hostTooling", pattern: p, scope: SelectorScope::Discovered }));
+        out
+    }
+
+    /// The one ownership relation between a package and a manifest path: `pkg` owns `relative_path`
+    /// iff it is the longest matching package (`package_for_file`). A parent package (including `.`)
+    /// never owns a path inside a nested package.
+    pub fn owns(&self, pkg: &Package, relative_path: &str) -> bool {
+        self.package_for_file(relative_path).is_some_and(|owner| owner.path == pkg.path)
     }
 }

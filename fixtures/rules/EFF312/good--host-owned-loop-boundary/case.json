@@ -1,0 +1,10 @@
+{
+  "description": "host-owned-loop-boundary-green: the AI loop owner is the host framework, declared by admitted native dependency boundaries for dependencies EFF312 forbids; no effect/ai provider or transport is required",
+  "suites": [
+    "package-presence",
+    "native-dependency-boundaries",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

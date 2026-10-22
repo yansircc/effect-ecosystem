@@ -30,8 +30,7 @@ pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
             if !requirement.shapes.iter().any(|s| pkg.shape.contains(s)) {
                 continue;
             }
-            let transports = ai_provider_transports_for(manifest, pkg);
-            let missing = missing_requirement(&pkg.deps, requirement, transports);
+            let missing = missing_requirement(&pkg.deps, requirement, provider_owner_declared(manifest, pkg, requirement, &native));
             if !missing.is_empty() {
                 findings.push(finding(&requirement.rule_id, &pkg.relative_package_json, Some(&format!("missing {}", missing.join(" or ")))));
             }
@@ -158,7 +157,9 @@ fn unsupported_message(unproven: &[&Candidate]) -> String {
     message
 }
 
-fn missing_requirement(deps: &Map<String, Value>, requirement: &Requirement, transports_declared: bool) -> Vec<String> {
+/// `owner_declared`: the requirement's provider (loop owner) is declared outside the dependency
+/// inventory — see `provider_owner_declared`. It never stands in for `all_of` / `any_of` / `prefix_any_of`.
+fn missing_requirement(deps: &Map<String, Value>, requirement: &Requirement, owner_declared: bool) -> Vec<String> {
     let has = |name: &str| deps.contains_key(name);
     let has_prefix = |prefixes: &[String]| deps.keys().any(|dep| prefixes.iter().any(|p| dep.starts_with(p.as_str())));
     let mut missing = Vec::new();
@@ -178,8 +179,11 @@ fn missing_requirement(deps: &Map<String, Value>, requirement: &Requirement, tra
         }
     }
     if let Some(prefixes) = &requirement.provider_prefix_any_of {
-        if !transports_declared && !has_prefix(prefixes) {
-            missing.push(format!("{} provider package or manifest aiProviderTransports[]", prefixes.join(" or ")));
+        if !owner_declared && !has_prefix(prefixes) {
+            missing.push(format!(
+                "a loop owner: {} provider package, an aiProviderTransports[] entry owned by this package, or a nativeDependencyBoundaries host owner (an admitted dependency this requirement forbids)",
+                prefixes.join(" or ")
+            ));
         }
     }
     missing
@@ -192,8 +196,15 @@ fn forbidden_dependencies<'a>(requirement: &Requirement, deps: impl Iterator<Ite
         .collect()
 }
 
-fn ai_provider_transports_for(manifest: &Manifest, pkg: &Package) -> bool {
-    manifest.ai_provider_transport_paths.iter().any(|path| pkg.path == "." || path == &pkg.path || path.starts_with(&format!("{}/", pkg.path)))
+/// The provider of a requirement is an ownership choice, not a capability: the loop of `pkg` must have
+/// a declared owner. Besides a provider-prefix dependency (checked by `missing_requirement`),
+/// it is either a repo-owned transport inside `pkg` (the effect provider path, `Manifest::owns`), or the
+/// host: an admitted `(pkg, d)` native dependency boundary where `d` is forbidden by this same
+/// requirement (the host framework that requires `d` owns the loop).
+fn provider_owner_declared(manifest: &Manifest, pkg: &Package, requirement: &Requirement, admitted: &HashSet<(String, String)>) -> bool {
+    let transport = manifest.ai_provider_transport_paths.iter().any(|path| manifest.owns(pkg, path));
+    let host = admitted.iter().any(|(package, dependency)| *package == pkg.path && !forbidden_dependencies(requirement, std::iter::once(dependency.as_str())).is_empty());
+    transport || host
 }
 
 /// Installed v4 `@effect/*` packages (and `effect`) must have every required peer installed within

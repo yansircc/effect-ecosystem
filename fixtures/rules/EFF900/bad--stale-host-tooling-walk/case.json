@@ -1,0 +1,33 @@
+{
+  "description": "stale-host-tooling-walk-red: directory walk; a pruned hostTooling directory counts only when it holds source, other selectors match discovered files",
+  "suites": [
+    "manifest-schema",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectRuleCounts": {
+    "EFF900": 3
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling scripts/**: selector matches no source file"
+    },
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling docs/**: selector matches no source file"
+    },
+    {
+      "ruleId": "EFF900",
+      "file": ".effect-skill.json",
+      "messageIncludes": "hostTooling tools/gen.ts: selector matches no source file"
+    }
+  ]
+}

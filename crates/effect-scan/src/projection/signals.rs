@@ -40,10 +40,6 @@ const RESILIENCE_CALLS: [&str; 8] =
 const PUBSUB_CONSTRUCTORS: [&str; 4] = ["PubSub.bounded", "PubSub.dropping", "PubSub.sliding", "PubSub.unbounded"];
 const DIRECT_PROVIDER_SDKS: [&str; 3] = ["openai", "@anthropic-ai/sdk", "@google/genai"];
 
-pub fn belongs_to_package(package_path: &str, file_path: &str) -> bool {
-    package_path == "." || file_path == package_path || file_path.starts_with(&format!("{package_path}/"))
-}
-
 /// JavaScript truthiness of a dependency range (`Boolean(pkg.deps[name])`).
 fn declared(pkg: &Package, name: &str) -> bool {
     match pkg.deps.get(name) {
@@ -176,7 +172,7 @@ pub fn build(root: &Path, manifest: Option<&Manifest>, files: &[SourceFile], fac
                 .into_iter()
                 .flatten()
                 .filter_map(|t| Some((crate::util::to_posix(t["path"].as_str()?), t["owner"].as_str()?.to_string())))
-                .filter(|(path, _)| belongs_to_package(&pkg.path, path))
+                .filter(|(path, _)| manifest.owns(pkg, path))
                 .collect();
             transports.sort_by(|a, b| locale_compare(&a.0, &b.0));
             out.emit(
