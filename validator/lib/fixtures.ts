@@ -328,8 +328,8 @@ function fixtureRuleContract(jsonl) {
       references: rule.ref ? [rule.ref] : [],
       facts: ["source.code"],
       scanner: {
-        kind: "line-regex",
-        pattern: rule.pattern,
+        kind: "source-ast",
+        selector: rule.selector,
         include: rule.include,
         exclude: rule.exclude,
         scanTests: rule.scanTests,

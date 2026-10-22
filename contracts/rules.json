@@ -68,8 +68,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\btry\\s*\\{"
+        "kind": "source-ast",
+        "selector": "try-statement"
       },
       "family": "source",
       "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
@@ -140,8 +140,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bPromise\\.(all|allSettled|race|any)\\b"
+        "kind": "source-ast",
+        "selector": "promise-combinator"
       },
       "family": "source",
       "message": "禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition",
@@ -160,7 +160,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]axios['\"]"
+        "packages": [
+          "axios"
+        ]
       },
       "family": "source",
       "message": "禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码",
@@ -178,7 +180,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]zod['\"]"
+        "packages": [
+          "zod"
+        ]
       },
       "family": "source",
       "message": "禁用 zod。改用 effect/Schema (双向 codec)",
@@ -196,7 +200,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]yup['\"]"
+        "packages": [
+          "yup"
+        ]
       },
       "family": "source",
       "message": "禁用 yup。改用 effect/Schema",
@@ -214,7 +220,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]arktype['\"]"
+        "packages": [
+          "arktype"
+        ]
       },
       "family": "source",
       "message": "禁用 arktype。改用 effect/Schema",
@@ -232,7 +240,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]io-ts['\"]"
+        "packages": [
+          "io-ts"
+        ]
       },
       "family": "source",
       "message": "禁用 io-ts。改用 effect/Schema",
@@ -250,7 +260,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]lodash"
+        "packagePrefixes": [
+          "lodash"
+        ]
       },
       "family": "source",
       "message": "禁用 lodash。改用 effect/Array / effect/HashMap / effect/HashSet / effect/Option 等",
@@ -268,7 +280,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]ramda['\"]"
+        "packages": [
+          "ramda"
+        ]
       },
       "family": "source",
       "message": "禁用 ramda。改用 effect 内置集合与组合子",
@@ -286,7 +300,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]ts-pattern['\"]"
+        "packages": [
+          "ts-pattern"
+        ]
       },
       "family": "source",
       "message": "禁用 ts-pattern。改用 effect/Match",
@@ -304,7 +320,11 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]@tanstack/react-query['\"]"
+        "packages": [
+          "@tanstack/react-query",
+          "@tanstack/query-core",
+          "swr"
+        ]
       },
       "family": "source",
       "message": "禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)",
@@ -322,7 +342,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]zustand"
+        "packagePrefixes": [
+          "zustand"
+        ]
       },
       "family": "source",
       "message": "禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)",
@@ -340,7 +362,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]jotai"
+        "packagePrefixes": [
+          "jotai"
+        ]
       },
       "family": "source",
       "message": "禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom",
@@ -358,7 +382,10 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"](?:node:)?fs(?:/promises)?['\"]"
+        "packages": [
+          "fs",
+          "fs-extra"
+        ]
       },
       "family": "source",
       "message": "禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)",
@@ -376,7 +403,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"](?:node:)?path['\"]"
+        "packages": [
+          "path"
+        ]
       },
       "family": "source",
       "message": "禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)",
@@ -393,8 +422,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bsetTimeout\\s*\\("
+        "kind": "source-ast",
+        "selector": "set-timeout"
       },
       "family": "source",
       "message": "禁用 setTimeout。改用 Effect.sleep(Duration 字面量)",
@@ -411,8 +440,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bsetInterval\\s*\\("
+        "kind": "source-ast",
+        "selector": "set-interval"
       },
       "family": "source",
       "message": "禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped",
@@ -429,8 +458,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bnew\\s+Error\\s*\\("
+        "kind": "source-ast",
+        "selector": "new-error"
       },
       "family": "source",
       "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
@@ -447,8 +476,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bthrow\\s+"
+        "kind": "source-ast",
+        "selector": "throw-statement"
       },
       "family": "source",
       "message": "禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail",
@@ -465,8 +494,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bDate\\.now\\s*\\("
+        "kind": "source-ast",
+        "selector": "date-now"
       },
       "family": "source",
       "message": "业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)",
@@ -483,8 +512,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bprocess\\.env\\."
+        "kind": "source-ast",
+        "selector": "process-env"
       },
       "family": "source",
       "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
@@ -502,7 +531,9 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]node-cron['\"]"
+        "packages": [
+          "node-cron"
+        ]
       },
       "family": "source",
       "message": "禁用 node-cron。改用 Schedule.cron(\"M H D M W\") + Effect.repeat",
@@ -522,7 +553,9 @@
       ],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]@trpc/"
+        "packagePrefixes": [
+          "@trpc/"
+        ]
       },
       "family": "source",
       "message": "禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)",
@@ -542,7 +575,9 @@
       ],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"]@prisma/client['\"]"
+        "packages": [
+          "@prisma/client"
+        ]
       },
       "family": "source",
       "message": "禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator",
@@ -560,7 +595,11 @@
       "references": [],
       "scanner": {
         "kind": "source-import",
-        "pattern": "from\\s+['\"](?:moment|dayjs|date-fns)"
+        "packagePrefixes": [
+          "moment",
+          "dayjs",
+          "date-fns"
+        ]
       },
       "family": "source",
       "message": "避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区)",
@@ -577,8 +616,8 @@
       ],
       "references": [],
       "scanner": {
-        "kind": "line-regex",
-        "pattern": "\\bnew\\s+Date\\s*\\("
+        "kind": "source-ast",
+        "selector": "new-date"
       },
       "family": "source",
       "message": "业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string",

@@ -287,7 +287,7 @@
       "suites": [
         "include-exclude-rules"
       ],
-      "rulesJsonl": "{\"id\":\"EFF001\",\"name\":\"custom-try\",\"pattern\":\"\\\\btry\\\\s*\\\\{\",\"message\":\"custom\",\"include\":[\"src/enforced/**\"],\"exclude\":[\"src/enforced/skip.ts\"]}\n",
+      "rulesJsonl": "{\"id\":\"EFF001\",\"name\":\"custom-try\",\"selector\":\"try-statement\",\"message\":\"custom\",\"include\":[\"src/enforced/**\"],\"exclude\":[\"src/enforced/skip.ts\"]}\n",
       "files": {
         "src/enforced/a.ts": "try { work() } catch (e) {}\n",
         "src/enforced/skip.ts": "try { work() } catch (e) {}\n",
@@ -4563,6 +4563,217 @@
       "rustFindings": [
         "src/a.ts:3:EFF403:error",
         "src/a.ts:4:EFF403:error"
+      ]
+    },
+    {
+      "name": "source-import-all-hits-and-require",
+      "suites": [
+        "legacy-line-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import { z } from \"zod\"\nimport type { ZodType } from \"zod/v4\"\nconst mini = require(\"zod/mini\")\nimport fs from \"node:fs/promises\"\nimport extra from \"fs-extra\"\nimport { useQuery } from \"@tanstack/query-core\"\nexport const facts = [z, mini, fs, extra, useQuery]\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF007",
+        "EFF014",
+        "EFF020",
+        "EFF404"
+      ],
+      "rustFindings": [
+        "src/a.ts:1:EFF007:error",
+        "src/a.ts:2:EFF007:error",
+        "src/a.ts:3:EFF007:error",
+        "src/a.ts:3:EFF404:error",
+        "src/a.ts:4:EFF020:error",
+        "src/a.ts:5:EFF020:error",
+        "src/a.ts:6:EFF014:error"
+      ]
+    },
+    {
+      "name": "source-import-neighbour-packages-and-shadowed-require",
+      "suites": [
+        "legacy-line-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import pathe from \"pathe\"\nimport zodLike from \"zod-like\"\nimport fsx from \"fsx\"\nconst require = (name: string) => name\nexport const facts = [pathe, zodLike, fsx, require(\"zod\"), require(\"fs\")]\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": []
+    },
+    {
+      "name": "global-shadowing-red",
+      "suites": [
+        "async-ast-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "export const run = async (xs: Promise<number>[]) => {\n  await Promise.all(xs)\n  setTimeout(() => {}, 1)\n  setInterval(() => {}, 1)\n  const at = Date.now()\n  const d = new Date()\n  const e = new Error(\"x\")\n  return [at, d, e, process.env.A, globalThis.Promise.race(xs), window.setTimeout(() => {}, 1), self.Date.now()]\n}\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF003",
+        "EFF004",
+        "EFF005",
+        "EFF022",
+        "EFF023",
+        "EFF024",
+        "EFF026",
+        "EFF027",
+        "EFF032"
+      ],
+      "rustFindings": [
+        "src/a.ts:1:EFF003:error",
+        "src/a.ts:2:EFF004:error",
+        "src/a.ts:2:EFF005:error",
+        "src/a.ts:3:EFF022:error",
+        "src/a.ts:4:EFF023:error",
+        "src/a.ts:5:EFF026:error",
+        "src/a.ts:6:EFF032:warning",
+        "src/a.ts:7:EFF024:error",
+        "src/a.ts:8:EFF005:error",
+        "src/a.ts:8:EFF022:error",
+        "src/a.ts:8:EFF026:error",
+        "src/a.ts:8:EFF027:error"
+      ]
+    },
+    {
+      "name": "global-shadowing-green",
+      "suites": [
+        "async-ast-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import { Promise } from \"bluebird\"\nconst process = { env: { A: \"a\" } }\nconst Date = { now: () => 1 }\nfunction setTimeout(f: () => void, _ms: number) { return f }\nclass Error { constructor(readonly message: string) {} }\nexport const run = (xs: Promise<number>[]) => {\n  Promise.all(xs)\n  setTimeout(() => {}, 1)\n  return [process.env.A, Date.now(), new Error(\"x\")]\n}\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": []
+    },
+    {
+      "name": "call-result-alias-single-hit",
+      "suites": [
+        "async-ast-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "export const settle = (xs: Promise<number>[]) => {\n  const all = Promise.all(xs)\n  return all.then((values) => values.length)\n}\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF005"
+      ],
+      "rustFindings": [
+        "src/a.ts:2:EFF005:error"
+      ]
+    },
+    {
+      "name": "process-env-forms-red",
+      "suites": [
+        "legacy-line-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "const a = process.env[\"A\"]\nconst { B } = process.env\nconst { env } = process\nconst c = env.C\nconst e = globalThis.process.env\nconst d = e.D\nconst m = import.meta.env.VITE_X\nconst bun = Bun.env.Z\nexport const facts = [a, B, c, d, m, bun]\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF027"
+      ],
+      "rustFindings": [
+        "src/a.ts:1:EFF027:error",
+        "src/a.ts:2:EFF027:error",
+        "src/a.ts:3:EFF027:error",
+        "src/a.ts:5:EFF027:error",
+        "src/a.ts:7:EFF027:error",
+        "src/a.ts:8:EFF027:error"
+      ]
+    },
+    {
+      "name": "process-env-forms-green",
+      "suites": [
+        "legacy-line-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "const process = { env: { A: \"a\" } }\nconst text = \"process.env.A\"\n// process.env.A\nexport const facts = [process.env.A, text]\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "rustFindings": []
+    },
+    {
+      "name": "effect-boundary-callbacks-green",
+      "suites": [
+        "async-ast-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import { Effect } from \"effect\"\nexport const a = Effect.promise(async () => {\n  try {\n    return await fetch(\"/a\")\n  } catch (error) {\n    return error\n  }\n})\nexport const b = Effect.tryPromise({\n  try: async () => await fetch(\"/b\"),\n  catch: (error) => error\n})\nexport const c = Effect.tryPromise({\n  async try() {\n    return await fetch(\"/c\")\n  },\n  catch: (error) => error\n})\nexport const d = Effect.try(() => {\n  try {\n    return JSON.parse(\"1\")\n  } catch (error) {\n    throw error\n  }\n})\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF025"
+      ],
+      "rustFindings": [
+        "src/a.ts:23:EFF025:error"
+      ]
+    },
+    {
+      "name": "effect-boundary-callbacks-red",
+      "suites": [
+        "async-ast-rules"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import { Effect } from \"effect\"\nimport { promise } from \"./not-effect\"\nconst local = { promise: (f: () => unknown) => f }\nexport const a = Effect.promise(async () => {\n  const inner = async () => await fetch(\"/deep\")\n  return inner()\n})\nexport const b = Effect.gen(function* () {\n  yield* Effect.promise(async () => 1)\n  return yield* Effect.tryPromise(() => fetch(\"/ok\"))\n})\nexport const c = local.promise(async () => await fetch(\"/local\"))\nexport const d = promise(async () => await fetch(\"/imported\"))\nexport const f = async () => await fetch(\"/plain\")\nexport const g = Effect.sync(() => {\n  const nested = () => {\n    try {\n      return 1\n    } catch {\n      return 2\n    }\n  }\n  return nested()\n})\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF001",
+        "EFF003",
+        "EFF004"
+      ],
+      "rustFindings": [
+        "src/a.ts:12:EFF003:error",
+        "src/a.ts:12:EFF004:error",
+        "src/a.ts:13:EFF003:error",
+        "src/a.ts:13:EFF004:error",
+        "src/a.ts:14:EFF003:error",
+        "src/a.ts:14:EFF004:error",
+        "src/a.ts:17:EFF001:error",
+        "src/a.ts:5:EFF003:error",
+        "src/a.ts:5:EFF004:error"
       ]
     }
   ]

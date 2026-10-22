@@ -35,6 +35,10 @@ pub struct Path {
     pub origin: Origin,
     pub members: Vec<String>,
     pub binding_verified: bool,
+    /// The path names the *result* of a call (`const x = Date.now()` makes `x` an alias of the callee
+    /// path with `via_call`), not the callee itself. Rules that match a callee or a member reference
+    /// must not match such aliases; `ManagedRuntime.make(...)` results are consumed by `classify`.
+    pub via_call: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,7 +98,9 @@ impl Contract {
     }
 }
 
-pub fn collect(program: &Program, scoping: &Scoping, contract: &Contract) -> ModuleFacts {
+/// Import bindings and `const` aliases of one module, resolved on oxc scopes. Built once per file and
+/// shared by every rule family that needs symbol identity (`collect`, `rules::collect`).
+pub fn build_resolver<'s>(program: &Program, scoping: &'s Scoping) -> Resolver<'s> {
     let mut pre = Prepass { imports: HashMap::new() };
     pre.visit_program(program);
     let mut resolver = Resolver { scoping, imports: pre.imports, aliases: HashMap::new() };
@@ -106,8 +112,12 @@ pub fn collect(program: &Program, scoping: &Scoping, contract: &Contract) -> Mod
             break;
         }
     }
+    resolver
+}
+
+pub fn collect(program: &Program, resolver: &Resolver, contract: &Contract) -> ModuleFacts {
     let mut collector = Collector {
-        resolver: &resolver,
+        resolver,
         contract,
         facts: ModuleFacts::default(),
         callee_spans: Vec::new(),
@@ -158,13 +168,13 @@ impl<'a> Visit<'a> for Prepass {
     }
 }
 
-struct Resolver<'s> {
+pub struct Resolver<'s> {
     scoping: &'s Scoping,
     imports: HashMap<SymbolId, Origin>,
     aliases: HashMap<SymbolId, Path>,
 }
 
-fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
+pub fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
     loop {
         expr = match expr {
             Expression::ParenthesizedExpression(e) => &e.expression,
@@ -178,15 +188,23 @@ fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
 }
 
 impl Resolver<'_> {
-    fn symbol_of(&self, ident: &IdentifierReference) -> Option<SymbolId> {
+    pub fn alias_of(&self, symbol: SymbolId) -> Option<&Path> {
+        self.aliases.get(&symbol)
+    }
+
+    pub fn symbol_of(&self, ident: &IdentifierReference) -> Option<SymbolId> {
         let id = ident.reference_id.get()?;
         self.scoping.get_reference(id).symbol_id()
     }
 
-    fn path_of(&self, input: &Expression) -> Option<Path> {
+    pub fn path_of(&self, input: &Expression) -> Option<Path> {
         let expr = unwrap(input);
         if let Expression::Identifier(ident) = expr {
             return self.identifier_path(ident);
+        }
+        // `import.meta` is a global-like root: it has no binding, so it is an unresolved root.
+        if let Expression::ImportMeta(_) = expr {
+            return Some(unresolved("import.meta".to_string()));
         }
         if let Expression::ChainExpression(chain) = expr {
             return match chain.expression.as_member_expression() {
@@ -197,23 +215,19 @@ impl Resolver<'_> {
         self.member_path(expr.as_member_expression()?)
     }
 
-    fn identifier_path(&self, ident: &IdentifierReference) -> Option<Path> {
+    pub fn identifier_path(&self, ident: &IdentifierReference) -> Option<Path> {
         match self.symbol_of(ident) {
             Some(symbol) => {
                 if let Some(alias) = self.aliases.get(&symbol) {
                     return Some(alias.clone());
                 }
-                self.imports.get(&symbol).map(|origin| Path { origin: origin.clone(), members: vec![], binding_verified: true })
+                self.imports.get(&symbol).map(|origin| Path { origin: origin.clone(), members: vec![], binding_verified: true, via_call: false })
             }
-            None => Some(Path {
-                origin: Origin { module: String::new(), export: String::new(), kind: OriginKind::Unresolved, root: ident.name.to_string() },
-                members: vec![],
-                binding_verified: false,
-            }),
+            None => Some(unresolved(ident.name.to_string())),
         }
     }
 
-    fn member_path(&self, member: &MemberExpression) -> Option<Path> {
+    pub fn member_path(&self, member: &MemberExpression) -> Option<Path> {
         let (object, name) = match member {
             MemberExpression::StaticMemberExpression(m) => (&m.object, m.property.name.to_string()),
             MemberExpression::ComputedMemberExpression(m) => {
@@ -236,12 +250,12 @@ impl Resolver<'_> {
 
     fn derive_declarator(&mut self, decl: &VariableDeclarator, is_const: bool) -> bool {
         let Some(init) = &decl.init else { return false };
-        let resolvable = match unwrap(init) {
-            Expression::CallExpression(call) => &call.callee,
-            other => other,
+        let (resolvable, via_call) = match unwrap(init) {
+            Expression::CallExpression(call) => (&call.callee, true),
+            other => (other, false),
         };
         let Some(path) = self.path_of(resolvable) else { return false };
-        let path = Path { binding_verified: path.binding_verified && is_const, ..path };
+        let path = Path { binding_verified: path.binding_verified && is_const, via_call: path.via_call || via_call, ..path };
         self.bind_pattern(&decl.id, path)
     }
 
@@ -286,6 +300,15 @@ impl<'a> Visit<'a> for Deriver<'_, '_> {
     }
 }
 
+fn unresolved(root: String) -> Path {
+    Path {
+        origin: Origin { module: String::new(), export: String::new(), kind: OriginKind::Unresolved, root },
+        members: vec![],
+        binding_verified: false,
+        via_call: false,
+    }
+}
+
 fn binding_property_name(property: &BindingProperty) -> Option<String> {
     match &property.key {
         PropertyKey::StaticIdentifier(id) => Some(id.name.to_string()),
@@ -295,17 +318,29 @@ fn binding_property_name(property: &BindingProperty) -> Option<String> {
     }
 }
 
-fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, bool)> {
-    let Path { origin, members, binding_verified } = path;
-    // Effect.run*
-    let member: Option<String> = if origin.module == "effect" && origin.kind == OriginKind::Named && origin.export == "Effect" && members.len() == 1 {
-        Some(members[0].clone())
+/// The `Effect` module member a path names (`Effect.promise`, `import { promise } from "effect/Effect"`),
+/// proven by an import binding. Unresolved roots are not Effect: callers that accept unproven
+/// identifiers (runner references) handle `OriginKind::Unresolved` themselves.
+pub fn effect_member(path: &Path) -> Option<&str> {
+    let Path { origin, members, .. } = path;
+    if origin.module == "effect" && origin.kind == OriginKind::Named && origin.export == "Effect" && members.len() == 1 {
+        Some(&members[0])
     } else if origin.module == "effect" && origin.kind == OriginKind::Namespace && members.len() == 2 && members[0] == "Effect" {
-        Some(members[1].clone())
+        Some(&members[1])
     } else if origin.module == "effect/Effect" && origin.kind == OriginKind::Namespace && members.len() == 1 {
-        Some(members[0].clone())
+        Some(&members[0])
     } else if (origin.module == "effect" || origin.module == "effect/Effect") && origin.kind == OriginKind::Named && members.is_empty() {
-        Some(origin.export.clone())
+        Some(&origin.export)
+    } else {
+        None
+    }
+}
+
+fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, bool)> {
+    let Path { origin, members, binding_verified, .. } = path;
+    // Effect.run*
+    let member: Option<String> = if let Some(m) = effect_member(path) {
+        Some(m.to_string())
     } else if origin.kind == OriginKind::Unresolved {
         Some(if members.is_empty() { origin.root.clone() } else { members.last().cloned().unwrap() })
     } else {
@@ -372,7 +407,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         let callee = unwrap(&call.callee);
         self.callee_spans.push(callee.span());
         if let Expression::Identifier(ident) = &call.callee {
-            if ident.name == "require" {
+            // The CommonJS global only: a locally bound `require` is not a module load.
+            if ident.name == "require" && self.resolver.symbol_of(ident).is_none() {
                 self.facts.dynamic_loads.push(call.span.start);
             }
         }

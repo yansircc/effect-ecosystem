@@ -5,6 +5,7 @@ mod findings;
 mod manifest;
 mod package;
 mod projection;
+mod rules;
 mod scan;
 mod source;
 mod util;

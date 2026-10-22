@@ -3,6 +3,25 @@ import { sourceFactsForFile } from "./source-facts.js"
 import { makeFinding } from "./findings.js"
 import { matchesAny } from "./util.js"
 
+// Oracle semantics of the AST selectors the Rust scanner resolves on symbols: the legacy per-line
+// regex over comment/string-masked code. Known, documented divergences live in docs/rust-migration.md.
+const CODE_LINE_SELECTORS = {
+  "try-statement": /\btry\s*\{/,
+  "throw-statement": /\bthrow\s+/,
+  "promise-combinator": /\bPromise\.(all|allSettled|race|any)\b/,
+  "set-timeout": /\bsetTimeout\s*\(/,
+  "set-interval": /\bsetInterval\s*\(/,
+  "new-error": /\bnew\s+Error\s*\(/,
+  "new-date": /\bnew\s+Date\s*\(/,
+  "date-now": /\bDate\.now\s*\(/,
+  "process-env": /\bprocess\.env\./,
+}
+
+export function importMatches(rule, specifier) {
+  const spec = specifier.startsWith("node:") ? specifier.slice(5) : specifier
+  return (rule.packages ?? []).some((name) => spec === name || spec.startsWith(`${name}/`))
+    || (rule.packagePrefixes ?? []).some((prefix) => spec.startsWith(prefix))
+}
 
 export function loadLineRules(path) {
   let registry
@@ -12,12 +31,13 @@ export function loadLineRules(path) {
     throw new Error(`cannot read ${path}: ${error.message}`)
   }
   return registry.rules
-    .filter((rule) => ["line-regex", "source-import", "source-ast"].includes(rule.scanner?.kind))
+    .filter((rule) => ["source-import", "source-ast"].includes(rule.scanner?.kind))
     .map((rule) => ({
       id: rule.id,
       name: rule.name,
       severity: rule.severity,
-      pattern: rule.scanner.pattern,
+      packages: rule.scanner.packages,
+      packagePrefixes: rule.scanner.packagePrefixes,
       selector: rule.scanner.selector,
       kind: rule.scanner.kind,
       message: rule.message,
@@ -31,58 +51,34 @@ export function loadLineRules(path) {
 export function scanLineRules(root, files, rules) {
   const findings = []
   for (const rule of rules) {
-    const re = rule.kind === "source-ast" ? null : new RegExp(rule.pattern)
     for (const file of files) {
       if (shouldSkipFile(file, rule)) continue
-      if (rule.kind === "source-ast") {
-        const syntax = sourceFactsForFile(file).syntax[rule.selector]
-        if (!syntax) throw new Error(`unsupported source-ast selector: ${rule.selector}`)
-        for (const line of new Set<number>(syntax.map((node) => node.line))) findings.push(makeFinding(root, {
-          file: file.relative,
-          line,
-          lineText: file.lines[line - 1]?.text.trim() ?? "",
-          ruleId: rule.id,
-          ruleName: rule.name ?? rule.id,
-          severity: rule.severity ?? "error",
-          message: rule.message,
-          ref: rule.ref ?? null,
-          package: file.package?.path ?? null,
-        }))
-        continue
-      }
-      const codeLines = sourceFactsForFile(file).codeLines
-      if (rule.kind === "source-import") {
-        const matched = sourceFactsForFile(file).imports.find((entry) => re.test(`from "${entry.specifier}"`))
-        if (matched) findings.push(makeFinding(root, {
-          file: file.relative,
-          line: matched.line,
-          lineText: file.lines[matched.line - 1]?.text.trim() ?? "",
-          ruleId: rule.id,
-          ruleName: rule.name ?? rule.id,
-          severity: rule.severity ?? "error",
-          message: rule.message,
-          ref: rule.ref ?? null,
-          package: file.package?.path ?? null,
-        }))
-        continue
-      }
-      for (const line of file.lines) {
-        if (!re.test(codeLines[line.number - 1] ?? "")) continue
-        findings.push(makeFinding(root, {
-          file: file.relative,
-          line: line.number,
-          lineText: line.text.trim(),
-          ruleId: rule.id,
-          ruleName: rule.name ?? rule.id,
-          severity: rule.severity ?? "error",
-          message: rule.message,
-          ref: rule.ref ?? null,
-          package: file.package?.path ?? null,
-        }))
-      }
+      const facts = sourceFactsForFile(file)
+      const lines: number[] = rule.kind === "source-import"
+        ? [(facts.imports.find((entry) => importMatches(rule, entry.specifier)) ?? { line: 0 }).line].filter(Boolean)
+        : codeLineHits(rule, file, facts)
+      for (const line of new Set<number>(lines)) findings.push(makeFinding(root, {
+        file: file.relative,
+        line,
+        lineText: file.lines[line - 1]?.text.trim() ?? "",
+        ruleId: rule.id,
+        ruleName: rule.name ?? rule.id,
+        severity: rule.severity ?? "error",
+        message: rule.message,
+        ref: rule.ref ?? null,
+        package: file.package?.path ?? null,
+      }))
     }
   }
   return findings
+}
+
+function codeLineHits(rule, file, facts): number[] {
+  const syntax = facts.syntax[rule.selector]
+  if (syntax) return syntax.map((node) => node.line)
+  const re = CODE_LINE_SELECTORS[rule.selector]
+  if (!re) throw new Error(`unsupported source-ast selector: ${rule.selector}`)
+  return file.lines.filter((line) => re.test(facts.codeLines[line.number - 1] ?? "")).map((line) => line.number)
 }
 
 function shouldSkipFile(file, rule) {

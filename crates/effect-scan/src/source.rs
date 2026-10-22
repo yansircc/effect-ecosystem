@@ -2,11 +2,13 @@
 use oxc_allocator::Allocator;
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
+use oxc_semantic::Scoping;
+use std::collections::BTreeMap;
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use crate::facts::{self, Contract, ModuleFacts};
-use oxc_span::{GetSpan, SourceType, Span};
-use oxc_syntax::scope::ScopeFlags;
+use crate::rules;
+use oxc_span::{SourceType, Span};
 
 #[derive(Debug, Clone)]
 pub struct ImportFact {
@@ -18,12 +20,9 @@ pub struct ImportFact {
 
 #[derive(Debug, Default, Clone)]
 pub struct SourceFacts {
-    pub async_function: Vec<u32>,
-    pub async_arrow: Vec<u32>,
-    pub await_: Vec<u32>,
     pub imports: Vec<ImportFact>,
-    /// Source lines with comments and string/template text blanked, so line patterns see code only.
-    pub code_lines: Vec<String>,
+    /// Selector hits as 1-based lines (see `rules::SELECTORS`).
+    selectors: BTreeMap<&'static str, Vec<u32>>,
     pub module: ModuleFacts,
     line_starts: Vec<u32>,
 }
@@ -31,19 +30,11 @@ pub struct SourceFacts {
 impl SourceFacts {
     /// 1-based line of a byte offset in the analyzed source.
     pub fn line_of(&self, offset: u32) -> u32 {
-        match self.line_starts.binary_search(&offset) {
-            Ok(i) => i as u32 + 1,
-            Err(i) => i as u32,
-        }
+        line_in(&self.line_starts, offset)
     }
 
     pub fn selector(&self, name: &str) -> Option<&Vec<u32>> {
-        match name {
-            "async-function" => Some(&self.async_function),
-            "async-arrow" => Some(&self.async_arrow),
-            "await" => Some(&self.await_),
-            _ => None,
-        }
+        self.selectors.get(name)
     }
 }
 
@@ -52,19 +43,24 @@ pub fn analyze(path: &str, source: &str, contract: &Contract) -> SourceFacts {
     let source_type = SourceType::from_path(path).unwrap_or_else(|_| SourceType::ts());
     let parsed = Parser::new(&allocator, source, source_type).parse();
     let semantic = SemanticBuilder::new().build(&parsed.program).semantic;
-    let module = facts::collect(&parsed.program, semantic.scoping(), contract);
-    let lines = LineIndex::new(source);
-    let mut collector = Collector { lines: &lines, facts: SourceFacts::default(), mask: Vec::new(), seen_imports: Vec::new() };
+    let resolver = facts::build_resolver(&parsed.program, semantic.scoping());
+    let module = facts::collect(&parsed.program, &resolver, contract);
+    let hits = rules::collect(&parsed.program, &resolver);
+    let mut starts = vec![0u32];
+    starts.extend(source.bytes().enumerate().filter(|(_, b)| *b == b'\n').map(|(i, _)| i as u32 + 1));
+    let selectors = hits.into_iter().map(|(name, offsets)| (name, offsets.into_iter().map(|o| line_in(&starts, o)).collect())).collect();
+    let mut collector = Collector { scoping: semantic.scoping(), line_starts: &starts, imports: Vec::new() };
     collector.visit_program(&parsed.program);
-    let Collector { mut facts, mut mask, .. } = collector;
-    for comment in &parsed.program.comments {
-        mask.push((comment.span.start, comment.span.end));
+    let mut imports = collector.imports;
+    imports.sort_by_key(|i| i.start);
+    SourceFacts { imports, selectors, module, line_starts: starts }
+}
+
+fn line_in(starts: &[u32], offset: u32) -> u32 {
+    match starts.binary_search(&offset) {
+        Ok(i) => i as u32 + 1,
+        Err(i) => i as u32,
     }
-    facts.imports.sort_by_key(|i| i.start);
-    facts.module = module;
-    facts.line_starts = lines.starts.clone();
-    facts.code_lines = masked_lines(source, &mask);
-    facts
 }
 
 /// Module specifiers are JS strings; lone surrogates cannot occur in a real specifier, so lossy display is exact.
@@ -72,116 +68,41 @@ fn js(value: oxc_str::JSStr<'_>) -> String {
     value.display().to_string()
 }
 
-struct LineIndex {
-    starts: Vec<u32>,
-}
-
-impl LineIndex {
-    fn new(source: &str) -> Self {
-        let mut starts = vec![0u32];
-        for (i, b) in source.bytes().enumerate() {
-            if b == b'\n' {
-                starts.push(i as u32 + 1);
-            }
-        }
-        Self { starts }
-    }
-    fn line(&self, offset: u32) -> u32 {
-        match self.starts.binary_search(&offset) {
-            Ok(i) => i as u32 + 1,
-            Err(i) => i as u32,
-        }
-    }
-}
-
-fn masked_lines(source: &str, ranges: &[(u32, u32)]) -> Vec<String> {
-    let mut bytes = source.as_bytes().to_vec();
-    for &(start, end) in ranges {
-        for b in &mut bytes[start as usize..(end as usize).min(source.len())] {
-            if *b != b'\n' && *b != b'\r' {
-                *b = b' ';
-            }
-        }
-    }
-    // Continuation bytes of multibyte characters were blanked individually; the result stays ASCII-safe.
-    let text = String::from_utf8_lossy(&bytes).into_owned();
-    text.split('\n').map(|l| l.strip_suffix('\r').unwrap_or(l).to_string()).collect()
-}
-
 struct Collector<'a> {
-    lines: &'a LineIndex,
-    facts: SourceFacts,
-    mask: Vec<(u32, u32)>,
-    seen_imports: Vec<u32>,
+    scoping: &'a Scoping,
+    line_starts: &'a [u32],
+    imports: Vec<ImportFact>,
 }
 
 impl Collector<'_> {
     fn add_import(&mut self, span: Span, specifier: &str, dynamic: bool) {
-        if self.seen_imports.contains(&span.start) {
+        if self.imports.iter().any(|i| i.start == span.start) {
             return;
         }
-        self.seen_imports.push(span.start);
-        self.facts.imports.push(ImportFact {
+        self.imports.push(ImportFact {
             specifier: specifier.to_string(),
             dynamic,
             start: span.start,
-            line: self.lines.line(span.start),
+            line: line_in(self.line_starts, span.start),
         });
+    }
+
+    /// `require` that is not bound in any scope: the CommonJS global, not a local of that name.
+    fn is_global_require(&self, ident: &IdentifierReference) -> bool {
+        ident.name == "require" && ident.reference_id.get().is_some_and(|id| self.scoping.get_reference(id).symbol_id().is_none())
     }
 }
 
 impl<'a> Visit<'a> for Collector<'_> {
-    fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
-        if func.r#async {
-            // The async modifier precedes `function`, or the method name for methods; line of the node start
-            // matches the modifier's line for declarations and expressions.
-            self.facts.async_function.push(self.lines.line(func.span.start));
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        if let Expression::Identifier(ident) = &call.callee {
+            if self.is_global_require(ident) {
+                if let Some(Expression::StringLiteral(lit)) = call.arguments.first().and_then(Argument::as_expression) {
+                    self.add_import(lit.span, &js(lit.value), false);
+                }
+            }
         }
-        walk::walk_function(self, func, flags);
-    }
-
-    fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
-        if arrow.r#async {
-            self.facts.async_arrow.push(self.lines.line(arrow.span.start));
-        }
-        walk::walk_arrow_function_expression(self, arrow);
-    }
-
-    fn visit_await_expression(&mut self, expr: &AwaitExpression<'a>) {
-        self.facts.await_.push(self.lines.line(expr.span.start));
-        walk::walk_await_expression(self, expr);
-    }
-
-    fn visit_for_of_statement(&mut self, stmt: &ForOfStatement<'a>) {
-        if stmt.r#await {
-            self.facts.await_.push(self.lines.line(stmt.span.start));
-        }
-        walk::walk_for_of_statement(self, stmt);
-    }
-
-    fn visit_variable_declaration(&mut self, decl: &VariableDeclaration<'a>) {
-        if decl.kind == VariableDeclarationKind::AwaitUsing {
-            self.facts.await_.push(self.lines.line(decl.span.start));
-        }
-        walk::walk_variable_declaration(self, decl);
-    }
-
-    fn visit_string_literal(&mut self, lit: &StringLiteral<'a>) {
-        self.mask.push((lit.span.start, lit.span.end));
-    }
-
-    fn visit_template_literal(&mut self, lit: &TemplateLiteral<'a>) {
-        // Mask the literal text but keep the `${ ... }` expressions visible as code.
-        let mut cursor = lit.span.start;
-        for expr in &lit.expressions {
-            let s = expr.span();
-            self.mask.push((cursor, s.start));
-            cursor = s.end;
-        }
-        self.mask.push((cursor, lit.span.end));
-        for expr in &lit.expressions {
-            self.visit_expression(expr);
-        }
+        walk::walk_call_expression(self, call);
     }
 
     fn visit_import_declaration(&mut self, decl: &ImportDeclaration<'a>) {

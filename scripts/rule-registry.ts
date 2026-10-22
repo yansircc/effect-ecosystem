@@ -2,6 +2,12 @@ import { readFileSync } from "node:fs"
 
 export const RULES_PATH = "contracts/rules.json"
 
+// Mirrors `rules::SELECTORS` in crates/effect-scan; the scanner panics on a selector it does not know.
+export const SOURCE_AST_SELECTORS = [
+  "async-function", "async-arrow", "await", "try-statement", "throw-statement", "promise-combinator",
+  "set-timeout", "set-interval", "new-error", "new-date", "date-now", "process-env",
+]
+
 export function readRegistry(path = RULES_PATH) {
   const registry = JSON.parse(readFileSync(path, "utf8"))
   validateRegistry(registry)
@@ -29,7 +35,7 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.profiles) || rule.profiles.length === 0) errors.push(`${rule.id}.profiles is required`)
     if (!Array.isArray(rule.references)) errors.push(`${rule.id}.references must be an array`)
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
-    if (!rule.scanner || !["line-regex", "source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (!rule.scanner || !["source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
     if (rule.id === "EFF402") {
       for (const key of ["constructors", "testFixtures"]) {
         const names = rule.scanner?.[key]
@@ -37,9 +43,16 @@ export function validateRegistry(registry) {
       }
       if (rule.scanner?.testFixtures?.some((name) => !rule.scanner?.constructors?.includes(name))) errors.push(`${rule.id}.scanner.testFixtures must be a subset of constructors`)
     }
-    if (rule.scanner?.kind === "source-ast" && !["async-function", "async-arrow", "await"].includes(rule.scanner.selector)) errors.push(`${rule.id}.scanner.selector is invalid`)
-    if (["line-regex", "source-import"].includes(rule.scanner?.kind) && (typeof rule.scanner.pattern !== "string" || rule.scanner.pattern.length === 0)) {
-      errors.push(`${rule.id}.scanner.pattern is required`)
+    if (rule.scanner?.kind === "source-ast" && !SOURCE_AST_SELECTORS.includes(rule.scanner.selector)) errors.push(`${rule.id}.scanner.selector is invalid`)
+    if (rule.scanner?.kind === "source-import") {
+      for (const key of ["packages", "packagePrefixes"]) {
+        const names = rule.scanner[key]
+        if (names !== undefined && (!Array.isArray(names) || names.length === 0 || names.some((name) => typeof name !== "string" || !name.trim()) || new Set(names).size !== names.length)) {
+          errors.push(`${rule.id}.scanner.${key} must be a non-empty list of unique strings`)
+        }
+      }
+      if (rule.scanner.packages === undefined && rule.scanner.packagePrefixes === undefined) errors.push(`${rule.id}.scanner.packages or packagePrefixes is required`)
+      if ("pattern" in rule.scanner) errors.push(`${rule.id}.scanner.pattern is retired: use packages/packagePrefixes`)
     }
   }
   const retiredIds = new Set()

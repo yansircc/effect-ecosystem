@@ -38,6 +38,50 @@ Known intentional differences:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
+- **Rule verdicts are AST facts, not text matches** (`rules.rs`; architecture requirement iii). The
+  Rust scanner has no regex rule mechanism. Documented fixes over the TS oracle, each pinned by a
+  `rustOnly` good/bad fixture pair:
+  - W4: `source-import` reports every matching import of a file (one finding per line); the oracle
+    reports the first. `require("x")` with the unshadowed global `require` counts as an import fact.
+  - Shadowing/identity: a locally bound `Promise`, `process`, `Date`, `Error`, `setTimeout`, ... is not
+    the global (EFF005/022-027/032, and `require` for EFF404). `globalThis.`/`window.`/`self.`/`global.`
+    prefixes are the same global; aliases and destructuring resolve (`const { all } = Promise`); the
+    result of a call is not its callee (`const all = Promise.all(xs); all.then(f)` is one hit).
+    Call-style selectors (`set-timeout`, `set-interval`, `date-now`, `new-error`, `new-date`) need a
+    call/`new`; `promise-combinator` and `process-env` are references.
+  - W5 `process-env`: matches `process.env`, `Bun.env`, `import.meta.env` (also `node:process`
+    imports) in any access form (`.X`, `["X"]`, destructuring, alias). Stricter than the old
+    `process.env.` regex, which missed `["X"]`, destructuring and aliases. A destructuring/alias is
+    one finding at its declaration, not one per later use.
+  - W6 Effect boundary callbacks: a function that is the direct argument of `Effect.promise|tryPromise|
+    try|sync`, or the `try` property of the options object of `Effect.tryPromise|try`, with the callee
+    proven by an `effect` import binding, is where Promise-world code belongs. `async` there is not
+    EFF002/003; `await` and `try` whose nearest enclosing function is such a callback are not
+    EFF004/EFF001. Deeper nested functions are not exempt; unproven or local `Effect` is not exempt.
+
+## Rule contract change: `pattern` is gone
+
+`rules.json` `scanner.pattern` (a regex) was the only regex mechanism and is removed with it; this is
+the one necessary deviation from "rules.json fields unchanged". Kinds are now `source-import`,
+`source-ast`, `projection`.
+
+| old | new |
+|---|---|
+| `line-regex` + `pattern` | `source-ast` + `selector` |
+| `try\s*\{` / `throw\s+` | `try-statement` / `throw-statement` |
+| `Promise.(all\|allSettled\|race\|any)` | `promise-combinator` |
+| `setTimeout(` / `setInterval(` | `set-timeout` / `set-interval` |
+| `new Error(` / `new Date(` / `Date.now(` | `new-error` / `new-date` / `date-now` |
+| `process.env.` | `process-env` |
+| `source-import` + `pattern` | `source-import` + `packages` (name or any subpath) and/or `packagePrefixes` (string prefix); `node:` is stripped first |
+
+Import migrations: exact-name patterns became `packages` (so `zod` also covers `zod/v4`, `zod/mini`;
+`fs` covers `node:fs/promises`; `path` covers `node:path/posix`). Prefix patterns (`lodash`, `zustand`,
+`jotai`, `moment|dayjs|date-fns`, `@trpc/`) became `packagePrefixes` with unchanged semantics. Added
+packages: EFF014 `@tanstack/query-core`, `swr`; EFF020 `fs-extra`. The TS oracle matches imports the
+same structured way (first hit only) and keeps the old per-line regexes for the `source-ast`
+selectors above (`validator/lib/line-rules.ts`); `scripts/rule-registry.ts` validates the selector
+enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
 
 ## Differential harness
 

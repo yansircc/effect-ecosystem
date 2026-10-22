@@ -1,6 +1,7 @@
 use crate::findings::{Finding, Registry};
 use crate::manifest::{self, Manifest};
 use crate::facts::{Contract, RunnerKind};
+use crate::rules::ImportMatcher;
 use crate::source::{self, SourceFacts};
 use crate::util::{self, locale_compare, matches_any, rel};
 use regex::Regex;
@@ -48,7 +49,7 @@ pub struct ScanResult {
 }
 
 /// Rules whose verdict this build computes; the rest of the contract is not yet ported.
-pub const IMPLEMENTED_KINDS: [&str; 3] = ["line-regex", "source-import", "source-ast"];
+pub const IMPLEMENTED_KINDS: [&str; 2] = ["source-import", "source-ast"];
 
 pub fn implemented_rules(registry: &Registry) -> Vec<String> {
     let mut ids: Vec<String> = registry
@@ -72,7 +73,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value());
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
-    findings.extend(scan_line_rules(&files, registry));
+    findings.extend(scan_source_rules(&files, registry));
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
     if let Some(m) = manifest.as_ref() {
         findings.extend(scan_edge_rules(&files, m, registry));
@@ -146,11 +147,6 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
     Ok(files)
 }
 
-/// Rule patterns are JS regexes with ASCII `\b`; the Rust engine needs that spelled explicitly.
-fn compile(pattern: &str) -> Result<Regex, String> {
-    Regex::new(&pattern.replace("\\b", "(?-u:\\b)")).map_err(|e| format!("bad rule pattern {pattern}: {e}"))
-}
-
 fn skip_file(file: &SourceFile, scanner: &Value) -> bool {
     if scanner.get("scanTests").and_then(Value::as_bool) == Some(true) {
         return false;
@@ -168,49 +164,29 @@ fn skip_file(file: &SourceFile, scanner: &Value) -> bool {
     file.roles.test
 }
 
-fn scan_line_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> {
+/// `source-import` and `source-ast` rules: every hit of a rule is a finding, one per line.
+fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> {
     let mut findings = Vec::new();
     for rule in &registry.rules {
         let kind = rule.scanner.get("kind").and_then(Value::as_str).unwrap_or("");
         if !IMPLEMENTED_KINDS.contains(&kind) {
             continue;
         }
-        let re = match kind {
-            "source-ast" => None,
-            _ => Some(compile(rule.scanner.get("pattern").and_then(Value::as_str).unwrap_or("")).expect("rule pattern")),
-        };
+        let matcher = (kind == "source-import").then(|| ImportMatcher::from_scanner(&rule.scanner).unwrap_or_else(|e| panic!("{}: {e}", rule.id)));
+        let selector = rule.scanner.get("selector").and_then(Value::as_str).unwrap_or("");
         for file in files {
             if skip_file(file, &rule.scanner) {
                 continue;
             }
-            let at = |line: u32| file.lines.get(line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
-            let make = |line: u32| registry.finding(&rule.id, &file.relative, line, &at(line), None, file.package.as_deref());
-            match kind {
-                "source-ast" => {
-                    let selector = rule.scanner.get("selector").and_then(Value::as_str).unwrap_or("");
-                    let lines = file.facts.selector(selector).unwrap_or_else(|| panic!("unsupported source-ast selector: {selector}"));
-                    let mut seen = Vec::new();
-                    for &line in lines {
-                        if !seen.contains(&line) {
-                            seen.push(line);
-                            findings.push(make(line));
-                        }
-                    }
-                }
-                "source-import" => {
-                    let re = re.as_ref().unwrap();
-                    if let Some(hit) = file.facts.imports.iter().find(|i| re.is_match(&format!("from \"{}\"", i.specifier))) {
-                        findings.push(make(hit.line));
-                    }
-                }
-                _ => {
-                    let re = re.as_ref().unwrap();
-                    for (index, code) in file.facts.code_lines.iter().enumerate() {
-                        if re.is_match(code) {
-                            findings.push(make(index as u32 + 1));
-                        }
-                    }
-                }
+            let mut lines: Vec<u32> = match &matcher {
+                Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| i.line).collect(),
+                None => file.facts.selector(selector).unwrap_or_else(|| panic!("unsupported source-ast selector: {selector}")).clone(),
+            };
+            lines.sort_unstable();
+            lines.dedup();
+            for line in lines {
+                let text = file.lines.get(line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+                findings.push(registry.finding(&rule.id, &file.relative, line, &text, None, file.package.as_deref()));
             }
         }
     }
