@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 pub struct Options {
     pub strict: bool,
@@ -206,8 +207,9 @@ struct LineSuppression {
 }
 
 fn parse_line_suppression(text: &str) -> Option<LineSuppression> {
-    let ignore = Regex::new(r"//\s*eff-ignore\s+(EFF\d{3})(.*)$").unwrap();
-    let attrs = Regex::new(r#"(\w+)="([^"]*)""#).unwrap();
+    static IGNORE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"//\s*eff-ignore\s+(EFF\d{3})(.*)$").unwrap());
+    static ATTRS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(\w+)="([^"]*)""#).unwrap());
+    let (ignore, attrs) = (&*IGNORE, &*ATTRS);
     let caps = ignore.captures(text)?;
     let mut reason = None;
     let mut expires = None;

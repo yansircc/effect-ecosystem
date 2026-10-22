@@ -2,7 +2,9 @@ use regex::Regex;
 use std::cmp::Ordering;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 use std::process::Command;
+use std::sync::{LazyLock, Mutex};
 
 pub const TEXT_EXTENSIONS: [&str; 8] = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
 
@@ -120,7 +122,19 @@ fn git_files(root: &Path, ignored: &[String]) -> Result<Vec<PathBuf>, String> {
         .collect())
 }
 
+/// Compiled globs are cached: rules match every file/finding against the same few patterns.
 pub fn glob_to_regex(glob: &str) -> Regex {
+    static CACHE: LazyLock<Mutex<HashMap<String, Regex>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+    let mut cache = CACHE.lock().unwrap();
+    if let Some(re) = cache.get(glob) {
+        return re.clone();
+    }
+    let re = compile_glob(glob);
+    cache.insert(glob.to_string(), re.clone());
+    re
+}
+
+fn compile_glob(glob: &str) -> Regex {
     let g: Vec<char> = to_posix(glob).chars().collect();
     let mut out = String::from("^");
     let mut i = 0;

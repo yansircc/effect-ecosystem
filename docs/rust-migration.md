@@ -3,20 +3,34 @@
 Status: skeleton (syntactic slice). The TypeScript scanner stays the oracle until the Rust build
 passes the whole fixture suite; the external contract does not change (see "Contract").
 
-## Baseline (TypeScript scanner, effect@4.0.5, in-process timings, strict + profile + gateSummary)
+## Baseline and result
 
-| target | cold | warm | dominant stages (cold) |
+Measured on one machine, wall clock of the whole CLI process, median of 5 runs, `--strict`, targets
+from `benchmarks/targets.json` (`local` = 96 generated files, `github` = the pinned real-world
+repository, >=140 files). The baseline is the original TypeScript scanner at commit f764547 built in a
+clean worktree (`npm ci`); Rust is this branch's `target/release/effect-scan`.
+
+| target | TS scanner (f764547) | Rust scanner | speedup |
 |---|---|---|---|
-| local `generated-effect-v4-strict-scan` (96 files) | 894 ms | 225 ms | edgeRules 485, compilerFacts 144, strictPrerequisites 78, tscVersion 53 |
-| `benchmarks/targets.json` github target (>=140 files) | 9.7-11.0 s | 877 ms | edgeRules 7316, compilerFacts 3129 |
+| local | 470 ms | 110 ms | 4.3x |
+| github | 2.4 s | 0.63 s | 3.8x |
 
-`edgeRules` is per-node symbol resolution over the tsgo IPC; `compilerFacts` is tsgo building the
-program and diagnostics once. Target: >= 3x faster, i.e. github target <= 3.7 s. Floor: the tsgo
-diagnostic pass (~3.1 s there), which Rust runs concurrently with its own analysis.
+Requirement was >= 3x (>= 2/3 less time): met on both targets.
 
-Rust has to replace `edgeRules` with import/alias binding resolution on the oxc AST (no checker
-round trips). Facts that genuinely need types (`platform-constructors.ts`, `getTypeAtLocation`)
-are reported as `notProven`, not approximated.
+Notes on the numbers:
+- An earlier first measurement of the same TS baseline showed 9.7-11 s on the github target. A later
+  clean re-measurement of the same commit gave 2.15 s in-process (compilerFacts ~1.2 s, edgeRules
+  ~0.7 s) and ~2.4 s as a CLI. The earlier figure was a transient (cold caches/machine load) and is
+  not used; the table above is the reproducible baseline.
+- Where the Rust time goes on the github target: the project-local `tsc --noEmit` run is ~0.47 s and
+  is the floor (B1 makes compile diagnostics part of the gate); the Rust analysis itself is ~50 ms.
+  Diagnostics run on their own thread concurrently with the analysis.
+- A performance bug found on the way: compiling the suppression and glob regexes per finding cost
+  ~0.6 s on a finding-heavy target; they are now compiled once (`LazyLock`/cache).
+
+Rust replaces `edgeRules` (per-node symbol resolution over the tsgo IPC) with import/alias binding
+resolution on oxc scopes. Facts that genuinely need types (`getTypeAtLocation` in the old
+`platform-constructors.ts`) are reported as `notProven`, not approximated.
 
 ## Architecture
 
