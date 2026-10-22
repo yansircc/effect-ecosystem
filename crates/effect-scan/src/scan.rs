@@ -29,9 +29,22 @@ pub struct SourceFile {
     pub facts: SourceFacts,
 }
 
+/// Everything a rule stage reads. Stages are independent modules: each owns its rules and
+/// declares them in `RULES`; `scan.rs` only sequences them.
+pub struct ScanContext<'a> {
+    pub root: &'a Path,
+    pub options: &'a Options,
+    pub registry: &'a Registry,
+    pub manifest: Option<&'a Manifest>,
+    pub files: &'a [SourceFile],
+    pub contract: &'a Contract,
+}
+
 pub struct ScanResult {
     pub findings: Vec<Finding>,
     pub warnings: Vec<String>,
+    /// Projection outputs (signals, profile, gateSummary, evidence...), merged into the raw result.
+    pub extras: serde_json::Map<String, Value>,
 }
 
 /// Rules whose verdict this build computes; the rest of the contract is not yet ported.
@@ -44,8 +57,9 @@ pub fn implemented_rules(registry: &Registry) -> Vec<String> {
         .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
         .map(|r| r.id.clone())
         .collect();
-    ids.extend(MANIFEST_RULES.iter().map(|s| s.to_string()));
-    ids.extend(EDGE_RULES.iter().map(|s| s.to_string()));
+    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES] {
+        ids.extend(stage.iter().map(|s| s.to_string()));
+    }
     ids
 }
 
@@ -59,8 +73,14 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let contract = Contract::from_manifest_schema(&manifest::schema_value());
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
     findings.extend(scan_line_rules(&files, registry));
+    let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
     if let Some(m) = manifest.as_ref() {
         findings.extend(scan_edge_rules(&files, m, registry));
+        findings.extend(crate::contracts::scan(&ctx));
+        findings.extend(crate::package::scan(&ctx));
+    }
+    if options.strict && manifest.is_some() {
+        findings.extend(crate::diagnostics::scan(&ctx));
     }
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);
@@ -70,7 +90,8 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     findings.sort_by(|a, b| {
         locale_compare(&a.file, &b.file).then(a.line.cmp(&b.line)).then(locale_compare(&a.rule_id, &b.rule_id))
     });
-    Ok(ScanResult { findings, warnings: loaded.warnings })
+    let extras = crate::projection::build(&ctx, &findings, &loaded.warnings);
+    Ok(ScanResult { findings, warnings: loaded.warnings, extras })
 }
 
 fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {

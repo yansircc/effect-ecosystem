@@ -1,6 +1,10 @@
+mod contracts;
+mod diagnostics;
 mod facts;
 mod findings;
 mod manifest;
+mod package;
+mod projection;
 mod scan;
 mod source;
 mod util;
@@ -103,11 +107,16 @@ fn main() -> ExitCode {
     };
     let summary = scan::summarize(&result.findings);
     let errors = summary["errors"].as_u64().unwrap_or(0);
-    let doc = json!({
+    let mut doc = json!({
         "findings": result.findings.iter().map(|f| f.to_json()).collect::<Vec<_>>(),
         "summary": summary,
         "warnings": result.warnings,
     });
+    if let Value::Object(map) = &mut doc {
+        for (key, value) in result.extras {
+            map.insert(key, value);
+        }
+    }
     // gate-json/human projections are ported with the evidence layer; raw-json is the parity surface.
     println!("{}", serde_json::to_string_pretty(&doc).unwrap());
     ExitCode::from(if errors > 0 { 1 } else { 0 })
