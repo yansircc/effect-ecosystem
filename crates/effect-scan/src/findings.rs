@@ -9,6 +9,7 @@ pub struct RuleMeta {
     pub severity: String,
     pub message: String,
     pub reference: Option<String>,
+    pub facts: Vec<String>,
     pub scanner: Value,
 }
 
@@ -62,6 +63,7 @@ impl Registry {
                 severity: s("severity"),
                 message: s("message"),
                 reference: rule.get("references").and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_str).map(String::from),
+                facts: rule.get("facts").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default(),
                 scanner: rule.get("scanner").cloned().unwrap_or(Value::Null),
             });
         }

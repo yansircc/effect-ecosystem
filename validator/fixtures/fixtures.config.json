@@ -442,6 +442,9 @@
       "expectExit": 1,
       "expectRules": [
         "EFF900"
+      ],
+      "rustFindings": [
+        ".effect-skill.json:1:EFF900:error"
       ]
     },
     {
