@@ -353,8 +353,13 @@ impl Scanner {
     }
 }
 
+/// Containers nest recursively in the parser, in `Node::value` and in drop; a bound keeps hostile input
+/// (a config of `[[[[...`) an error instead of a stack overflow. Real wrangler configs nest < 10 deep.
+const MAX_DEPTH: usize = 256;
+
 struct Parser {
     scanner: Scanner,
+    depth: usize,
 }
 
 type Res<T> = Result<T, ParseError>;
@@ -389,8 +394,15 @@ impl Parser {
         let offset = self.scanner.token_offset;
         let literal = |value: Value| Node { offset, kind: Kind::Literal(value) };
         let node = match self.scanner.token {
-            Token::OpenBracket => return self.parse_array().map(Some),
-            Token::OpenBrace => return self.parse_object().map(Some),
+            Token::OpenBracket | Token::OpenBrace => {
+                if self.depth >= MAX_DEPTH {
+                    return self.fail("MaxDepthExceeded");
+                }
+                self.depth += 1;
+                let node = if self.scanner.token == Token::OpenBracket { self.parse_array() } else { self.parse_object() };
+                self.depth -= 1;
+                return node.map(Some);
+            }
             Token::String => literal(Value::String(String::from_utf16_lossy(&self.scanner.value))),
             Token::Number => {
                 let text = String::from_utf16_lossy(&self.scanner.value);
@@ -482,6 +494,7 @@ fn json_number(n: f64) -> Value {
 
 pub fn parse_tree(text: &str) -> Result<Node, ParseError> {
     let mut parser = Parser {
+        depth: 0,
         scanner: Scanner { text: text.encode_utf16().collect(), pos: 0, value: Vec::new(), token_offset: 0, token: Token::Unknown, error: ScanError::None },
     };
     parser.scan_next()?;

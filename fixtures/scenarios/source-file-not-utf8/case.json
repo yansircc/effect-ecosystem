@@ -1,0 +1,15 @@
+{
+  "description": "a source file that is not valid UTF-8 is decoded lossily and scanned; the scan does not abort",
+  "suites": [
+    "candidate-source"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "src/index.ts:3:EFF001:error"
+  ]
+}

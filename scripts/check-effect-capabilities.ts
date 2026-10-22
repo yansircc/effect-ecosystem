@@ -18,6 +18,10 @@ for (const ruleId of ["EFF300", "EFF301", "EFF302", "EFF303", "EFF304", "EFF310"
 }
 
 if (contract.support.effect.major !== 4) throw new Error("Effect v4 must be the only supported major")
+// The range is judged with prereleases included: its exclusive bound is the first prerelease of the next major.
+if (!contract.support.effect.range.endsWith(` <${contract.support.effect.major + 1}.0.0-0`)) {
+  throw new Error(`support.effect.range must end with "<${contract.support.effect.major + 1}.0.0-0" (a bare "<${contract.support.effect.major + 1}.0.0" admits its prereleases)`)
+}
 // support.*.version records the verified toolchain; runtime matches by TypeScript major and compiler
 // marker (crates/effect-scan/src/diagnostics), so the contract only has to be internally consistent.
 if (contract.support.typescript.major !== 7) throw new Error("TypeScript 7 must be the only supported major")

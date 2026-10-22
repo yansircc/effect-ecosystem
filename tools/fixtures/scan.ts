@@ -146,5 +146,6 @@ export function tryJson(text: string): any {
 }
 
 export function readJson(path: string): any {
-  return JSON.parse(readFileSync(path, "utf8"))
+  // A manifest may start with a byte-order mark (fixture `package-json-with-bom`); JSON.parse rejects it.
+  return JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""))
 }

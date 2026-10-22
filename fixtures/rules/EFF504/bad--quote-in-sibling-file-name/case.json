@@ -1,0 +1,16 @@
+{
+  "description": "a file name with a double quote does not stop the other files from being checked",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF504:error"
+  ]
+}

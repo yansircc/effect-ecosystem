@@ -456,8 +456,26 @@ declared intent.
 
 ### EFF908 unsupported-effect-version
 
-Effect must satisfy the supported v4 range. Effect v3 and future unverified
-majors fail closed before semantic rule projection.
+Effect must satisfy the supported v4 range (`support.effect.range` of
+`contracts/effect-capabilities.json`, currently `>=4.0.5 <5.0.0-0`; the exclusive bound is the
+first prerelease of the next major, so no `5.0.0-*` is inside). Effect v3, every other major and
+anything unverified fail closed before semantic rule projection.
+
+Every candidate that speaks for the `effect` line must provably lie inside the range, otherwise
+the finding is raised:
+
+- each `(field, name)` declaration in `dependencies`, `devDependencies`, `peerDependencies` and
+  `optionalDependencies` is its own candidate; a range in one field never shadows another;
+- the installed copy (`node_modules/effect`, lockfile pin of the package's own importer) is a
+  one-point range, whatever its major is (2, 5, ...);
+- a candidate whose line cannot be established is "cannot prove", which is the same verdict as
+  out of range: a `catalog:` that does not resolve (no `pnpm-workspace.yaml`, named catalog
+  absent, entry missing, or a catalog form the scanner does not read, such as flow style or
+  anchors), `latest`/`*`/`workspace:`-style ranges, a non-string range, an installed `effect`
+  whose version cannot be read. The finding message lists the unproven sources.
+
+When the declared and installed majors disagree the finding is `EFF324` instead and the
+version-gated rules pause until they agree.
 
 ## Executable And Adapter Rules
 

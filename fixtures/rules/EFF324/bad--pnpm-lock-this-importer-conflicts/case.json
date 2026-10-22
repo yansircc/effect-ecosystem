@@ -1,0 +1,17 @@
+{
+  "description": "pnpm-lock-this-importer-conflicts-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF324"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "package.json:1:EFF324:error"
+  ]
+}

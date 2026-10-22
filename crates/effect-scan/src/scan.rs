@@ -9,7 +9,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::LazyLock;
 
 pub struct Options {
@@ -83,7 +83,9 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let mut findings = loaded.findings;
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
-    let files = collect_source_files(root, manifest.as_ref(), &contract)?;
+    let (files, skipped_symlinks) = collect_source_files(root, manifest.as_ref(), &contract)?;
+    let mut warnings = loaded.warnings;
+    warnings.extend(skipped_symlinks.iter().map(|link| format!("{link} is a symlink and was not scanned (symlinks are not followed; its target is scanned at its own path)")));
     timings.mark("collectSourceFiles");
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
     // The compiler pass overlaps with every other stage: started here, joined below.
@@ -122,8 +124,8 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         "notProvenFacts".into(),
         Value::Array(not_proven_facts.iter().map(|f| json!({ "id": format!("{}:{}:{}", f.rule_id, f.file, f.line), "reason": f.reason })).collect()),
     );
-    crate::projection::build(&ctx, &findings, &loaded.warnings, &mut extras, &mut timings)?;
-    Ok(ScanResult { findings, warnings: loaded.warnings, extras })
+    crate::projection::build(&ctx, &findings, &warnings, &mut extras, &mut timings)?;
+    Ok(ScanResult { findings, warnings, extras })
 }
 
 fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
@@ -143,9 +145,10 @@ fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
     out
 }
 
-fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<Vec<SourceFile>, String> {
+fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<(Vec<SourceFile>, Vec<String>), String> {
     let prune = host_tooling_prune_dirs(manifest);
-    let paths: Vec<PathBuf> = util::collect_files(root, &prune)?;
+    let collected = util::collect_files(root, &prune)?;
+    let paths = collected.files;
     let default_tests = util::default_test_globs();
     let mut files = Vec::new();
     for path in paths {
@@ -153,7 +156,9 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
         if relative.ends_with(".d.ts") || relative.ends_with(".d.mts") || relative.ends_with(".d.cts") {
             continue;
         }
-        let text = fs::read_to_string(&path).map_err(|e| format!("cannot read {relative}: {e}"))?;
+        // Lossy decoding: a source file in another encoding (latin-1 comments) still has facts; a file that is
+        // not valid UTF-8 must not abort the scan of every other file.
+        let text = String::from_utf8_lossy(&fs::read(&path).map_err(|e| format!("cannot read {relative}: {e}"))?).into_owned();
         let is_test = match manifest {
             Some(m) => matches_any(&relative, &m.test_globs),
             None => matches_any(&relative, &default_tests),
@@ -175,7 +180,7 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
             },
         });
     }
-    Ok(files)
+    Ok((files, collected.skipped_symlinks))
 }
 
 fn skip_file(file: &SourceFile, scanner: &Value) -> bool {

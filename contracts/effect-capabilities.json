@@ -5,7 +5,7 @@
   "support": {
     "effect": {
       "major": 4,
-      "range": ">=4.0.5 <5.0.0"
+      "range": ">=4.0.5 <5.0.0-0"
     },
     "typescript": {
       "major": 7,

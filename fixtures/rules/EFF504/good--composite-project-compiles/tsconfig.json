@@ -1,0 +1,1 @@
+{"compilerOptions":{"composite":true,"declaration":true,"strict":true,"module":"esnext","target":"es2022","moduleResolution":"bundler"},"include":["src"]}

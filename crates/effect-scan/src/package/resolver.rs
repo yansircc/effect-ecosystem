@@ -22,7 +22,7 @@ pub struct Candidate {
     pub reason: Option<String>,
     pub package_name: String,
     pub version_range: Option<String>,
-    pub major: Option<u8>,
+    pub major: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,7 +30,7 @@ pub struct Candidate {
 pub struct Side {
     pub status: &'static str,
     pub winning_source: Option<String>,
-    pub major: Option<u8>,
+    pub major: Option<u64>,
     pub candidates: Vec<Candidate>,
 }
 
@@ -79,7 +79,7 @@ pub struct Target {
 #[serde(rename_all = "camelCase")]
 pub struct EffectResolution {
     pub comparison: Comparison,
-    pub majors: Vec<u8>,
+    pub majors: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -201,11 +201,11 @@ pub fn package_resolution<'a>(state: &'a ScanState, package_path: &str) -> Optio
 }
 
 /// The resolved Effect major, or `None` when the sides conflict or nothing resolved.
-pub fn safe_package_major(resolution: Option<&PackageResolution>) -> Option<u8> {
+pub fn safe_package_major(resolution: Option<&PackageResolution>) -> Option<u64> {
     resolved_major(resolution?)
 }
 
-fn resolved_major(pkg: &PackageResolution) -> Option<u8> {
+fn resolved_major(pkg: &PackageResolution) -> Option<u64> {
     if matches!(pkg.comparison, Comparison::Conflict | Comparison::Unresolved) {
         return None;
     }
@@ -354,27 +354,27 @@ fn resolve_package(pkg: &Package, catalogs: &PnpmCatalogs) -> PackageResolution 
     }
 }
 
-fn dependency_field(package_json: &Value, name: &str) -> &'static str {
-    for field in ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] {
-        if package_json.get(field).and_then(Value::as_object).is_some_and(|o| o.contains_key(name)) {
-            return field;
-        }
-    }
-    "dependencies"
-}
-
 fn declared_major_for_package(pkg: &Package, catalogs: &PnpmCatalogs) -> Side {
     let ignored = capabilities::tooling_packages();
-    let mut entries: Vec<(&String, &Value)> = pkg.deps.iter().collect();
-    entries.sort_by(|a, b| locale_compare(a.0, b.0));
+    let mut entries = pkg.dependency_entries();
+    entries.sort_by(|a, b| locale_compare(a.name, b.name));
     let mut candidates = Vec::new();
-    for (name, range) in entries {
-        if ignored.contains(name) {
+    for entry in entries {
+        let name = entry.name;
+        if ignored.iter().any(|i| i == name) {
             continue;
         }
-        let source = format!("{}:{}.{}", pkg.relative_package_json, dependency_field(&pkg.package_json, name), name);
-        // A non-string range carries no major (`majorFromPackageRange` requires a string).
-        let Some(range_text) = range.as_str() else { continue };
+        // Every declaration is its own candidate (one per field and name): a range in one field never
+        // shadows a different range of the same package in another.
+        let source = format!("{}:{}.{}", pkg.relative_package_json, entry.field, name);
+        let is_effect = name == "effect";
+        let Some(range_text) = entry.range.as_str() else {
+            // A non-string `effect` range proves nothing about the line; it must not read as "no Effect".
+            if is_effect {
+                candidates.push(unsupported_candidate(source, "non-string-range", name, None));
+            }
+            continue;
+        };
         match resolve_dependency_version_range(name, range_text, catalogs) {
             Err(reason) => candidates.push(unsupported_candidate(source, &reason, name, Some(range_text.to_string()))),
             Ok((resolved, catalog)) => {
@@ -382,8 +382,10 @@ fn declared_major_for_package(pkg: &Package, catalogs: &PnpmCatalogs) -> Side {
                     Some(c) => format!("{source}->pnpm-workspace.yaml:{c}.{name}"),
                     None => source,
                 };
-                if let Some(major) = major_from_package_range(name, &resolved) {
-                    candidates.push(Candidate { source, reason: None, package_name: name.clone(), version_range: Some(resolved), major: Some(major) });
+                match major_from_package_range(name, &resolved) {
+                    Some(major) => candidates.push(Candidate { source, reason: None, package_name: name.to_string(), version_range: Some(resolved), major: Some(major) }),
+                    None if is_effect => candidates.push(unsupported_candidate(source, "unparseable-range", name, Some(resolved))),
+                    None => {}
                 }
             }
         }
@@ -409,12 +411,12 @@ fn installed_major_for_package(pkg: &Package) -> Side {
     side_from_candidates(candidates)
 }
 
-fn effect_candidate(source: String, version: &str, major: u8) -> Candidate {
+fn effect_candidate(source: String, version: &str, major: u64) -> Candidate {
     Candidate { source, reason: None, package_name: "effect".into(), version_range: Some(version.to_string()), major: Some(major) }
 }
 
 fn read_json(path: &Path) -> Result<Value, ()> {
-    fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).ok_or(())
+    crate::util::read_json_file(path).map_err(|_| ())
 }
 
 fn lockfile_candidates(pkg: &Package) -> Vec<Candidate> {
@@ -438,15 +440,71 @@ fn lockfile_candidates(pkg: &Package) -> Vec<Candidate> {
     }
     let pnpm_lock = pkg.dependency_root.join("pnpm-lock.yaml");
     if pnpm_lock.exists() {
-        static IMPORTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\s+effect:\n(?:\s+[^\n]*\n)*?\s+version:\s*([^\s(]+)").unwrap());
-        static PACKAGE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\s{2}effect@([^:\s]+):").unwrap());
         let text = fs::read(&pnpm_lock).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
-        let version = IMPORTER.captures(&text).or_else(|| PACKAGE.captures(&text)).map(|c| c[1].to_string());
-        if let Some((version, major)) = version.as_deref().and_then(|v| Some((v, major_from_effect_version(v)?))) {
+        let pinned = pnpm_lock_effect_version(&text);
+        if let Some((version, major)) = pinned.as_deref().and_then(|v| Some((v, major_from_effect_version(v)?))) {
             out.push(effect_candidate(format!("{}:effect", relative_dependency_path(pkg, "pnpm-lock.yaml")), version, major));
         }
     }
     out
+}
+
+/// The `effect` version the lockfile pins for the project that owns it: the `.` importer (the lockfile sits in
+/// the dependency root, whose `package.json` is that importer). Other importers' pins are other projects'
+/// facts. A lockfile without `importers:` (v5, v6 single project) lists the project's dependencies at the top
+/// level; only then is a bare `effect@<version>:` package entry the best available evidence.
+fn pnpm_lock_effect_version(text: &str) -> Option<String> {
+    let pairs: Vec<YamlPair> = text.lines().filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#')).filter_map(parse_yaml_pair).collect();
+    let children = |at: usize| -> &[YamlPair] {
+        let end = pairs[at + 1..].iter().position(|p| p.indent <= pairs[at].indent).map_or(pairs.len(), |n| at + 1 + n);
+        &pairs[at + 1..end]
+    };
+    let direct_children = |block: &[YamlPair]| -> Vec<usize> {
+        let Some(first) = block.first().map(|p| p.indent) else { return Vec::new() };
+        block.iter().enumerate().filter(|(_, p)| p.indent == first).map(|(i, _)| i).collect()
+    };
+    let top = |key: &str| pairs.iter().position(|p| p.indent == 0 && p.key == key);
+    let importers = top("importers");
+    let project: Vec<&YamlPair> = match importers {
+        Some(at) => {
+            let block = children(at);
+            let Some(root) = direct_children(block).into_iter().find(|&i| block[i].key == ".") else { return None };
+            let start = at + 1 + root;
+            children(start).iter().collect()
+        }
+        None => pairs.iter().collect(),
+    };
+    // Dependency groups of the project, then the `effect` entry inside one.
+    let first_indent = project.iter().map(|p| p.indent).min();
+    let from_groups = || -> Option<String> {
+        let first_indent = first_indent?;
+        for (i, group) in project.iter().enumerate() {
+            if group.indent != first_indent || !["dependencies", "devDependencies", "optionalDependencies"].contains(&group.key.as_str()) {
+                continue;
+            }
+            let members: Vec<&&YamlPair> = project[i + 1..].iter().take_while(|p| p.indent > group.indent).collect();
+            let Some(member_indent) = members.first().map(|p| p.indent) else { continue };
+            for (j, member) in members.iter().enumerate() {
+                if member.indent != member_indent || member.key != "effect" {
+                    continue;
+                }
+                if !member.value.is_empty() {
+                    return Some(member.value.clone());
+                }
+                let fields = members[j + 1..].iter().take_while(|p| p.indent > member.indent);
+                if let Some(version) = fields.filter(|p| p.key == "version").map(|p| p.value.clone()).next() {
+                    return Some(version);
+                }
+            }
+        }
+        None
+    };
+    let version = from_groups().map(|v| v.split('(').next().unwrap_or("").trim().to_string()).filter(|v| !v.is_empty());
+    if version.is_some() || importers.is_some() {
+        return version;
+    }
+    static PACKAGE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\s{2}effect@([^:\s]+):").unwrap());
+    PACKAGE.captures(&format!("\n{text}")).map(|c| c[1].to_string())
 }
 
 fn is_symlink(path: &Path) -> bool {
@@ -469,11 +527,14 @@ fn node_modules_candidates(pkg: &Package) -> Vec<Candidate> {
     if is_symlink(&effect_root) {
         return vec![unsupported_candidate(relative_dependency_path(pkg, "node_modules/effect"), "node_modules-symlink-ignored", "effect", None)];
     }
-    let Ok(manifest) = read_json(&effect_package_json) else { return Vec::new() };
-    let Some(version) = manifest.get("version").and_then(Value::as_str) else { return Vec::new() };
+    let source = relative_dependency_path(pkg, "node_modules/effect/package.json");
+    // An installed `effect` whose version cannot be read is installed Effect of unknown line, not no Effect.
+    let unreadable = || vec![unsupported_candidate(source.clone(), "unreadable-effect-package", "effect", None)];
+    let Ok(manifest) = read_json(&effect_package_json) else { return unreadable() };
+    let Some(version) = manifest.get("version").and_then(Value::as_str) else { return unreadable() };
     match major_from_effect_version(version) {
-        Some(major) => vec![effect_candidate(format!("{}:version", relative_dependency_path(pkg, "node_modules/effect/package.json")), version, major)],
-        None => Vec::new(),
+        Some(major) => vec![effect_candidate(format!("{source}:version"), version, major)],
+        None => unreadable(),
     }
 }
 
@@ -499,7 +560,7 @@ fn compare_sides(declared: &Side, installed: &Side) -> Comparison {
 
 fn aggregate_effect_resolution(packages: &[PackageResolution]) -> EffectResolution {
     let has = |c: Comparison| packages.iter().any(|p| p.comparison == c);
-    let mut majors: Vec<u8> = packages.iter().filter_map(resolved_major).collect();
+    let mut majors: Vec<u64> = packages.iter().filter_map(resolved_major).collect();
     majors.sort();
     majors.dedup();
     let comparison = if has(Comparison::Conflict) {
@@ -541,7 +602,10 @@ fn first_number(text: &str) -> Option<u64> {
     }
 }
 
-fn major_from_package_range(name: &str, range: &str) -> Option<u8> {
+/// The major a declared range names. `effect` carries its numeric major as written: every major is a
+/// claim about the line, and only the support contract decides whether it is inside. `@effect/*`
+/// packages version independently of `effect`; they only distinguish the v4 line from the rest.
+fn major_from_package_range(name: &str, range: &str) -> Option<u64> {
     if name == "effect" {
         return major_from_effect_version(range);
     }
@@ -551,14 +615,34 @@ fn major_from_package_range(name: &str, range: &str) -> Option<u8> {
     None
 }
 
-fn major_from_effect_version(version: &str) -> Option<u8> {
-    match first_number(version)? {
-        3 => Some(3),
-        4 => Some(4),
-        _ => None,
-    }
+fn major_from_effect_version(version: &str) -> Option<u64> {
+    first_number(version)
 }
 
 fn unsupported_candidate(source: String, reason: &str, package_name: &str, version_range: Option<String>) -> Candidate {
     Candidate { source, reason: Some(reason.to_string()), package_name: package_name.to_string(), version_range, major: None }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pnpm_lock_effect_version;
+
+    #[test]
+    fn lockfile_version_is_the_root_importers_not_the_first_in_the_file() {
+        let lock = "lockfileVersion: '9.0'\nimporters:\n  packages/a:\n    dependencies:\n      effect:\n        specifier: ^3.0.0\n        version: 3.1.0\n  .:\n    devDependencies:\n      '@effect/vitest':\n        specifier: 4.0.5\n        version: 4.0.5\n      effect:\n        specifier: ^4.0.5\n        version: 4.0.5(typescript@7.0.2)\npackages:\n  effect@3.1.0:\n    resolution: {}\n";
+        assert_eq!(pnpm_lock_effect_version(lock).as_deref(), Some("4.0.5"));
+    }
+
+    #[test]
+    fn root_importer_without_effect_does_not_inherit_another_projects_pin() {
+        let lock = "importers:\n  .:\n    dependencies:\n      zod:\n        specifier: ^3\n        version: 3.0.0\n  packages/a:\n    dependencies:\n      effect:\n        specifier: ^4\n        version: 4.0.5\npackages:\n  effect@4.0.5:\n    resolution: {}\n";
+        assert_eq!(pnpm_lock_effect_version(lock), None);
+    }
+
+    #[test]
+    fn single_project_lockfiles_without_importers() {
+        assert_eq!(pnpm_lock_effect_version("lockfileVersion: 5.4\ndependencies:\n  effect: 3.1.0\n").as_deref(), Some("3.1.0"));
+        assert_eq!(pnpm_lock_effect_version("lockfileVersion: '6.0'\ndependencies:\n  effect:\n    specifier: ^3\n    version: 3.2.1\n").as_deref(), Some("3.2.1"));
+        assert_eq!(pnpm_lock_effect_version("lockfileVersion: 5.4\npackages:\n  effect@3.4.0:\n    resolution: {}\n").as_deref(), Some("3.4.0"));
+    }
 }

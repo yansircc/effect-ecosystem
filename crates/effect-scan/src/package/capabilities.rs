@@ -73,3 +73,23 @@ pub fn v3_package_migrations() -> BTreeMap<String, Vec<String>> {
         })
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::package::node_semver::{subset, valid_range};
+
+    /// The range is judged with prereleases included, so it must name the first prerelease of the next major
+    /// (`<5.0.0-0`) as its exclusive bound: `<5.0.0` would admit `5.0.0-beta.1`.
+    #[test]
+    fn support_range_excludes_every_next_major_prerelease() {
+        let range = supported_effect_range();
+        let inside = |version: &str| subset(&valid_range(version).unwrap(), range);
+        for admitted in ["4.0.5", "4.0.6", "4.99.0"] {
+            assert!(inside(admitted), "{admitted} is inside {range}");
+        }
+        for refused in ["4.0.4", "4.0.5-rc.1", "3.21.2", "5.0.0-0", "5.0.0-beta.1", "5.0.0"] {
+            assert!(!inside(refused), "{refused} is outside {range}");
+        }
+    }
+}

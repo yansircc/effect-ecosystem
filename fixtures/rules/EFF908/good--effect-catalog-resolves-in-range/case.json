@@ -1,0 +1,13 @@
+{
+  "description": "effect-catalog-resolves-in-range-green",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true,
+  "expectFindingKeys": []
+}

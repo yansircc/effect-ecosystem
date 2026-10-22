@@ -1,0 +1,18 @@
+{
+  "description": "v4-owner-metadata-unreadable-red",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "antiCheat": true,
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF326"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "package.json:1:EFF326:error"
+  ]
+}

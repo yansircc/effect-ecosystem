@@ -1,0 +1,23 @@
+{
+  "description": "effect-dependency-in-range-peer-out-of-range-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF908"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "package.json:1:EFF908:error"
+  ],
+  "expectFindings": [
+    {
+      "ruleId": "EFF908",
+      "messageIncludes": "package.json:peerDependencies.effect"
+    }
+  ]
+}

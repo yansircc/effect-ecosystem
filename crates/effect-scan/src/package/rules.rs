@@ -2,12 +2,11 @@
 //! 324/325/326 peer and line checks, EFF900 `nativeDependencyBoundaries`, EFF906/908.
 use super::capabilities::{self, Requirement};
 use super::node_semver;
-use super::resolver::{self, Comparison, PackageResolution};
+use super::resolver::{self, Candidate, Comparison, PackageResolution};
 use crate::findings::{Finding, Registry};
 use crate::manifest::{Manifest, Package};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
@@ -44,9 +43,17 @@ pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
             }
         }
         let needs_vitest = !pkg.shape.is_empty() && !pkg.dev_deps.contains_key("@effect/vitest");
+        // Every candidate that speaks for the `effect` line must lie inside the support contract. A
+        // declaration or installed copy whose line cannot be established (unresolvable catalog, `latest`,
+        // unreadable metadata) is "cannot prove", which fails closed exactly like an out-of-range line.
+        let claims = effect_claims(resolved);
+        let unproven = unproven_claims(&claims);
         let Some(effect_major) = effect_major else {
             if needs_vitest {
                 findings.push(finding("EFF321", &pkg.relative_package_json, None));
+            }
+            if !claims.is_empty() {
+                findings.push(finding("EFF908", &pkg.relative_package_json, Some(&unsupported_message(&unproven))));
             }
             continue;
         };
@@ -57,9 +64,8 @@ pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
                 findings.push(finding("EFF325", &pkg.relative_package_json, Some(&format!("{name} is the v3 line; use {to} from effect"))));
             }
         }
-        if effect_major != 4 || !effect_version_supported(resolved) {
-            let message = format!("Effect must satisfy {}", capabilities::supported_effect_range());
-            findings.push(finding("EFF908", &pkg.relative_package_json, Some(&message)));
+        if effect_major != 4 || claims.is_empty() || !unproven.is_empty() {
+            findings.push(finding("EFF908", &pkg.relative_package_json, Some(&unsupported_message(&unproven))));
             continue;
         }
         for (owner, message) in peer_problems(pkg) {
@@ -73,7 +79,7 @@ pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
     findings
 }
 
-fn major_text(major: Option<u8>) -> String {
+fn major_text(major: Option<u64>) -> String {
     major.map_or_else(|| "null".into(), |m| m.to_string())
 }
 
@@ -120,23 +126,36 @@ fn validate_native_dependency_boundaries(
     admitted
 }
 
+/// Candidates that speak for the `effect` line: every declaration (resolved or not) and every installed
+/// copy, including one whose version cannot be read. Installed-side "unsupported" markers that are not an
+/// installed `effect` (lockfile kinds, symlinks) say nothing about the line and are not claims.
+fn effect_claims(resolved: Option<&PackageResolution>) -> Vec<&Candidate> {
+    let Some(resolved) = resolved else { return Vec::new() };
+    let installed = resolved.installed_major.candidates.iter().filter(|c| c.major.is_some() || c.reason.as_deref() == Some("unreadable-effect-package"));
+    installed.chain(resolved.declared_major.candidates.iter()).filter(|c| c.package_name == "effect").collect()
+}
+
 /// The contract's range is the one fact; a declared range must lie inside it, an installed version
-/// is a one-point range.
-fn effect_version_supported(resolved: Option<&PackageResolution>) -> bool {
-    let Some(resolved) = resolved else { return false };
-    let ranges: Vec<&str> = resolved
-        .installed_major
-        .candidates
-        .iter()
-        .chain(resolved.declared_major.candidates.iter())
-        .filter(|c| c.package_name == "effect")
-        .filter_map(|c| c.version_range.as_deref())
-        .collect();
-    if ranges.is_empty() {
-        return false;
-    }
+/// is a one-point range. Returns the claims that do not provably do.
+fn unproven_claims<'a>(claims: &[&'a Candidate]) -> Vec<&'a Candidate> {
     let supported = capabilities::supported_effect_range();
-    ranges.iter().all(|range| node_semver::valid_range(range).is_some_and(|valid| node_semver::subset(&valid, supported)))
+    claims
+        .iter()
+        .copied()
+        .filter(|c| !c.version_range.as_deref().is_some_and(|range| node_semver::valid_range(range).is_some_and(|valid| node_semver::subset(&valid, supported))))
+        .collect()
+}
+
+fn unsupported_message(unproven: &[&Candidate]) -> String {
+    let mut message = format!("Effect must satisfy {}", capabilities::supported_effect_range());
+    if !unproven.is_empty() {
+        let shown: Vec<String> = unproven
+            .iter()
+            .map(|c| format!("{} ({})", c.source, c.reason.as_deref().or(c.version_range.as_deref()).unwrap_or("unknown")))
+            .collect();
+        message.push_str(&format!("; not provably inside: {}", shown.join(", ")));
+    }
+    message
 }
 
 fn missing_requirement(deps: &Map<String, Value>, requirement: &Requirement, transports_declared: bool) -> Vec<String> {
@@ -189,7 +208,11 @@ fn peer_problems(pkg: &Package) -> Vec<(String, String)> {
             }
             continue;
         };
-        let Some(installed) = read_json(&manifest_path) else { continue };
+        // Installed metadata that exists but cannot be read leaves the peer contract unproven.
+        let Ok(installed) = read_json(&manifest_path) else {
+            problems.push((owner.clone(), format!("{owner} installed package metadata (node_modules/{owner}/package.json) is unreadable")));
+            continue;
+        };
         let Some(peers) = installed.get("peerDependencies").and_then(Value::as_object) else { continue };
         for (peer, range) in peers {
             let Some(range) = range.as_str() else { continue };
@@ -200,7 +223,11 @@ fn peer_problems(pkg: &Package) -> Vec<(String, String)> {
                 }
                 continue;
             };
-            let version = read_json(&peer_path).and_then(|v| v.get("version").cloned());
+            let Ok(peer_manifest) = read_json(&peer_path) else {
+                problems.push((owner.clone(), format!("{owner} requires peer {peer}@{range}, but the installed {peer} package metadata is unreadable")));
+                continue;
+            };
+            let version = peer_manifest.get("version").cloned();
             let satisfied = version.as_ref().and_then(Value::as_str).is_some_and(|v| node_semver::satisfies(v, range));
             if !satisfied {
                 let shown = match &version {
@@ -215,8 +242,8 @@ fn peer_problems(pkg: &Package) -> Vec<(String, String)> {
     problems
 }
 
-fn read_json(path: &Path) -> Option<Value> {
-    fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok())
+fn read_json(path: &Path) -> Result<Value, String> {
+    crate::util::read_json_file(path)
 }
 
 /// `node_modules/<name>/package.json` found by walking up from `start`; `None` when no ancestor has it.
