@@ -27,7 +27,7 @@ npx effect-tsgo patch --typescript-package typescript
           "floatingEffect": "error",
           "missingEffectError": "error",
           "missingEffectContext": "error",
-          "yieldEffectInNonGenerator": "error"
+          "missingStarInYieldEffectGen": "error"
         }
       }
     ]
@@ -39,42 +39,66 @@ npx effect-tsgo patch --typescript-package typescript
 
 ## 3. 关键诊断
 
-| 诊断 | 描述 | 严重程度建议 |
+诊断名以 `node_modules/@effect/tsgo/schema.json`（`effectLanguageServicePluginDiagnosticSeverityDefinition`）为准；下表默认严重程度亦取自该 schema。
+
+| 诊断 | 描述 | 默认 |
 |---|---|---|
-| `floatingEffect` | 构造但未 yield / run 的 Effect。 | `error` |
-| `missingEffectError` | Effect 错误通道含未处理 tag。 | `error` |
+| `floatingEffect` | 构造但既未 yield 也未赋值的 Effect。 | `error` |
+| `missingEffectError` | Effect 错误通道含未处理类型。 | `error` |
 | `missingEffectContext` | 缺失服务依赖（R 通道未满足）。 | `error` |
-| `yieldEffectInNonGenerator` | 在 `Effect.gen` 外用 `yield*`。 | `error` |
-| `missingReturnYieldStar` | Generator 内最后表达式应该 `return yield*`。 | `warning` |
-| `useGenInsteadOfChained` | 长链 pipe 建议改 Generator。 | `suggestion` |
+| `missingLayerContext` | Layer 的 R 通道未满足。 | `error` |
+| `missingStarInYieldEffectGen` | Effect generator 内裸 `yield`（缺 `*`）。 | `error` |
+| `missingReturnYieldStar` | 永不成功的 Effect 应写 `return yield*`。 | `error` |
+| `unnecessaryEffectGen` | `Effect.gen` 仅含单个 return，可去掉。 | `suggestion` |
+| `effectFnOpportunity` | 返回 Effect 的函数建议改用 `Effect.fn`。 | `suggestion` |
+
+不要凭记忆引用诊断名：schema 里没有的名字（例如旧文档中的 `yieldEffectInNonGenerator`、`useGenInsteadOfChained`、`unclosedLayer`）在 `@effect/tsgo@0.45.0` 不存在，写进 `diagnosticSeverity` 不会生效。
 
 ## 4. Floating Effect — 最常见反模式
 
-```typescript
-// ❌ Bug：log 永远不会执行
+反例（不参与编译）：
+
+```ts nocheck
+// Bug：log 永远不会执行
 const program = Effect.gen(function* () {
-  Effect.log("starting")  // <-- floating!
+  Effect.log("starting") // floating
   yield* doWork()
 })
+```
 
-// ✅ 正确
-const program = Effect.gen(function* () {
+正确写法：
+
+```ts
+import { Effect } from "effect"
+
+declare const doWork: () => Effect.Effect<void>
+
+export const program = Effect.gen(function* () {
   yield* Effect.log("starting")
   yield* doWork()
 })
 ```
 
-```typescript
-// ❌ Bug：retry 没接管道
+反例（不参与编译）：
+
+```ts nocheck
+// Bug：retry 没接管道，未 apply 给 fetch
 const fetchUser = Effect.gen(function* () {
-  const u = yield* client.get(...)
-  Effect.retry({ times: 3 }) // <-- floating，未 apply 给 fetch
+  const u = yield* fetch()
+  Effect.retry({ times: 3 }) // floating
   return u
 })
+```
 
-// ✅ 正确
-const fetchUser = Effect.gen(function* () {
-  return yield* client.get(...).pipe(Effect.retry({ times: 3 }))
+正确写法：
+
+```ts
+import { Effect } from "effect"
+
+declare const fetchOnce: Effect.Effect<string, Error>
+
+export const fetchUser = Effect.gen(function* () {
+  return yield* fetchOnce.pipe(Effect.retry({ times: 3 }))
 })
 ```
 
@@ -102,13 +126,7 @@ patched TS7 semantic diagnostics 在一次 compiler transaction 中同时返回 
 
 ## 8. Quick Fix
 
-LSP 提供这些 quick fix：
-- 自动在 floating effect 前插入 `yield*`。
-- 自动从 `.pipe(Effect.map / .flatMap)` 链转 `Effect.gen`。
-- 自动注入缺失 Service Tag import。
-- 自动展开 `Effect.catchTag` 处理新引入的 error tag。
-
-Agent 编写代码时**优先采用 LSP 建议的形式**，便于人工 review 一致性。
+多数诊断附带 quick fix（例如在 floating effect 前插入 `yield*`）；具体可用项以编辑器实际提示为准。Agent 编写代码时优先采用 LSP 建议的形式，便于人工 review 一致性。
 
 ## 9. 禁忌
 

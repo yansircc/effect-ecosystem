@@ -4,104 +4,162 @@
 
 ## 1. 基础原语
 
-```typescript
-import { Schedule, Duration } from "effect"
+```ts
+import { Schedule } from "effect"
 
-Schedule.recurs(5)                          // 重复 5 次
-Schedule.forever                            // 无限
-Schedule.once                               // 一次
-Schedule.spaced("1 second")                 // 每次间隔 1s
-Schedule.fixed("1 second")                  // 严格固定 1s 间隔（不漂移）
-Schedule.exponential("100 millis")          // 100ms → 200 → 400 → 800 ...
-Schedule.exponential("100 millis", 1.5)     // factor 自定义
-Schedule.fibonacci("100 millis")            // 100 → 100 → 200 → 300 → 500 ...
-Schedule.cron("0 9 * * 1-5")                // cron 表达式
+Schedule.recurs(5) // 重复 5 次
+Schedule.forever // 无限
+Schedule.once // 一次
+Schedule.spaced("1 second") // 每次间隔 1s
+Schedule.fixed("1 second") // 严格固定 1s 间隔（不漂移）
+Schedule.exponential("100 millis") // 100ms → 200 → 400 → 800 ...
+Schedule.exponential("100 millis", 1.5) // factor 自定义
+Schedule.fibonacci("100 millis") // 100 → 100 → 200 → 300 → 500 ...
+Schedule.cron("0 9 * * 1-5") // cron 表达式
 ```
 
 ## 2. 组合算子
 
-```typescript
-// 限时上限
-Schedule.exponential("100 millis").pipe(
-  Schedule.upTo("30 seconds")               // 最多累计 30s
+v4 没有 `intersect` / `union` / `andThen` / `recurWhile`：
+
+| v3 | v4 |
+|---|---|
+| `Schedule.intersect(a, b)` | `Schedule.max([a, b])`：所有子 schedule 都想继续才继续，延迟取最慢者 |
+| `Schedule.union(a, b)` | `Schedule.min([a, b])`：任一想继续就继续，延迟取最快者 |
+| `Schedule.andThen(a, b)` | `Schedule.concat(a, b)`：`a` 跑完再跑 `b` |
+| `Schedule.recurWhile(pred)` | `Schedule.while(({ input }) => ...)`（配合 `setInputType`） |
+| `Schedule.upTo("30 seconds")`（单参） | `Schedule.upTo({ duration, times })` |
+
+```ts
+import { Schedule } from "effect"
+
+// 限时 / 限次上限：duration 与 times 任一达到即停
+export const bounded = Schedule.exponential("100 millis").pipe(
+  Schedule.upTo({ duration: "30 seconds", times: 5 })
 )
 
-// 限次上限
-Schedule.exponential("100 millis").pipe(
-  Schedule.intersect(Schedule.recurs(5))    // 最多 5 次 AND 指数退避
-)
+// 限次上限（另一种写法）：最多 5 次 AND 指数退避
+export const backoffWithCap = Schedule.max([
+  Schedule.exponential("100 millis"),
+  Schedule.recurs(5)
+])
+
+// 延迟封顶：指数退避，但单次等待不超过 10s
+export const cappedBackoff = Schedule.min([
+  Schedule.exponential("100 millis"),
+  Schedule.spaced("10 seconds")
+])
 
 // 带 jitter（避免同批请求同步退避）
-Schedule.exponential("100 millis").pipe(
-  Schedule.jittered                          // 加随机扰动
+export const jittered = Schedule.exponential("100 millis").pipe(
+  Schedule.jittered // 加随机扰动
 )
 
-// 条件继续
-Schedule.recurWhile((error: MyError) => error._tag === "Transient")
+// 条件继续：setInputType 声明输入（即 retry 的错误 / repeat 的结果）类型，再用 while 读取 metadata.input
+interface MyError {
+  readonly _tag: "Transient" | "Fatal"
+}
 
-// 累积返回值
-Schedule.identity<E>().pipe(
-  Schedule.zipLeft(Schedule.recurs(3))      // 返回累积的错误列表
+export const transientOnly = Schedule.exponential("100 millis").pipe(
+  Schedule.setInputType<MyError>(),
+  Schedule.while(({ input }) => input._tag === "Transient")
+)
+
+// 把输出换成输入（例如累积/观察错误）
+export const passthrough = Schedule.recurs(3).pipe(
+  Schedule.setInputType<MyError>(),
+  Schedule.passthrough
 )
 ```
+
+`Schedule.while` 的 predicate 接收 `Metadata`：`{ input, output, attempt, start, now, elapsed, elapsedSincePrevious, duration }`，可返回 `boolean` 或 `Effect<boolean>`。
 
 ## 3. Retry 模式
 
 ### 3.1 基础
 
-```typescript
-fetchUser.pipe(
+```ts
+import { Effect, Schedule } from "effect"
+
+declare const fetchUser: Effect.Effect<string, Error>
+
+// times 与 schedule 可单独或同时给出
+export const basic = fetchUser.pipe(
   Effect.retry({ times: 3, schedule: Schedule.exponential("200 millis") })
 )
 ```
 
 ### 3.2 区分错误类型决定是否 retry
 
-```typescript
-fetchUser.pipe(
+```ts
+import { Effect, Schedule } from "effect"
+
+type FetchError =
+  | { readonly _tag: "NetworkError" }
+  | { readonly _tag: "RateLimitError" }
+  | { readonly _tag: "NotFound" }
+
+declare const fetchUser: Effect.Effect<string, FetchError>
+
+export const selective = fetchUser.pipe(
   Effect.retry({
     while: (e) => e._tag === "NetworkError" || e._tag === "RateLimitError",
-    schedule: Schedule.exponential("500 millis").pipe(
-      Schedule.intersect(Schedule.recurs(5))
-    ),
+    schedule: Schedule.max([
+      Schedule.exponential("500 millis"),
+      Schedule.recurs(5)
+    ])
   })
 )
 
-// 只对特定 tag retry
-fetchUser.pipe(
+// 只对特定 tag retry，并加 jitter
+export const transientOnly = fetchUser.pipe(
   Effect.retry({
-    while: (e) => e._tag === "Transient",
+    while: (e) => e._tag === "NetworkError",
     schedule: Schedule.exponential("100 millis").pipe(Schedule.jittered)
   })
+)
+
+// 也可以把判断放进 schedule：builder 形式帮助推断输入类型
+export const inSchedule = fetchUser.pipe(
+  Effect.retry(($) =>
+    $(Schedule.exponential("100 millis")).pipe(
+      Schedule.while(({ input }) => input._tag === "NetworkError")
+    )
+  )
 )
 ```
 
 ### 3.3 重试链 — 短间隔 → 长间隔 fallback
 
-```typescript
-const aggressiveThenLazy = Schedule.exponential("50 millis").pipe(
-  Schedule.intersect(Schedule.recurs(3)),    // 前 3 次 50→100→200ms
-  Schedule.andThen(
-    Schedule.spaced("30 seconds").pipe(
-      Schedule.intersect(Schedule.recurs(10)) // 之后每 30s 一次，最多 10 次
-    )
-  )
+```ts
+import { Effect, Schedule } from "effect"
+
+declare const operation: Effect.Effect<void, Error>
+
+export const aggressiveThenLazy = Schedule.concat(
+  Schedule.exponential("50 millis").pipe(Schedule.upTo({ times: 3 })), // 前 3 次 50→100→200ms
+  Schedule.spaced("30 seconds").pipe(Schedule.upTo({ times: 10 })) // 之后每 30s 一次，最多 10 次
 )
 
-operation.pipe(Effect.retry({ schedule: aggressiveThenLazy }))
+export const program = operation.pipe(Effect.retry(aggressiveThenLazy))
 ```
 
 ## 4. Repeat 模式（健康检查 / 轮询 / 后台任务）
 
-```typescript
+```ts
+import { Effect, Schedule } from "effect"
+
+declare const healthCheck: Effect.Effect<void>
+declare const job: Effect.Effect<{ readonly status: string }>
+
 // 每 30s 跑一次健康检查
-healthCheck.pipe(
+export const background = healthCheck.pipe(
   Effect.repeat(Schedule.spaced("30 seconds")),
   Effect.forkScoped
 )
 
 // 重复直到条件满足
-job.pipe(
+export const untilDone = job.pipe(
   Effect.repeat({
     schedule: Schedule.spaced("5 seconds"),
     until: (result) => result.status === "completed"
@@ -111,19 +169,27 @@ job.pipe(
 
 ## 5. Cron 表达式
 
-```typescript
-import { Schedule } from "effect"
+```ts
+import { Effect, Schedule } from "effect"
 
-const dailyReport = generateReport.pipe(
-  Effect.repeat(Schedule.cron("0 9 * * 1-5"))  // 工作日 9:00
+declare const generateReport: Effect.Effect<void>
+declare const backup: Effect.Effect<void>
+
+export const dailyReport = generateReport.pipe(
+  Effect.repeat(Schedule.cron("0 9 * * 1-5")) // 工作日 9:00
 )
 
-const hourlyBackup = backup.pipe(
+export const hourlyBackup = backup.pipe(
   Effect.repeat(Schedule.cron("0 * * * *"))
+)
+
+// 指定时区
+export const tokyo = backup.pipe(
+  Effect.repeat(Schedule.cron("0 9 * * *", "Asia/Tokyo"))
 )
 ```
 
-格式：`minute hour day month weekday`。
+格式：`minute hour day month weekday`。表达式非法时 schedule 以 `CronParseError` 失败。
 
 | 用途 | 表达式 |
 |---|---|
@@ -137,11 +203,14 @@ const hourlyBackup = backup.pipe(
 
 ## 6. Debounce — 等"静默"后执行一次
 
-```typescript
-import { Schedule } from "effect"
+```ts
+import { Effect, Stream } from "effect"
+
+declare const searchInput: Stream.Stream<string>
+declare const search: (q: string) => Effect.Effect<void>
 
 // 用户连续输入 → 只在停止输入 300ms 后查询
-yield* searchInput.changes.pipe(
+export const program = searchInput.pipe(
   Stream.debounce("300 millis"),
   Stream.mapEffect((q) => search(q)),
   Stream.runDrain
@@ -150,12 +219,19 @@ yield* searchInput.changes.pipe(
 
 ## 7. Throttle — 限频
 
-```typescript
-yield* eventStream.pipe(
+```ts
+import { Effect, Stream } from "effect"
+
+declare const eventStream: Stream.Stream<string>
+declare const publish: (e: string) => Effect.Effect<void>
+
+// cost 作用于每个 chunk（非空数组）；units / duration 定义令牌桶
+export const program = eventStream.pipe(
   Stream.throttle({
-    units: 10,           // 最多 10 个
-    cost: () => 1,
-    duration: "1 second" // 每秒
+    units: 10, // 最多 10 个
+    cost: (chunk) => chunk.length,
+    duration: "1 second", // 每秒
+    strategy: "shape" // shape: 延迟；enforce: 超限丢弃
   }),
   Stream.mapEffect((e) => publish(e)),
   Stream.runDrain
@@ -164,11 +240,13 @@ yield* eventStream.pipe(
 
 ## 8. 综合 — Polling pattern
 
-```typescript
+```ts
 import { Effect, Schedule } from "effect"
 
+declare const longRunningJob: Effect.Effect<string>
+
 // 主任务跑业务；poller 每 2s 查一次状态；任一完成，另一个自动中断
-const result = yield* Effect.race(
+export const result = Effect.race(
   longRunningJob,
   Effect.log("polling...").pipe(Effect.repeat(Schedule.spaced("2 seconds")))
 )
@@ -176,33 +254,56 @@ const result = yield* Effect.race(
 
 ## 9. 限频与背压配合
 
-```typescript
-import { Semaphore } from "effect"
+```ts
+import { Effect, Schedule, Semaphore } from "effect"
 
-// 限频：每秒最多 10 个外部 API 调用
-const apiThrottle = yield* Semaphore.make(10)
-const refillInterval = "1 second"
+declare const externalApi: (req: string) => Effect.Effect<string>
 
-yield* Effect.repeat(
-  apiThrottle.releaseAll, // 每秒重置 permit
-  Schedule.spaced(refillInterval)
-).pipe(Effect.fork)
+// 限并发：同时最多 10 个外部 API 调用
+export const program = Effect.gen(function*() {
+  const apiLimit = yield* Semaphore.make(10)
+  return (req: string) => externalApi(req).pipe(apiLimit.withPermits(1))
+})
 
-const callApi = (req) => externalApi(req).pipe(apiThrottle.withPermits(1))
+// 限频（每秒最多 10 次）：定时 releaseAll 回补 permit 是反模式（会超发），用 RateLimiter
 ```
 
-实务中更推荐 `RateLimiter` 模块（Effect 内置 / 社区库）— 比手写 token bucket 更安全。
+`effect/persistence` 内置 `RateLimiter`（`fixed-window` / `token-bucket`，store 可为内存或 Redis），比手写 token bucket 更安全：
+
+```ts
+import { Effect } from "effect"
+import { RateLimiter } from "effect/persistence"
+
+declare const externalApi: (req: string) => Effect.Effect<string>
+
+export const program = Effect.gen(function*() {
+  const limiter = yield* RateLimiter.RateLimiter
+  const callApi = (req: string) =>
+    limiter.consume({
+      key: "external-api",
+      limit: 10,
+      window: "1 second",
+      algorithm: "token-bucket",
+      onExceeded: "delay" // 超限时等待；"fail" 则以 RateLimiterError 失败
+    }).pipe(Effect.andThen(externalApi(req)))
+  return callApi
+})
+```
+
+使用时需提供 `RateLimiter.layer` 与一个 store（`RateLimiter.layerStoreMemory` / `layerStoreRedis`）。
 
 ## 10. 自定义 Schedule
 
-```typescript
+```ts
+import { Schedule } from "effect"
+
 // 三段式：前 1 分钟每 5s，1-10 分钟每 30s，之后每 5 分钟
-const tieredSchedule = Schedule.spaced("5 seconds").pipe(
-  Schedule.intersect(Schedule.upTo("1 minute")),
-  Schedule.andThen(
-    Schedule.spaced("30 seconds").pipe(Schedule.intersect(Schedule.upTo("9 minutes")))
+export const tieredSchedule = Schedule.concat(
+  Schedule.concat(
+    Schedule.spaced("5 seconds").pipe(Schedule.upTo({ duration: "1 minute" })),
+    Schedule.spaced("30 seconds").pipe(Schedule.upTo({ duration: "9 minutes" }))
   ),
-  Schedule.andThen(Schedule.spaced("5 minutes"))
+  Schedule.spaced("5 minutes")
 )
 ```
 
@@ -226,4 +327,4 @@ finding。
 - 严禁手写 retry-with-backoff 循环 — `Effect.retry({ schedule })`。
 - 严禁裸 `Promise.race(promise, timeout)` — `Effect.timeout`。
 - 高并发 / 共享下游 retry 边界必须评估 `Schedule.jittered`；纯本地固定循环不机械要求。
-- 严禁让 retry 上限无界 — 必须 `Schedule.intersect(Schedule.recurs(N))` 或 `Schedule.upTo("X")`。
+- 严禁让 retry 上限无界 — 必须 `Schedule.max([backoff, Schedule.recurs(N)])` 或 `Schedule.upTo({ times: N })` / `Schedule.upTo({ duration: "X" })`，或给 `Effect.retry` 传 `times`。

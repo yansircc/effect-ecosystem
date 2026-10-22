@@ -518,7 +518,7 @@
         "rpc"
       ],
       "references": [
-        "references/sql-and-rpc.md §第二部分：@effect/rpc"
+        "references/sql-and-rpc.md §第二部分：effect/rpc"
       ],
       "scanner": {
         "kind": "source-import",
@@ -538,7 +538,7 @@
         "db"
       ],
       "references": [
-        "references/sql-and-rpc.md §第一部分：@effect/sql"
+        "references/sql-and-rpc.md §第一部分：effect/sql"
       ],
       "scanner": {
         "kind": "source-import",

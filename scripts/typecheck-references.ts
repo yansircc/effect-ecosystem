@@ -38,10 +38,13 @@ function markdownFiles(dir: string): string[] {
   })
 }
 
+// `--only references/foo.md` limits the run to the given docs (authoring loop).
+const only = process.argv.slice(2).flatMap((arg, i, all) => (all[i - 1] === "--only" ? [resolve(root, arg)] : []))
+
 const work = mkdtempSync(resolve(tmpdir(), "effect-references-"))
 try {
   const files = new Map<string, Block>()
-  for (const docPath of markdownFiles(referencesDir).sort()) {
+  for (const docPath of markdownFiles(referencesDir).sort().filter((path) => only.length === 0 || only.includes(path))) {
     for (const block of extractBlocks(docPath)) {
       const path = resolve(work, "src", block.doc.replace(/[^\w]+/g, "_"), `${block.id}.${block.ext}`)
       mkdirSync(dirname(path), { recursive: true })
@@ -51,27 +54,37 @@ try {
     }
   }
   symlinkSync(resolve(root, "node_modules"), resolve(work, "node_modules"), "dir")
-  writeFileSync(resolve(work, "tsconfig.json"), JSON.stringify({
-    compilerOptions: {
-      target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", lib: ["ES2022", "DOM"],
-      strict: true, noEmit: true, skipLibCheck: true, jsx: "react-jsx", types: ["node"],
-    },
-    include: ["src/**/*"],
-  }))
-  const result = spawnSync(process.execPath, [resolve(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--pretty", "false", "-p", resolve(work, "tsconfig.json")], {
-    cwd: work, encoding: "utf8", maxBuffer: 50_000_000,
-  })
   const failures: string[] = []
-  for (const line of `${result.stdout}\n${result.stderr}`.split("\n")) {
-    const match = line.match(/^(.+?)\((\d+),\d+\): error (TS\d+): (.*)$/)
-    if (!match) continue
-    const block = files.get(resolve(work, match[1]))
-    if (!block) { failures.push(line); continue }
-    failures.push(`${block.doc}:${block.startLine + Number(match[2]) - 1} ${match[3]}: ${match[4]}`)
+  const pending = new Set(files.keys())
+  // tsc skips semantic diagnostics while any file has syntax errors, so blocks with syntax errors
+  // are reported first and excluded from the semantic pass.
+  for (let pass = 0; pass < 2 && pending.size > 0; pass++) {
+    writeFileSync(resolve(work, "tsconfig.json"), JSON.stringify({
+      compilerOptions: {
+        target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", lib: ["ES2022", "DOM"],
+        strict: true, noEmit: true, skipLibCheck: true, jsx: "react-jsx", types: ["node"],
+      },
+      files: [...pending],
+    }))
+    const result = spawnSync(process.execPath, [resolve(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--pretty", "false", "-p", resolve(work, "tsconfig.json")], {
+      cwd: work, encoding: "utf8", maxBuffer: 50_000_000,
+    })
+    const syntactic = new Set<string>()
+    for (const line of `${result.stdout}\n${result.stderr}`.split("\n")) {
+      const match = line.match(/^(.+?)\((\d+),\d+\): error (TS\d+): (.*)$/)
+      if (!match) continue
+      const path = resolve(work, match[1])
+      const block = files.get(path)
+      if (!block) { failures.push(line); continue }
+      if (pass === 0 && Number(match[3].slice(2)) < 2000) syntactic.add(path)
+      if (pass === 0 && syntactic.size > 0 && Number(match[3].slice(2)) >= 2000) continue
+      failures.push(`${block.doc}:${block.startLine + Number(match[2]) - 1} ${match[3]}: ${match[4]}`)
+    }
+    if (syntactic.size === 0) break
+    for (const path of syntactic) pending.delete(path)
   }
-  if (failures.length > 0 || (result.status !== 0 && failures.length === 0)) {
+  if (failures.length > 0) {
     for (const failure of failures) console.error(failure)
-    if (failures.length === 0) console.error(result.stdout, result.stderr)
     console.error(`reference typecheck failed: ${failures.length} errors in ${new Set(failures.map((line) => line.split(":")[0])).size} docs`)
     process.exit(1)
   }

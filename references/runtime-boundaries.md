@@ -66,20 +66,25 @@ Effect provisioning:
 ```ts
 import { Context, Effect, Layer } from "effect"
 
-class D1Binding extends Context.Service<D1Binding>()("D1Binding", {
-  sync: () => ({ db: undefined as unknown as D1Database }),
-}) {}
+// 实际项目用 @cloudflare/workers-types 的 D1Database；此处本地声明以便独立编译
+interface D1Database {
+  prepare(query: string): unknown
+}
 
-const program = Effect.gen(function* () {
+class D1Binding extends Context.Service<D1Binding, {
+  readonly db: D1Database
+}>()("D1Binding") {}
+
+const program = Effect.gen(function*() {
   const binding = yield* D1Binding
   return new Response(String(Boolean(binding.db)))
 })
 
 export default {
-  fetch(request: Request, env: { DB: D1Database }) {
+  fetch(_request: Request, env: { DB: D1Database }) {
     const BindingLive = Layer.succeed(D1Binding, D1Binding.of({ db: env.DB }))
     return Effect.runPromise(Effect.provide(program, BindingLive))
-  },
+  }
 }
 ```
 

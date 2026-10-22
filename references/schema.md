@@ -4,15 +4,15 @@
 
 ## 1. 基础类型
 
-```typescript
+```ts
 import { Schema } from "effect"
 
 Schema.String
 Schema.Number
 Schema.Boolean
 Schema.BigInt
-Schema.Date            // Date 对象
-Schema.DateFromString  // string → Date 双向
+Schema.Date // Date 对象
+Schema.DateFromString // string → Date 双向
 Schema.Null
 Schema.Undefined
 Schema.Unknown
@@ -22,48 +22,68 @@ Schema.Void
 
 ## 2. 结构体
 
-```typescript
-const User = Schema.Struct({
-  id: Schema.Number,
+校验器是 `check(...)` + `is*` 过滤器（v3 的 `Schema.pattern` / `Schema.int()` / `Schema.positive()` 管道写法已不存在）。
+
+```ts
+import { Schema } from "effect"
+
+export const User = Schema.Struct({
+  id: Schema.Int,
   name: Schema.NonEmptyString,
-  email: Schema.String.pipe(Schema.pattern(/^[^@]+@[^@]+\.[^@]+$/)),
-  age: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
-  role: Schema.Literal("admin", "user", "guest"),
+  email: Schema.String.check(Schema.isPattern(/^[^@]+@[^@]+\.[^@]+$/)),
+  age: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+  role: Schema.Literals(["admin", "user", "guest"])
 })
 
-type User = Schema.Schema.Type<typeof User>           // 解码后类型
-type UserEncoded = Schema.Schema.Encoded<typeof User> // 编码态类型
+export type User = typeof User["Type"] // 解码后类型
+export type UserEncoded = typeof User["Encoded"] // 编码态类型
 ```
 
 ## 3. 解码 / 编码
 
-```typescript
-import { Schema, Effect, Either } from "effect"
+```ts
+import { Effect, Schema } from "effect"
 
-const raw: unknown = { id: 1, name: "Alice", email: "a@b.com", role: "admin" }
+const User = Schema.Struct({
+  id: Schema.Int,
+  name: Schema.NonEmptyString,
+  role: Schema.Literals(["admin", "user", "guest"])
+})
 
-// Effect 形式（推荐）
-const decoded = Schema.decodeUnknown(User)(raw)
-//   Effect.Effect<User, ParseError>
+const raw: unknown = { id: 1, name: "Alice", role: "admin" }
 
-// Sync / Promise / Either 变体
-Schema.decodeUnknownSync(User)(raw)     // throws on error
-Schema.decodeUnknownEither(User)(raw)   // Either<User, ParseError>
-Schema.decodeUnknownPromise(User)(raw)  // Promise<User>
+// Effect 形式（推荐）：失败类型是 Schema.SchemaError
+const decoded = Schema.decodeUnknownEffect(User)(raw)
+//   Effect.Effect<{ id: number; ... }, Schema.SchemaError>
+
+// Sync / Promise / Result / Exit 变体
+Schema.decodeUnknownSync(User)(raw) // throws on error
+Schema.decodeUnknownResult(User)(raw) // Result<User, SchemaError>
+Schema.decodeUnknownPromise(User)(raw) // Promise<User>
+Schema.decodeUnknownExit(User)(raw) // Exit<User, SchemaError>
 
 // 编码（业务对象 → wire format）
-Schema.encode(User)(userObj)            // Effect.Effect<UserEncoded, ParseError>
+const encoded = Schema.encodeEffect(User)({ id: 1, name: "Alice", role: "admin" })
+//   Effect.Effect<{ id: number; ... }, Schema.SchemaError>
+
+// 解析选项作为第二参数：errors: "all" 累积全部字段错误
+const decodeAll = Schema.decodeUnknownEffect(User, { errors: "all" })
+
+// SchemaError 带完整 issue 树；message 为人类可读文本
+const message = decodeAll(raw).pipe(Effect.mapError((e) => e.message))
 ```
 
 ## 4. Schema.Class — OOP 风格领域对象
 
 带行为的领域对象用 `Schema.Class`。生成的 class 同时是 schema、构造函数、类型，并自动具备 `.pipe()` 等。
 
-```typescript
+```ts
+import { Schema } from "effect"
+
 class Product extends Schema.Class<Product>("Product")({
   id: Schema.String,
   name: Schema.NonEmptyString,
-  priceCents: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  priceCents: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 }) {
   get priceUsd() {
     return this.priceCents / 100
@@ -72,30 +92,36 @@ class Product extends Schema.Class<Product>("Product")({
 
 // 构造
 const p = new Product({ id: "p1", name: "Widget", priceCents: 999 })
+
 // 同时是 schema
-Schema.decodeUnknown(Product)(rawJson)
+declare const rawJson: unknown
+const decoded = Schema.decodeUnknownEffect(Product)(rawJson)
 ```
 
 ## 5. TaggedError — 与错误通道集成
 
-```typescript
+```ts
+import { Effect, Schema } from "effect"
+
 class NotFoundError extends Schema.TaggedError<NotFoundError>()("NotFoundError", {
   resource: Schema.String,
-  id: Schema.String,
+  id: Schema.String
 }) {}
 
+declare const db: {
+  readonly findUser: (id: string) => Effect.Effect<{ readonly name: string } | undefined>
+}
+
 const fetchUser = (id: string) =>
-  Effect.gen(function* () {
+  Effect.gen(function*() {
     const u = yield* db.findUser(id)
     if (!u) return yield* new NotFoundError({ resource: "user", id })
     return u
   })
 
 // 处理
-program.pipe(
-  Effect.catchTag("NotFoundError", (e) =>
-    Effect.succeed(`not found: ${e.resource}:${e.id}`)
-  )
+const program = fetchUser("42").pipe(
+  Effect.catchTag("NotFoundError", (e) => Effect.succeed(`not found: ${e.resource}:${e.id}`))
 )
 ```
 
@@ -103,17 +129,19 @@ program.pipe(
 
 ## 6. 联合类型 / 判别式
 
-```typescript
-const Event = Schema.Union(
+`Union` 与 `Literals` 接收**数组**（v3 是可变参数）。
+
+```ts
+import { Effect, Match, Schema } from "effect"
+
+const Event = Schema.Union([
   Schema.TaggedStruct("UserCreated", { id: Schema.String }),
   Schema.TaggedStruct("UserDeleted", { id: Schema.String, reason: Schema.String }),
-  Schema.TaggedStruct("UserUpdated", { id: Schema.String, fields: Schema.Array(Schema.String) }),
-)
+  Schema.TaggedStruct("UserUpdated", { id: Schema.String, fields: Schema.Array(Schema.String) })
+])
 
 // 配合 Match 模式匹配
-import { Match } from "effect"
-
-const handle = (e: Schema.Schema.Type<typeof Event>) =>
+const handle = (e: typeof Event["Type"]) =>
   Match.value(e).pipe(
     Match.tag("UserCreated", ({ id }) => Effect.log(`created ${id}`)),
     Match.tag("UserDeleted", ({ id, reason }) => Effect.log(`deleted ${id}: ${reason}`)),
@@ -124,109 +152,133 @@ const handle = (e: Schema.Schema.Type<typeof Event>) =>
 
 ## 7. Brand 类型 — 名义类型
 
-```typescript
-type Email = string & Brand.Brand<"Email">
+```ts
+import { Schema } from "effect"
+
 const Email = Schema.String.pipe(
-  Schema.pattern(/^[^@]+@[^@]+\.[^@]+$/),
+  Schema.check(Schema.isPattern(/^[^@]+@[^@]+\.[^@]+$/)),
   Schema.brand("Email")
 )
+type Email = typeof Email["Type"] // string & Brand<"Email">
 
-const sendInvite = (e: Email) => /* ... */
-sendInvite("foo")          // ❌ 类型错误
+const sendInvite = (e: Email) => e
+
+// @ts-expect-error 普通 string 不是 Email
+sendInvite("foo")
+
 const valid = Schema.decodeUnknownSync(Email)("a@b.com")
-sendInvite(valid)          // ✅
+sendInvite(valid)
 ```
 
-## 8. transform — 自定义双向 codec
+## 8. decodeTo — 自定义双向 codec
 
-```typescript
-// 把 "2025-01-15" 字符串编码 ↔ Date 对象解码
-const DateFromYMD = Schema.transform(
-  Schema.String,
-  Schema.DateFromSelf,
-  {
-    decode: (s) => new Date(s),
-    encode: (d) => d.toISOString().slice(0, 10),
-    strict: true,
-  }
+`Schema.decodeTo(to, transformation)` 把 `from` 解码为 `to`；`SchemaTransformation.transform` 给出 decode / encode 两个纯函数（v3 的 `Schema.transform` 已改为此形态）。
+
+```ts
+import { Schema, SchemaTransformation } from "effect"
+
+// 把 "2025-01-15" 字符串解码为 Date，编码时回到 YYYY-MM-DD
+const DateFromYMD = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Date,
+    SchemaTransformation.transform({
+      decode: (s) => new Date(s),
+      encode: (d) => d.toISOString().slice(0, 10)
+    })
+  )
 )
 ```
 
-更复杂的可失败 transform 用 `Schema.transformOrFail`。
+可失败 / 需要服务的变换用 `SchemaTransformation.transformEffect`（返回 `Effect`）；内置常用变换（`numberFromString`、`dateFromString`、`fromJsonString` 等）见 `SchemaTransformation` 模块。
 
-`strict: false` 只属于 wire-format 兼容边界：外部 payload 临时允许宽输入，
-随后必须通过 transform / decode 收敛到内部严格类型。不要在领域模型 schema 上
-长期使用 `strict: false`，否则会把兼容策略泄漏成业务事实。
+宽输入只应出现在 wire-format 兼容边界：外部 payload 临时允许宽输入，
+随后必须通过 `decodeTo` / decode 收敛到内部严格类型。不要让领域模型 schema
+长期接受宽类型，否则会把兼容策略泄漏成业务事实。
 
 ## 9. Array / 容器
 
-```typescript
+```ts
+import { Schema } from "effect"
+
+const User = Schema.Struct({ id: Schema.Int })
+
 Schema.Array(Schema.String)
 Schema.NonEmptyArray(Schema.String)
-Schema.ReadonlyArray(User)
-Schema.Tuple(Schema.String, Schema.Number)
-Schema.Record({ key: Schema.String, value: Schema.Number })
-Schema.HashMap({ key: Schema.String, value: User })
+Schema.Tuple([Schema.String, Schema.Number])
+Schema.Record(Schema.String, Schema.Number)
+Schema.HashMap(Schema.String, User)
 Schema.HashSet(Schema.String)
 Schema.Chunk(Schema.Number)
 ```
 
 ## 10. 条件 / 精化
 
-```typescript
-Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(100),
-  Schema.annotations({ identifier: "Percentage", description: "0-100 inclusive" })
+```ts
+import { Schema } from "effect"
+
+const Percentage = Schema.Number.pipe(
+  Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 0, maximum: 100 })),
+  Schema.annotate({ identifier: "Percentage", description: "0-100 inclusive" })
 )
 ```
 
 ## 11. 双 layer schema（API ↔ DB）
 
-经典用法：HTTP 边界用 wire-format schema（`bigint` 用字符串、Date 用 ISO 字符串），DB 边界用类型化对象 schema，**通过 `Schema.transform` 互相绑定**。一次定义，两端复用。
+经典用法：HTTP 边界用 wire-format schema（`bigint` 用字符串、Date 用 ISO 字符串），DB 边界用类型化对象 schema，**通过 `Schema.decodeTo` 互相绑定**。一次定义，两端复用。
 
 ## 12. 与 `Config` 集成 — 环境变量校验
 
-```typescript
-import { Config } from "effect"
+```ts
+import { Config, Effect } from "effect"
 
 const AppConfig = Config.all({
-  port: Config.integer("PORT").pipe(Config.withDefault(3000)),
-  dbUrl: Config.redacted("DATABASE_URL"),
-  logLevel: Config.literal("info", "debug", "error")("LOG_LEVEL").pipe(
+  port: Config.Int("PORT").pipe(Config.withDefault(3000)),
+  dbUrl: Config.Redacted("DATABASE_URL"),
+  logLevel: Config.Literals(["info", "debug", "error"], "LOG_LEVEL").pipe(
     Config.withDefault("info" as const)
-  ),
+  )
 })
 
-const program = Effect.gen(function* () {
+const program = Effect.gen(function*() {
   const cfg = yield* AppConfig
   yield* Effect.log(`starting on :${cfg.port}`)
 })
 ```
 
-启动期就 fail-fast，错误来自 schema 验证而不是运行时 `undefined`。
+启动期就 fail-fast，错误来自配置解析而不是运行时 `undefined`。结构化配置也可以直接用 `Config.schema(codec)` 读取整个 Schema。
 
-## 13. 自动派生 — fast-check (property-based testing)
+## 13. 自动派生 — property-based testing
 
-`effect` 内置 `fast-check`。用 `Arbitrary.make(Schema)` 派生测试数据生成器。
+用 `Arbitrary.schema(Schema)` 从 Schema 派生测试数据生成器，再用 `Arbitrary.checkEffect` 运行属性检查（`effect` 内置，不需要单独引入 fast-check）。
 
-```typescript
-import { Arbitrary, FastCheck } from "effect"
+```ts
+import { Arbitrary, Effect, Schema } from "effect"
 
-const arbUser = Arbitrary.make(User)
-FastCheck.assert(FastCheck.property(arbUser, (u) => /* invariant */ true))
+const User = Schema.Struct({
+  id: Schema.Int,
+  name: Schema.NonEmptyString
+})
+
+const arbUser = Arbitrary.schema(User)
+
+const check = Arbitrary.checkEffect(arbUser, (u) => /* invariant */ u.name.length > 0)
+
+export const run = Effect.flatMap(check, (result) => Effect.log(result._tag))
 ```
 
 ## 14. 注解 / 元数据
 
-```typescript
-const User = Schema.Struct({ /* ... */ }).pipe(
-  Schema.annotations({
+```ts
+import { Schema } from "effect"
+
+const User = Schema.Struct({
+  id: Schema.Int,
+  name: Schema.String
+}).pipe(
+  Schema.annotate({
     identifier: "User",
     description: "Application user",
-    examples: [{ id: 1, name: "Alice" }],
-    documentation: "...",
+    examples: [{ id: 1, name: "Alice" }]
   })
 )
 ```
@@ -235,7 +287,7 @@ const User = Schema.Struct({ /* ... */ }).pipe(
 
 ## 15. 禁忌
 
-- 严禁 `as` / `as any` 绕过解码 — 在边界（API、DB、queue、env、localStorage）调用 `Schema.decodeUnknown`。
-- 严禁手写 `JSON.parse` + 类型断言 — `HttpClientResponse.schemaBodyJson` / `Schema.decodeUnknown` 替代。
+- 严禁 `as` / `as any` 绕过解码 — 在边界（API、DB、queue、env、localStorage）调用 `Schema.decodeUnknownEffect`。
+- 严禁手写 `JSON.parse` + 类型断言 — `HttpClientResponse.schemaBodyJson` / `Schema.decodeUnknownEffect` 替代。
 - 严禁双份维护：表单验证一份 schema、API 一份 zod、DB 一份 type — 一份 Schema 通吃。
 - 严禁滥用 `Schema.Any` / `Schema.Unknown` — 在边界处一定要收敛到具体类型。

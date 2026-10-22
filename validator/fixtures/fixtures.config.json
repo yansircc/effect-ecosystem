@@ -272,7 +272,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\",\"@effect/atom-react\":\"4.0.0-beta.97\",\"@tanstack/react-form\":\"1.33.2\",\"react-hook-form\":\"7.0.0\",\"formik\":\"2.0.0\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\",\"@effect/atom-react\":\"4.0.5\",\"@tanstack/react-form\":\"1.33.2\",\"react-hook-form\":\"7.0.0\",\"formik\":\"2.0.0\"}}",
         "src/forms.ts": "import { Schema } from \"effect\"\nimport { useForm } from \"@tanstack/react-form\"\nimport { useForm as useReactHookForm } from \"react-hook-form\"\nimport { useFormik } from \"formik\"\nexport const formFacts = { Schema, useForm, useReactHookForm, useFormik }\n"
       },
       "expectExit": 0,
@@ -1276,7 +1276,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler-bound Durable Object\",\"execution\":{\"lifecycle\":\"wrangler-do\",\"runners\":[\"Effect.runPromise\",\"Effect.runPromiseExit\"],\"durableObject\":{\"className\":\"WorkerDO\",\"methods\":[\"project\",\"inspect\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\n  // exact runtime entry\n  \"main\": \"./src/worker.ts\",\n  \"durable_objects\": { \"bindings\": [{ \"name\": \"TEST\", \"class_name\": \"WorkerDO\" }] }\n}\n",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport class WorkerDO {\n  project() { return Effect.runPromise(projectProgram) }\n  inspect() { return Effect.runPromiseExit(inspectProgram) }\n}\n"
       },
@@ -1292,7 +1292,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"claimed Durable Object\",\"execution\":{\"lifecycle\":\"wrangler-do\",\"runners\":[\"Effect.runPromise\"],\"durableObject\":{\"className\":\"WorkerDO\",\"methods\":[\"project\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/other.ts\",\"durable_objects\":{\"bindings\":[{\"name\":\"TEST\",\"class_name\":\"WorkerDO\"}]}}",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport class WorkerDO { project() { return Effect.runPromise(program) } }\n",
         "src/other.ts": "export default {}\n"
@@ -1320,7 +1320,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"remote binding cannot own local runner\",\"execution\":{\"lifecycle\":\"wrangler-do\",\"runners\":[\"Effect.runPromise\"],\"durableObject\":{\"className\":\"WorkerDO\",\"methods\":[\"project\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"durable_objects\":{\"bindings\":[{\"name\":\"TEST\",\"class_name\":\"WorkerDO\",\"script_name\":\"other-worker\"}]}}",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport class WorkerDO { project() { return Effect.runPromise(program) } }\n"
       },
@@ -1347,7 +1347,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"bare class is not a host binding\",\"execution\":{\"lifecycle\":\"wrangler-do\",\"runners\":[\"Effect.runPromise\"],\"durableObject\":{\"className\":\"WorkerDO\",\"methods\":[\"project\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"durable_objects\":{\"bindings\":[{\"name\":\"TEST\",\"class_name\":\"WorkerDO\"}]}}",
         "src/worker.ts": "import { Effect } from \"effect\"\nclass WorkerDO { project() { return Effect.runPromise(program) } }\n"
       },
@@ -1374,7 +1374,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"method set must be complete\",\"execution\":{\"lifecycle\":\"wrangler-do\",\"runners\":[\"Effect.runPromise\",\"Effect.runPromiseExit\"],\"durableObject\":{\"className\":\"WorkerDO\",\"methods\":[\"project\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"durable_objects\":{\"bindings\":[{\"name\":\"TEST\",\"class_name\":\"WorkerDO\"}]}}",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport class WorkerDO {\n  project() { return Effect.runPromise(projectProgram) }\n  inspect() { return Effect.runPromiseExit(inspectProgram) }\n}\n"
       },
@@ -1401,7 +1401,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import { Effect } from \"effect\"\nexport default { fetch() { return Effect.runPromise(program) } }\n"
       },
@@ -1417,7 +1417,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler Sentry-wrapped dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"scheduled\",\"queue\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import * as SentryCloudflare from \"@sentry/cloudflare\"\nimport { Effect } from \"effect\"\nconst scheduled = () => Effect.runPromise(scheduledProgram)\nfunction queue() { return Effect.runPromise(queueProgram) }\nexport default SentryCloudflare.withSentry((env) => ({ dsn: env.DSN }), { scheduled, queue })\n"
       },
@@ -1434,7 +1434,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler dispatch must reject a spoofed Sentry wrapper\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"scheduled\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import * as SentryCloudflare from \"@fake/cloudflare\"\nimport { Effect } from \"effect\"\nconst scheduled = () => Effect.runPromise(program)\nexport default SentryCloudflare.withSentry(() => ({}), { scheduled })\n"
       },
@@ -1452,7 +1452,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler default dispatch\",\"execution\":{\"lifecycle\":\"wrangler-worker\",\"runners\":[\"Effect.runPromise\"],\"worker\":{\"methods\":[\"fetch\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\"}",
         "src/worker.ts": "import { Effect } from \"effect\"\nconst hidden = () => Effect.runPromise(program)\nexport default { fetch() { return new Response(\"ok\") } }\n"
       },
@@ -1479,7 +1479,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
         "src/worker.ts": "export { TestWorkflow } from \"./workflow.js\"\nexport default { fetch() { return new Response(\"ok\") } }\n",
         "src/workflow.ts": "import { WorkflowEntrypoint } from \"cloudflare:workers\"\nimport { Effect } from \"effect\"\nexport class TestWorkflow extends WorkflowEntrypoint { run() { return Effect.runPromise(program) } }\n"
@@ -1496,7 +1496,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\",\"allowedAdapters\":[{\"path\":\"src/worker.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler main is the terminal Response adapter\",\"rules\":[\"EFF402\"]}],\"executableEdges\":[{\"path\":\"src/workflow.ts\",\"owner\":\"@worker-tests\",\"reason\":\"Wrangler workflow dispatch\",\"execution\":{\"lifecycle\":\"wrangler-workflow\",\"runners\":[\"Effect.runPromise\"],\"workflow\":{\"className\":\"TestWorkflow\",\"methods\":[\"run\"]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"./src/worker.ts\",\"workflows\":[{\"name\":\"test\",\"binding\":\"TEST_WORKFLOW\",\"class_name\":\"TestWorkflow\"}]}",
         "src/worker.ts": "export default { fetch() { return new Response(\"ok\") } }\n",
         "src/workflow.ts": "import { WorkflowEntrypoint } from \"cloudflare:workers\"\nimport { Effect } from \"effect\"\nexport class TestWorkflow extends WorkflowEntrypoint { run() { return Effect.runPromise(program) } }\n"
@@ -1524,7 +1524,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handlers.ts\",\"owner\":\"@http-tests\",\"reason\":\"HTTP handler map\",\"execution\":{\"lifecycle\":\"handler-map\",\"runners\":[\"Effect.runPromise\"],\"handlerMap\":{\"factory\":\"handlers\"}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/handlers.ts": "import { Effect } from \"effect\"\nexport const handlers = () => ({ health: () => run() })\nconst run = () => Effect.runPromise(program)\n"
       },
       "expectExit": 0,
@@ -1539,7 +1539,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/handler.ts": "import { Effect } from \"effect\"\nimport { createServerFn } from \"@tanstack/react-start\"\nexport const get = createServerFn({ method: \"GET\" }).middleware([]).handler(() => Effect.runPromise(program))\n"
       },
       "expectExit": 0,
@@ -1555,7 +1555,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/handler.ts": "import { Effect } from \"effect\"\nimport { createServerFn } from \"@tanstack/react-start\"\nexport const get = createServerFn({ method: \"GET\" }).handler(() => undefined)\nEffect.runPromise(program)\n"
       },
       "expectExit": 1,
@@ -1582,7 +1582,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/handler.ts\",\"owner\":\"@tanstack-server-fn-tests\",\"reason\":\"TanStack ServerFn handler\",\"execution\":{\"lifecycle\":\"tanstack-server-fn\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/handler.ts": "import { Effect } from \"effect\"\nconst createServerFn = () => ({ handler: (callback) => callback })\nexport const get = createServerFn().handler(() => Effect.runPromise(program))\n"
       },
       "expectExit": 1,
@@ -1599,7 +1599,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/route.ts": "import { Effect } from \"effect\"\nimport { createFileRoute } from \"@tanstack/react-router\"\nconst run = () => Effect.runPromise(program)\nexport const Route = createFileRoute(\"/api/health\")({ server: { handlers: { GET: () => run() } } })\n"
       },
       "expectExit": 0,
@@ -1615,7 +1615,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/route.ts": "import { Effect } from \"effect\"\nimport { createFileRoute } from \"@tanstack/react-router\"\nexport const Route = createFileRoute(\"/api/health\")({ server: { handlers: { GET: () => undefined } } })\nEffect.runPromise(program)\n"
       },
       "expectExit": 1,
@@ -1642,7 +1642,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/route.ts\",\"owner\":\"@tanstack-file-route-tests\",\"reason\":\"TanStack file-route HTTP handler\",\"execution\":{\"lifecycle\":\"tanstack-file-route\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"}}",
         "src/route.ts": "import { Effect } from \"effect\"\nconst createFileRoute = () => () => ({ server: { handlers: { GET: () => Effect.runPromise(program) } } })\nexport const Route = createFileRoute(\"/api/health\")({})\n"
       },
       "expectExit": 1,
@@ -1659,7 +1659,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/auth.ts\",\"owner\":\"@auth-tests\",\"reason\":\"magic-link callback\",\"execution\":{\"lifecycle\":\"host-options-callback\",\"runners\":[\"Effect.runPromise\"],\"host\":{\"module\":\"better-auth/plugins/magic-link\",\"export\":\"magicLink\",\"optionsArgument\":0,\"property\":\"sendMagicLink\"}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/auth.ts": "import { Effect } from \"effect\"\nimport { magicLink } from \"better-auth/plugins/magic-link\"\nmagicLink({ sendMagicLink: () => Effect.runPromise(program) })\n"
       },
       "expectExit": 0,
@@ -1674,7 +1674,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"executableEdges\":[{\"path\":\"src/auth.ts\",\"owner\":\"@auth-tests\",\"reason\":\"magic-link callback\",\"execution\":{\"lifecycle\":\"host-options-callback\",\"runners\":[\"Effect.runPromise\"],\"host\":{\"module\":\"better-auth/plugins/magic-link\",\"export\":\"magicLink\",\"optionsArgument\":0,\"property\":\"sendMagicLink\"}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/auth.ts": "import { Effect } from \"effect\"\nimport { magicLink } from \"better-auth/plugins/magic-link\"\nmagicLink({ wrongProperty: () => Effect.runPromise(program) })\n"
       },
       "expectExit": 1,
@@ -1700,7 +1700,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"],\"executableEdges\":[{\"path\":\"src/client.ts\",\"owner\":\"@client-tests\",\"reason\":\"browser function facade\",\"execution\":{\"lifecycle\":\"function-facade\",\"runners\":[\"Effect.runPromise\"],\"facade\":{\"export\":\"createClient\",\"members\":[{\"kind\":\"returned\",\"path\":\"load\"}]}}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/client.ts": "import { Effect } from \"effect\"\nexport const createClient = () => ({ load: () => Effect.runPromise(program) })\n"
       },
       "expectExit": 0,
@@ -1715,7 +1715,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"],\"testGlobs\":[\"**/*.test.ts\"],\"executableEdges\":[{\"path\":\"src/a.test.ts\",\"owner\":\"@tests\",\"reason\":\"Effect test Promise double\",\"execution\":{\"lifecycle\":\"effect-vitest\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.test.ts": "import { it } from \"@effect/vitest\"\nimport { Effect } from \"effect\"\nit.effect(\"runs a Promise double\", () => Effect.tryPromise(() => Effect.runPromise(program)))\n"
       },
       "expectExit": 0,
@@ -1730,7 +1730,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"library\"],\"testGlobs\":[\"**/*.test.ts\"],\"executableEdges\":[{\"path\":\"src/a.test.ts\",\"owner\":\"@tests\",\"reason\":\"Effect test Promise double\",\"execution\":{\"lifecycle\":\"effect-vitest\",\"runners\":[\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.test.ts": "import { it } from \"@effect/vitest\"\nimport { Effect } from \"effect\"\nEffect.runPromise(program)\nit.effect(\"does not own the module run\", () => Effect.void)\n"
       },
       "expectExit": 1,
@@ -2058,7 +2058,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/web\",\"shape\":[\"ai\"],\"dependencyOwner\":\"workspace-root\",\"dependencyOwnerReason\":\"workspace deps\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "apps/web/src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2077,7 +2077,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"ai\"],\"aiProviderTransports\":[{\"path\":\"src/provider-transport.ts\",\"owner\":\"@ai-transport\",\"reason\":\"terminal provider HTTP transport\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/provider-transport.ts": "import { LanguageModel } from \"effect/ai\"\nexport const transport = LanguageModel\n"
       },
       "expectExit": 0,
@@ -2088,7 +2088,7 @@
       ],
       "expectRequiredReferences": [
         "references/effect-ai.md §Provider ownership",
-        "references/observability.md §4. OpenTelemetry 桥接"
+        "references/observability.md §4. 导出 telemetry"
       ],
       "expectRequiredReferenceCount": 2,
       "expectSignalFacts": [
@@ -2121,7 +2121,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"ai\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 1,
@@ -2180,8 +2180,8 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/edge\",\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\"},{\"path\":\"apps/runtime\",\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\"}]}",
-        "apps/edge/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
-        "apps/runtime/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "apps/edge/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "apps/runtime/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "apps/edge/wrangler.jsonc": "{\"main\":\"src/worker.ts\",\"compatibility_date\":\"2026-01-01\",\"d1_databases\":[{\"binding\":\"EDGE_DB\"}]}",
         "apps/runtime/wrangler.jsonc": "{\"main\":\"src/worker.ts\",\"compatibility_date\":\"2026-02-02\",\"r2_buckets\":[{\"binding\":\"ARTIFACTS\"}]}",
         "apps/edge/src/worker.ts": "export const edge = 1\n",
@@ -2219,8 +2219,8 @@
       "strict": false,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/edge\",\"shape\":[\"worker\"],\"wranglerPath\":\"wrangler.jsonc\"},{\"path\":\"apps/runtime\",\"shape\":[\"worker\"]}]}",
-        "apps/edge/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
-        "apps/runtime/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "apps/edge/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "apps/runtime/package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "apps/edge/wrangler.jsonc": "{\"main\":\"src/worker.ts\",\"compatibility_date\":\"2026-01-01\"}",
         "apps/edge/src/worker.ts": "export const edge = 1\n",
         "apps/runtime/src/worker.ts": "export const runtime = 1\n"
@@ -2241,7 +2241,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/web\",\"shape\":[\"ai\"]}]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "apps/web/package.json": "{}",
         "apps/web/src/a.ts": "export const x = 1\n"
       },
@@ -2316,7 +2316,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2351,7 +2351,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "// NodeSdk.layer docs only\nconst docs = `WebSdk.layer docs only`\n"
       },
       "expectExit": 0,
@@ -2379,7 +2379,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "import { Otlp as WorkerOtlp } from \"@effect/opentelemetry\"\nimport { layer as otlpLayer } from \"@effect/opentelemetry/Otlp\"\nimport { HttpClient } from \"@effect/platform\"\nexport const OtelLive = WorkerOtlp.layer\nexport const OtelLive2 = otlpLayer({})\nexport const Client = HttpClient.HttpClient\n"
       },
       "expectExit": 0,
@@ -2415,7 +2415,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"compatibility_flags\":[\"nodejs_compat\"],\"kv_namespaces\":[{\"binding\":\"EDGE_KV\",\"id\":\"kv-id\"}],\"d1_databases\":[{\"binding\":\"DB\",\"database_id\":\"d1-id\"}],\"limits\":{\"cpu_ms\":30}}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2425,7 +2425,7 @@
         "cloudflare-runtime-facts"
       ],
       "expectRequiredReferences": [
-        "references/observability.md §4. OpenTelemetry 桥接",
+        "references/observability.md §4. 导出 telemetry",
         "references/runtime-boundaries.md §Cloudflare Facet"
       ],
       "expectRequiredReferenceCount": 2,
@@ -2466,7 +2466,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"kv_namespaces\":[{\"binding\":\"EDGE_KV\",\"id\":\"kv-id\"}]}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2486,7 +2486,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"compatibility_flags\":[\"nodejs_compat\"]}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2516,7 +2516,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.jsonc": "{\n  // compatibility_date = \"2020-01-01\"\n  \"main\": \"src/index.ts\",\n  \"compatibility_date\": \"2025-12-17\",\n  \"kv_namespaces\": [\n    { \"binding\": \"EDGE_KV\", \"id\": \"kv-id\" }\n  ],\n  \"limits\": { \"cpu_ms\": 30 }\n}\n",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2547,7 +2547,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.toml\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "wrangler.toml": "main = \"src/index.ts\"\ncompatibility_date = \"2025-12-17\"\nkv_namespaces = [{ binding = \"EDGE_KV\", id = \"kv-id\" }]\n",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2705,7 +2705,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\",\"db:pg\",\"ai\",\"rpc\",\"frontend\",\"workflow\",\"node\"],\"aiProviderTransports\":[{\"path\":\"src/ai-transport.ts\",\"owner\":\"@ai-transport\",\"reason\":\"terminal provider transport\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform-node\":\"4.0.0-beta.97\",\"@effect/sql-pg\":\"4.0.0-beta.97\",\"@effect/atom-react\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-node\":\"4.0.5\",\"@effect/sql-pg\":\"4.0.5\",\"@effect/atom-react\":\"4.0.5\",\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2723,10 +2723,10 @@
       ],
       "expectRequiredReferences": [
         "references/effect-ai.md §Provider ownership",
-        "references/observability.md §4. OpenTelemetry 桥接"
+        "references/observability.md §4. 导出 telemetry"
       ],
       "expectRequiredReferenceCount": 2,
-      "expectEffectVersion": "4.0.0-beta.97"
+      "expectEffectVersion": "4.0.5"
     },
     {
       "name": "profile-exit-failing",
@@ -2954,7 +2954,7 @@
       "strict": false,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"node\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n",
         "node_modules/@effect/opentelemetry/package.json": "{\"peerDependencies\":{\"@opentelemetry/missing\":\"^1.0.0\"}}"
       },
@@ -2990,7 +2990,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"workflow\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -3006,7 +3006,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\":[\"worker\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 1,
@@ -3716,7 +3716,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = Effect.runSync(Effect.succeed(1));"
       },
       "expectExit": 0,
@@ -3731,7 +3731,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = () => Effect.runSync(Effect.succeed(1));"
       },
       "expectExit": 1,
@@ -3748,7 +3748,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = (() => Effect.runSync(Effect.succeed(1)))();"
       },
       "expectExit": 1,
@@ -3765,7 +3765,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export class Deferred { value = Effect.runSync(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -3782,7 +3782,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "export const value = 1;"
       },
       "expectExit": 1,
@@ -3799,7 +3799,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runSync\", \"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = Effect.runSync(Effect.succeed(1));"
       },
       "expectExit": 1,
@@ -3816,7 +3816,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Module singleton initialization only.\", \"execution\": {\"lifecycle\": \"module-singleton\", \"runners\": [\"Effect.runPromise\"]}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import { Effect } from \"effect\"; export const value = Effect.runSync(Effect.succeed(1));"
       },
       "expectExit": 1,
@@ -3833,7 +3833,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); return () => undefined; }"
       },
       "expectExit": 0,
@@ -3848,7 +3848,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export const observe = () => { Effect.runFork(Effect.succeed(1)); };"
       },
       "expectExit": 0,
@@ -3863,7 +3863,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; function internal() { Effect.runFork(Effect.succeed(1)); } export {internal as observe};"
       },
       "expectExit": 0,
@@ -3878,7 +3878,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function other() { Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -3895,7 +3895,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; function observe() { Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -3912,7 +3912,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; const inner = () => Effect.runFork(Effect.succeed(1)); export const observe = inner;"
       },
       "expectExit": 1,
@@ -3929,7 +3929,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { return () => Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -3946,7 +3946,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); } function business() { Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -3963,7 +3963,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { return class Deferred { value = Effect.runFork(Effect.succeed(1)); }; }"
       },
       "expectExit": 1,
@@ -3980,7 +3980,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "export function observe() { return () => undefined; }"
       },
       "expectExit": 1,
@@ -3997,7 +3997,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\", \"Effect.runSync\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -4014,7 +4014,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runSync\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "import {Effect} from \"effect\"; export function observe() { Effect.runFork(Effect.succeed(1)); }"
       },
       "expectExit": 1,
@@ -4031,7 +4031,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "export function observe() { Effect.runFork(1); }"
       },
       "expectExit": 1,
@@ -4048,7 +4048,7 @@
       ],
       "files": {
         ".effect-skill.json": "{\"shape\": [\"library\"], \"executableEdges\": [{\"path\": \"src/main.ts\", \"owner\": \"@fixture\", \"reason\": \"Caller owns this lifecycle execution and cleanup.\", \"execution\": {\"lifecycle\": \"exported-function\", \"runners\": [\"Effect.runFork\"], \"function\": {\"export\": \"observe\"}}}]}",
-        "package.json": "{\"dependencies\": {\"effect\": \"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\": {\"effect\": \"4.0.5\"}}",
         "src/main.ts": "export { observe } from \"./other\";",
         "src/other.ts": "export function observe() { return undefined; }"
       },
@@ -4492,6 +4492,25 @@
       },
       "expectExit": 0,
       "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "effect-prerelease-rejected",
+      "suites": [
+        "toolchain-hard-cut",
+        "red-green-fixtures"
+      ],
+      "strict": true,
+      "toolchain": "effect-prerelease",
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF908"
+      ],
       "exact": true
     }
   ]

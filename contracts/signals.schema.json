@@ -41,7 +41,7 @@
       "requiredTopLevel": [
         "file"
       ],
-      "skill_ref": "references/sql-and-rpc.md §第二部分：@effect/rpc",
+      "skill_ref": "references/sql-and-rpc.md §第二部分：effect/rpc",
       "agent_action": "Read the file and decide whether requests, responses, and errors are schema-backed.",
       "factsSchema": {
         "type": "object",
@@ -180,7 +180,7 @@
       "requiredTopLevel": [
         "package"
       ],
-      "skill_ref": "references/observability.md §4. OpenTelemetry 桥接",
+      "skill_ref": "references/observability.md §4. 导出 telemetry",
       "agent_action": "Decide whether production top-level Layer wires the correct OTel SDK for this runtime.",
       "factsSchema": {
         "type": "object",

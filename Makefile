@@ -74,7 +74,7 @@ verify:
 	node "$(BUILD_DIR)/scripts/check-effect-capabilities.js" && \
 	node "$(BUILD_DIR)/scripts/check-api-catalog.js" && \
 	node "$(BUILD_DIR)/scripts/check-reference-routing.js" && \
-	node "$(BUILD_DIR)/scripts/typecheck-snippets.js" && \
+	node "$(BUILD_DIR)/scripts/typecheck-references.js" && \
 	node "$(BUILD_DIR)/scripts/self-test.js" --exact && \
 	node "$(BUILD_DIR)/scripts/self-test.js" --contract && \
 	node "$(BUILD_DIR)/validator/scan.js" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json && \

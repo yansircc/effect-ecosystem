@@ -6,14 +6,15 @@ import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = mkdtempSync("/tmp/effect-skill-v4-acceptance-")
+// One fact: the fixture runs on the Effect line this repository is built and verified against.
+const effectVersion = JSON.parse(readFileSync(resolve(process.cwd(), "node_modules/effect/package.json"), "utf8")).version
 
 writeFixture(root)
 
 run("npm", ["install", "--no-audit", "--no-fund"], { timeout: 180_000 })
 
 const otel = JSON.parse(readFileSync(resolve(root, "node_modules/@effect/opentelemetry/package.json"), "utf8"))
-// effect 本体由夹具精确钉版（beta 线与其他 @effect 包对齐），不能把 peer 的
-// ^范围交给 npm --save（会升级写入 ^4.0.0-beta.98 并解析到 rc，撕裂 Multipasta 布局）
+// effect itself is pinned exactly by the fixture; only the non-effect peers are installed from ranges.
 const otelPeers = Object.entries(otel.peerDependencies ?? {}).filter(([name]) => name !== "effect")
 run("npm", ["install", "--save", "--no-audit", "--no-fund", ...otelPeers.map(([name, range]) => `${name}@${range}`)], { timeout: 180_000 })
 for (const peer of Object.keys(otel.peerDependencies ?? {})) {
@@ -62,21 +63,15 @@ function writeFixture(root: string) {
       postinstall: "effect-tsgo patch --typescript --typescript-package typescript"
     },
     dependencies: {
-      effect: "4.0.0-beta.98",
-      "@effect/platform-node": "4.0.0-beta.98",
-      "@effect/sql-d1": "4.0.0-beta.98",
-      "@effect/opentelemetry": "4.0.0-beta.98"
-    },
-    // A beta-line package still declares its siblings as `^4.0.0-beta.98`, and that range now
-    // resolves to `4.0.0-rc.*`, whose build imports the effect layout its own line ships. Pinning
-    // the one transitive that drifts keeps the tree under test on the line the fixture declares.
-    overrides: {
-      "@effect/platform-node-shared": "4.0.0-beta.98"
+      effect: effectVersion,
+      "@effect/platform-node": effectVersion,
+      "@effect/sql-d1": effectVersion,
+      "@effect/opentelemetry": effectVersion
     },
     devDependencies: {
       "@cloudflare/workers-types": "latest",
       "@effect/tsgo": "0.45.0",
-      "@effect/vitest": "4.0.0-beta.98",
+      "@effect/vitest": effectVersion,
       esbuild: "latest",
       typescript: "7.0.2",
       wrangler: "latest"
@@ -183,12 +178,8 @@ function writeFixture(root: string) {
   writeFileSync(resolve(root, "src/lsp.ts"), [
     "import { Context, Effect, Layer } from \"effect\"",
     "",
-    "class Needs extends Context.Service<Needs>()(\"Needs\", {",
-    "  sync: () => ({ value: \"needs\" }),",
-    "}) {}",
-    "class Out extends Context.Service<Out>()(\"Out\", {",
-    "  sync: () => ({ value: \"out\" }),",
-    "}) {}",
+    "class Needs extends Context.Service<Needs, { readonly value: string }>()(\"Needs\") {}",
+    "class Out extends Context.Service<Out, { readonly value: string }>()(\"Out\") {}",
     "",
     "Effect.succeed(\"floating\")",
     "",

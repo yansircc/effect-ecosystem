@@ -30,16 +30,27 @@ API：`Ref.make` / `Ref.get` / `Ref.set` / `Ref.update` / `Ref.updateAndGet` / `
 需要在更新过程中执行 Effect（例如发请求拿新值）时用 `SynchronizedRef`。更新是串行化的，避免 lost-update。
 
 ```typescript
-import { SynchronizedRef } from "effect"
+import { Effect, SynchronizedRef } from "effect"
 
-const cache = yield* SynchronizedRef.make<Map<string, User>>(new Map())
+interface User {
+  readonly id: string
+  readonly name: string
+}
 
-const getUser = (id: string) =>
-  SynchronizedRef.updateAndGetEffect(cache, (map) =>
-    map.has(id)
-      ? Effect.succeed(map)
-      : fetchUser(id).pipe(Effect.map((u) => new Map(map).set(id, u)))
-  ).pipe(Effect.map((map) => map.get(id)!))
+declare const fetchUser: (id: string) => Effect.Effect<User>
+
+const program = Effect.gen(function*() {
+  const cache = yield* SynchronizedRef.make<Map<string, User>>(new Map())
+
+  const getUser = (id: string) =>
+    SynchronizedRef.updateAndGetEffect(cache, (map) =>
+      map.has(id)
+        ? Effect.succeed(map)
+        : fetchUser(id).pipe(Effect.map((u) => new Map(map).set(id, u)))
+    ).pipe(Effect.map((map) => map.get(id)!))
+
+  return yield* getUser("u_1")
+})
 ```
 
 ## 3. `SubscriptionRef` — 可订阅的 Ref
@@ -47,41 +58,45 @@ const getUser = (id: string) =>
 值改变会推送给订阅者，零轮询响应式状态（前端外，后端实时同步也用）。
 
 ```typescript
-import { SubscriptionRef, Stream } from "effect"
+import { Effect, Stream, SubscriptionRef } from "effect"
 
-const ref = yield* SubscriptionRef.make(0)
+const program = Effect.gen(function*() {
+  const ref = yield* SubscriptionRef.make(0)
 
-// 订阅变更流
-yield* ref.changes.pipe(
-  Stream.runForEach((n) => Effect.log(`value is now ${n}`)),
-  Effect.fork
-)
+  // 订阅变更流（先 fork 订阅，再写入）
+  yield* SubscriptionRef.changes(ref).pipe(
+    Stream.runForEach((n) => Effect.log(`value is now ${n}`)),
+    Effect.forkChild
+  )
 
-yield* SubscriptionRef.set(ref, 1)
-yield* SubscriptionRef.set(ref, 2)
+  yield* SubscriptionRef.set(ref, 1)
+  yield* SubscriptionRef.set(ref, 2)
+})
 ```
 
 ## 4. `Queue` — Producer-Consumer
 
 ```typescript
-import { Queue, Effect, Fiber } from "effect"
+import { Effect, Fiber, Queue } from "effect"
 
-const program = Effect.gen(function* () {
+declare const processJob: (job: string) => Effect.Effect<void>
+
+const program = Effect.gen(function*() {
   const queue = yield* Queue.bounded<string>(100) // 满了 producer 自动 backpressure
 
-  const producer = yield* Effect.gen(function* () {
+  yield* Effect.gen(function*() {
     for (let i = 0; ; i++) {
       yield* Queue.offer(queue, `job-${i}`)
       yield* Effect.sleep("100 millis")
     }
-  }).pipe(Effect.fork)
+  }).pipe(Effect.forkChild)
 
-  const worker = yield* Effect.gen(function* () {
+  const worker = yield* Effect.gen(function*() {
     while (true) {
       const job = yield* Queue.take(queue)
       yield* processJob(job)
     }
-  }).pipe(Effect.fork)
+  }).pipe(Effect.forkChild)
 
   yield* Fiber.join(worker) // 永远等
 })
@@ -93,32 +108,37 @@ Queue 类型：
 - `Queue.dropping(N)` — 满了丢新元素
 - `Queue.sliding(N)` — 满了丢老元素
 - `Queue.takeAll` / `Queue.takeBetween(min, max)` — 批量消费
+- 关闭：`Queue.end`（正常结束）/ `Queue.fail` / `Queue.shutdown`
 
 ## 5. `PubSub` — 一对多广播
 
 ```typescript
-import { PubSub } from "effect"
+import { Effect, PubSub } from "effect"
 
-const pubsub = yield* PubSub.bounded<UserEvent>(64)
+interface UserEvent {
+  readonly _tag: "UserCreated"
+  readonly id: string
+}
 
-// 订阅者 1（审计）
-yield* PubSub.subscribe(pubsub).pipe(
-  Effect.flatMap((sub) =>
-    Effect.forever(Effect.flatMap(Queue.take(sub), (e) => audit.log(e)))
-  ),
-  Effect.fork
-)
+declare const audit: (e: UserEvent) => Effect.Effect<void>
+declare const notify: (e: UserEvent) => Effect.Effect<void>
 
-// 订阅者 2（通知）
-yield* PubSub.subscribe(pubsub).pipe(
-  Effect.flatMap((sub) =>
-    Effect.forever(Effect.flatMap(Queue.take(sub), (e) => notify.send(e)))
-  ),
-  Effect.fork
-)
+const program = Effect.gen(function*() {
+  const pubsub = yield* PubSub.bounded<UserEvent>(64)
 
-// 发布者
-yield* PubSub.publish(pubsub, { _tag: "UserCreated", id: "u_1" })
+  // subscribe 需要 Scope；订阅在 fork 之前完成，保证发布前订阅者已存在
+  const auditSub = yield* PubSub.subscribe(pubsub)
+  const notifySub = yield* PubSub.subscribe(pubsub)
+
+  // 订阅者 1（审计）
+  yield* Effect.forever(Effect.flatMap(PubSub.take(auditSub), audit)).pipe(Effect.forkChild)
+
+  // 订阅者 2（通知）
+  yield* Effect.forever(Effect.flatMap(PubSub.take(notifySub), notify)).pipe(Effect.forkChild)
+
+  // 发布者
+  yield* PubSub.publish(pubsub, { _tag: "UserCreated" as const, id: "u_1" })
+}).pipe(Effect.scoped)
 ```
 
 `Queue` = 工作分发（每个项被**一个**消费者拿走）；`PubSub` = 广播（每个项被**所有**订阅者拿到）。
@@ -130,11 +150,30 @@ yield* PubSub.publish(pubsub, { _tag: "UserCreated", id: "u_1" })
 source of truth。scanner 只暴露 `subscribe` / `publish` / constructor 的原子
 观测，是否需要 replay 是业务边界判断。
 
-## STM
+## STM（v4：`Tx*` 系列 + `Effect.tx`）
 
-多个 `Ref` / `Queue` / `PubSub` 操作需要作为一个事务提交时，用 STM 系列原语
-表达原子性；不要靠手写锁和共享 mutable object 拼时序。STM 适合内存内并发
-一致性，不替代数据库事务或跨进程锁。
+v4 没有 `STM` 模块。多个状态操作需要作为一个事务提交时，用 `TxRef` / `TxQueue` / `TxPubSub` / `TxSemaphore` / `TxHashMap` / `TxHashSet` / `TxChunk` / `TxPriorityQueue` / `TxReentrantLock` / `TxSubscriptionRef` / `TxDeferred`（均为 `effect/Tx*` 子路径，也可从 `effect` 根导入），并用 `Effect.tx` 包裹整个事务；`Effect.txRetry` 表示条件不满足、等相关 Tx 状态变化后重试。不要靠手写锁和共享 mutable object 拼时序。Tx 适合内存内并发一致性，不替代数据库事务或跨进程锁。
+
+```typescript
+import { Effect, TxRef } from "effect"
+
+const transfer = (from: TxRef.TxRef<number>, to: TxRef.TxRef<number>, amount: number) =>
+  Effect.tx(
+    Effect.gen(function*() {
+      const balance = yield* TxRef.get(from)
+      if (balance < amount) return yield* Effect.txRetry // 余额不足：等 from 变化后重试整个事务
+      yield* TxRef.set(from, balance - amount)
+      yield* TxRef.update(to, (n) => n + amount)
+    })
+  )
+
+const program = Effect.gen(function*() {
+  const a = yield* TxRef.make(100)
+  const b = yield* TxRef.make(0)
+  yield* transfer(a, b, 30)
+  return [yield* TxRef.get(a), yield* TxRef.get(b)] as const
+})
+```
 
 ## 6. `Deferred` — 一次性异步信号
 
@@ -143,17 +182,17 @@ source of truth。scanner 只暴露 `subscribe` / `publish` / constructor 的原
 ```typescript
 import { Deferred, Effect } from "effect"
 
-const program = Effect.gen(function* () {
+const program = Effect.gen(function*() {
   const ready = yield* Deferred.make<void>()
 
   // 多个 worker 等启动信号
   yield* Effect.forEach(
     Array.from({ length: 5 }, (_, i) => i),
     (id) =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         yield* Deferred.await(ready)
         yield* Effect.log(`worker ${id} started`)
-      }).pipe(Effect.fork),
+      }).pipe(Effect.forkChild),
     { discard: true }
   )
 
@@ -162,49 +201,54 @@ const program = Effect.gen(function* () {
 })
 ```
 
-## 7. `Latch` — N→0 倒数同步（fan-out/fan-in 屏障）
+## 7. `Latch` — 开关闸门（open / close）
+
+v4 的 `Latch` **不是倒数器**：它是可开可关的闸门。关闭时 `Latch.await` / `Latch.whenOpen` 挂起；`Latch.open` 放行当前与未来所有等待者；`Latch.release` 只放行当前等待者但不打开；`Latch.close` 让后续等待者重新挂起。`Latch.make(open?)` 的参数是初始是否打开（boolean），不是计数。
 
 ```typescript
-import { Effect, Latch, Fiber } from "effect"
+import { Effect, Fiber, Latch } from "effect"
 
-const program = Effect.gen(function* () {
-  const N = 5
-  const allDone = yield* Latch.make(N)
+const program = Effect.gen(function*() {
+  const gate = yield* Latch.make() // 初始关闭
 
-  yield* Effect.forEach(
-    Array.from({ length: N }, (_, i) => i),
-    (i) =>
-      Effect.gen(function* () {
-        yield* doWork(i)
-        yield* Latch.countDown(allDone)
-      }).pipe(Effect.fork),
-    { discard: true }
+  const waiters = yield* Effect.forEach(
+    [1, 2, 3],
+    (id) =>
+      gate.await.pipe(
+        Effect.andThen(Effect.log(`worker ${id} released`)),
+        Effect.forkChild
+      )
   )
 
-  yield* Latch.await(allDone) // 等所有 worker countDown
-  yield* Effect.log("all workers done")
+  yield* gate.open // 一次放行全部（含之后才到的）
+  yield* Fiber.joinAll(waiters)
 })
 ```
 
-`Deferred` = 一次性信号；`Latch` = N 次倒数后释放；`Semaphore` = N 个 permit 滑动。
+fan-in（等 N 个任务都完成）v4 没有倒数 Latch：用 `Effect.forEach(..., { concurrency })` / `Effect.all`，或 `Fiber.joinAll`（见第 12 节）；需要事件语义时每个任务一个 `Deferred`。
+
+`Deferred` = 一次性信号（带值）；`Latch` = 可重复开关的闸门；`Semaphore` = N 个 permit 滑动。
 
 ## 8. `Semaphore` — 限流 / 连接池信号量
 
-限制最多 N 个并发操作。**用 `Effect.withSemaphore(sem)` 包裹关键区**。
+限制最多 N 个并发操作。**用 `sem.withPermits(n)(effect)`（或 `sem.withPermit(effect)`）包裹关键区**；v4 没有 `Effect.withSemaphore`。
 
 ```typescript
-import { Semaphore, Effect } from "effect"
+import { Effect, Semaphore } from "effect"
 
-const dbSemaphore = yield* Semaphore.make(10) // 最多 10 个并发 query
+declare const executeRawQuery: (sql: string) => Effect.Effect<string>
 
-const query = (sql: string) =>
-  executeRawQuery(sql).pipe(dbSemaphore.withPermits(1))
+const program = Effect.gen(function*() {
+  const dbSemaphore = yield* Semaphore.make(10) // 最多 10 个并发 query
 
-// 1000 个并发 query，但实际只有 10 个同时跑
-yield* Effect.all(
-  Array.from({ length: 1000 }, (_, i) => query(`SELECT ${i}`)),
-  { concurrency: "unbounded" }
-)
+  const query = (sql: string) => executeRawQuery(sql).pipe(dbSemaphore.withPermits(1))
+
+  // 1000 个并发 query，但实际只有 10 个同时跑
+  yield* Effect.all(
+    Array.from({ length: 1000 }, (_, i) => query(`SELECT ${i}`)),
+    { concurrency: "unbounded" }
+  )
+})
 ```
 
 Semaphore 也用于 API rate-limit、CPU-bound 任务限流、memory-bound 任务限流。
@@ -214,30 +258,36 @@ Semaphore 也用于 API rate-limit、CPU-bound 任务限流、memory-bound 任�
 ```typescript
 import { Effect, Fiber } from "effect"
 
-const fiber = yield* longRunningTask.pipe(Effect.fork)
+declare const longRunningTask: Effect.Effect<number>
 
-// 阻塞等结果
-const result = yield* Fiber.join(fiber)
+const program = Effect.gen(function*() {
+  const fiber = yield* longRunningTask.pipe(Effect.forkChild)
 
-// 等多个
-const results = yield* Fiber.joinAll(fibers)
+  // 阻塞等结果
+  const result = yield* Fiber.join(fiber)
 
-// 中断（触发 finalizer 链）
-yield* Fiber.interrupt(fiber)
+  // 等多个
+  const fibers = [yield* Effect.forkChild(longRunningTask), yield* Effect.forkChild(longRunningTask)]
+  const results = yield* Fiber.joinAll(fibers)
 
-// 查询状态
-const status = yield* fiber.status
+  // 中断（触发 finalizer 链）
+  const another = yield* Effect.forkChild(longRunningTask)
+  yield* Fiber.interrupt(another)
+
+  return [result, results] as const
+})
 ```
 
-`Effect.fork` 在父 fiber 的 scope 中创建 child fiber，父结束自动中断 child（结构化并发）。需要顶层 detached fiber 时用 `Effect.runFork` 或 `Effect.forkDaemon`。
+`Effect.forkChild` 在父 fiber 下创建 child fiber，父结束自动中断 child（结构化并发）；v4 没有 `Effect.fork`。需要脱离父生命周期的 fiber 用 `Effect.forkDetach`（原 `forkDaemon`）或顶层 `Effect.runFork`。
 
 ### 9.1 fork 系列对比
 
 | API | 生命周期 |
 |---|---|
-| `Effect.fork` | 绑定到当前 fiber，父中断 → 子中断（**默认选择**） |
+| `Effect.forkChild` | 绑定到当前 fiber，父中断 → 子中断（**默认选择**） |
 | `Effect.forkScoped` | 绑定到当前 `Scope`，scope 关闭 → 中断 |
-| `Effect.forkDaemon` | 不绑定父，独立运行（小心泄漏） |
+| `Effect.forkIn(scope)` | 绑定到指定 `Scope` |
+| `Effect.forkDetach` | 不绑定父，独立运行（小心泄漏） |
 | `Effect.runFork` | 顶级入口，返回 Fiber 供外部信号 / SIGINT 处理 |
 
 ## 10. 优雅关闭 — `runFork` + Signal handler
@@ -245,10 +295,12 @@ const status = yield* fiber.status
 长驻进程的标准启动模板：
 
 ```typescript
-import { Effect, Fiber } from "effect"
+import { Effect } from "effect"
 import { NodeRuntime } from "@effect/platform-node"
 
-const main = Effect.gen(function* () {
+declare const server: Effect.Effect<void>
+
+const main = Effect.gen(function*() {
   yield* Effect.log("server start")
   yield* server.pipe(Effect.forever) // 业务循环
 })
@@ -262,15 +314,23 @@ NodeRuntime.runMain(main.pipe(Effect.scoped))
 ## 11. `Effect.race` / `Effect.raceFirst` — 谁先完成谁赢
 
 ```typescript
-// 主任务 vs 超时
-const result = yield* task.pipe(Effect.timeout("5 seconds"))
+import { Effect, Schedule } from "effect"
 
-// 主任务 vs 轮询（轮询自动停止）
-const longJob = yield* heavyTask.pipe(Effect.delay("10 seconds"))
-const poll = Effect.log("polling...").pipe(Effect.repeat(Schedule.spaced("1 second")))
+declare const task: Effect.Effect<string>
+declare const heavyTask: Effect.Effect<string>
 
-yield* Effect.race(longJob, poll)
-// longJob 完成 → poll 自动中断
+const program = Effect.gen(function*() {
+  // 主任务 vs 超时（超时失败为 TimeoutError）
+  const result = yield* task.pipe(Effect.timeout("5 seconds"))
+
+  // 主任务 vs 轮询（轮询自动停止）
+  const longJob = heavyTask.pipe(Effect.delay("10 seconds"))
+  const poll = Effect.log("polling...").pipe(Effect.repeat(Schedule.spaced("1 second")))
+
+  yield* Effect.race(longJob, poll)
+  // longJob 完成 → poll 自动中断
+  return result
+})
 ```
 
 **Polling 模式**：用 `Effect.race(mainTask, poller)` 让轮询在主任务完成时自动停止，无需手动 `clearInterval`。
@@ -278,18 +338,28 @@ yield* Effect.race(longJob, poll)
 ## 12. 并行执行
 
 ```typescript
-// 全部并发
-yield* Effect.all([taskA, taskB, taskC], { concurrency: "unbounded" })
+import { Effect } from "effect"
 
-// 限定并发数（替代 Promise.all + p-limit）
-yield* Effect.forEach(ids, (id) => fetchUser(id), { concurrency: 10 })
+declare const taskA: Effect.Effect<number>
+declare const taskB: Effect.Effect<number>
+declare const taskC: Effect.Effect<number>
+declare const ids: ReadonlyArray<string>
+declare const fetchUser: (id: string) => Effect.Effect<string>
+declare const processOne: (n: number) => Effect.Effect<string, Error>
+declare const items: ReadonlyArray<number>
 
-// 任一失败立即中断其他（默认）
-// 全部完成（不论成功失败）
-const results = yield* Effect.all(tasks, { mode: "validate" }) // Effect<A[], E[]>
+const program = Effect.gen(function*() {
+  // 全部并发（任一失败立即中断其他，默认）
+  yield* Effect.all([taskA, taskB, taskC], { concurrency: "unbounded" })
 
-// partition：成功/失败分桶
-const [successes, failures] = yield* Effect.partition(items, processOne) // 返回 [passes, fails]：成功在前、失败在后
+  // 限定并发数（替代 Promise.all + p-limit）
+  yield* Effect.forEach(ids, (id) => fetchUser(id), { concurrency: 10 })
+
+  // 全部完成（不论成功失败）：v4 没有 Effect.all 的 mode:"validate"，用 partition
+  // 返回 [passes, fails]：成功在前、失败在后
+  const [successes, failures] = yield* Effect.partition(items, processOne)
+  return [successes, failures] as const
+})
 ```
 
 ## 13. 禁忌
@@ -297,6 +367,7 @@ const [successes, failures] = yield* Effect.partition(items, processOne) // 返�
 - 严禁 `Promise.all` / `Promise.race` 用于 Effect 编排 — 用 `Effect.all` / `Effect.race`。
 - 严禁 `await new Promise(r => setTimeout(r, ms))` — 用 `Effect.sleep("X millis")`。
 - 严禁手写 `clearInterval` 取消轮询 — 用 `Effect.race` 或 `Fiber.interrupt`。
+- 严禁把 v4 `Latch` 当倒数器（`Latch.make(N)` / `countDown` 不存在）— 它是开关闸门。
 - 严禁裸 mutable variable 在 Effect 间共享 — 用 `Ref`。
 - 严禁用 `Promise<void>` 当一次性信号 — 用 `Deferred`。
-- 严禁 `Effect.forkDaemon` 不接 Fiber 引用 — 容易泄漏，优先 `Effect.fork`。
+- 严禁 `Effect.forkDetach`（v3 `forkDaemon`）不接 Fiber 引用 — 容易泄漏，优先 `Effect.forkChild`。

@@ -279,13 +279,13 @@ function fixtureFiles(testCase) {
     pkg.devDependencies ??= {}
     pkg.dependencies.effect = testCase.toolchain === "effect-v3"
       ? "3.21.2"
-      : testCase.toolchain === "effect-before-floor" ? "4.0.0-beta.84"
-      : testCase.toolchain === "effect-stable-patch" ? "4.0.5" : "4.0.0-beta.97"
+      : testCase.toolchain === "effect-before-floor" ? "4.0.4"
+      : testCase.toolchain === "effect-prerelease" ? "4.0.0-rc.118" : "4.0.5"
     if (testCase.toolchain === "missing-effect") delete pkg.dependencies.effect
     for (const name of Object.keys(pkg.dependencies).filter((name) => name.startsWith("@effect/"))) {
-      pkg.dependencies[name] = "4.0.0-beta.97"
+      pkg.dependencies[name] = "4.0.5"
     }
-    pkg.devDependencies["@effect/vitest"] = testCase.expectRules?.includes("EFF321") ? undefined : "4.0.0-beta.97"
+    pkg.devDependencies["@effect/vitest"] = testCase.expectRules?.includes("EFF321") ? undefined : "4.0.5"
     if (pkg.devDependencies["@effect/vitest"] === undefined) delete pkg.devDependencies["@effect/vitest"]
     if (pkg.dependencies["@effect/opentelemetry"] && !testCase.expectRules?.includes("EFF323")) {
       for (const [name, version] of Object.entries(otelPackage.peerDependencies ?? {})) pkg.dependencies[name] ??= version
@@ -589,7 +589,7 @@ function validateGateSummaryBundle() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\",\"typescript\":\"7.0.2\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\",\"typescript\":\"7.0.2\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -648,7 +648,7 @@ function validateCliOutputProjection() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -737,7 +737,7 @@ function validateComplianceHash() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const program = Effect.succeed(1)\n",
     })
     linkFixtureNodeModules(root)
@@ -801,7 +801,7 @@ function validateNotProvenManifest() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"gate\":{\"notProven\":[{\"id\":\"live-recorded-authored\",\"owner\":\"agentOS\",\"reason\":\"agentOS architectural invariant outside Effect scanner scope\"}]}}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)
@@ -828,7 +828,7 @@ function validateLibraryExportedEffectRollup() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/no-effect.ts": "export const value = 1\n",
       "src/with-span.ts": "export const withSpan = Effect.succeed(1).pipe(Effect.withSpan(\"with-span\"))\n",
       "src/without-span.ts": "export const withoutSpan = Effect.succeed(1)\n",
@@ -861,7 +861,7 @@ function validateTimingsOutput() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.97\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)

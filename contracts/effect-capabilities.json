@@ -5,7 +5,7 @@
   "support": {
     "effect": {
       "major": 4,
-      "range": ">=4.0.0-beta.97 <5.0.0-0"
+      "range": ">=4.0.5 <5.0.0"
     },
     "typescript": {
       "major": 7,
@@ -58,8 +58,8 @@
     "@effect/sql-d1"
   ],
   "unstableBoundaries": [
-    "HTTP/RPC/SQL/AI/Workflow APIs are accepted only behind typed API, LSP, and runtime bundle/dry-run gates.",
-    "React state integration is not v4-closed until a v4-compatible React adapter is proven."
+    "HTTP/RPC/SQL/AI/Workflow APIs (effect/http, effect/rpc, effect/sql, effect/ai, effect/workflow) are accepted only behind typed API, LSP, and runtime bundle/dry-run gates.",
+    "React state integration (@effect/atom-react, effect/reactivity) is stability-unstable and needs react >=19 <20; it is accepted only behind typed API and runtime proof."
   ],
   "packageRequirements": [
     {

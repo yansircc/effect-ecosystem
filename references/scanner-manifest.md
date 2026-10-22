@@ -683,6 +683,7 @@ Line suppression requires a reason and applies only to diagnostic rules that do
 not establish positive boundary admission:
 
 ```ts
+declare function work(): void
 try { work() } catch (error) {} // eff-ignore EFF001 reason="legacy adapter"
 ```
 
