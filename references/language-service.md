@@ -5,7 +5,7 @@ Effect diagnostics provider 提供 Effect 专属的编辑器诊断和 quick fix�
 ## 1. 安装
 
 ```bash
-pnpm add -D typescript@7.0.2 @effect/tsgo@0.45.0
+pnpm add -D typescript@7.0.2 @effect/tsgo@0.56.0
 npx effect-tsgo patch --typescript-package typescript
 ```
 
@@ -52,7 +52,12 @@ npx effect-tsgo patch --typescript-package typescript
 | `unnecessaryEffectGen` | `Effect.gen` 仅含单个 return，可去掉。 | `suggestion` |
 | `effectFnOpportunity` | 返回 Effect 的函数建议改用 `Effect.fn`。 | `suggestion` |
 
-不要凭记忆引用诊断名：schema 里没有的名字（例如旧文档中的 `yieldEffectInNonGenerator`、`useGenInsteadOfChained`、`unclosedLayer`）在 `@effect/tsgo@0.45.0` 不存在，写进 `diagnosticSeverity` 不会生效。
+不要凭记忆引用诊断名：schema 里没有的名字（例如旧文档中的 `yieldEffectInNonGenerator`、`useGenInsteadOfChained`、`unclosedLayer`）在 `@effect/tsgo@0.56.0` 不存在，写进 `diagnosticSeverity` 不会生效。
+
+0.56 默认严重程度复核（以 schema 为准）：与本仓库 EFF403（禁止 namespace import）、EFF001（TaggedError 建模）立场可能冲突的诊断
+`preferNamespaceImport`、`preferSchemaTaggedError` 默认均为 `off`，所以升级 0.45 → 0.56 不需要在
+`diagnosticSeverity` 里额外关闭任何诊断；若将来某版本把它们默认打开并与 EFF403/EFF001 冲突，必须在 tsconfig 插件
+配置里显式设为 `off` 并在此处记录原因。未映射到 EFF500–503 的 Effect 诊断（含默认 `warning` 的）不产生 finding。
 
 ## 4. Floating Effect — 最常见反模式
 

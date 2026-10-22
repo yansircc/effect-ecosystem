@@ -14,9 +14,13 @@ import { collectSourceFiles } from "./file-classifier.js"
 import { loadManifest } from "./manifest.js"
 import { prepareCompilerFacts } from "./compiler-facts.js"
 import { sourceFactsForFile } from "./source-facts.js"
+import { supportedToolchain } from "./effect-capabilities.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CONFIG_PATH = resolve(__dirname, "..", "fixtures", "fixtures.config.json")
+// Fixtures declare the verified toolchain recorded in contracts/effect-capabilities.json.
+const VERIFIED_TYPESCRIPT = supportedToolchain().typescript.version
+const VERIFIED_PROVIDER = supportedToolchain().diagnostics.version
 const INTERNAL_SUITES = [
   "rule-registry",
   "policy-docs-schema-sync",
@@ -272,6 +276,9 @@ function linkFixtureNodeModules(root) {
 
 function fixtureFiles(testCase) {
   const files = structuredClone(testCase.files)
+  for (const [path, text] of Object.entries<string>(files)) {
+    files[path] = text.replaceAll("{{VERIFIED_TYPESCRIPT}}", VERIFIED_TYPESCRIPT).replaceAll("{{VERIFIED_PROVIDER}}", VERIFIED_PROVIDER)
+  }
   const otelPackage = JSON.parse(readFileSync(resolve(findAncestorNodeModules(__dirname), "@effect/opentelemetry/package.json"), "utf8"))
   for (const path of Object.keys(files).filter((path) => path.endsWith("package.json"))) {
     const pkg = JSON.parse(files[path])
@@ -292,8 +299,10 @@ function fixtureFiles(testCase) {
     }
     if (path === "package.json") {
       const catalog = testCase.toolchain === "catalog" ? "catalog:" : testCase.toolchain === "named-catalog" ? "catalog:toolchain" : null
-      pkg.devDependencies.typescript = catalog ?? (testCase.toolchain === "typescript-v6" ? "6.0.3" : "7.0.2")
-      pkg.devDependencies["@effect/tsgo"] = catalog ?? (testCase.toolchain === "wrong-tsgo" ? "0.20.0" : "0.45.0")
+      // `caret-ranges`: the runtime matches the installed compiler by major + marker, not by exact version.
+      const caret = testCase.toolchain === "caret-ranges"
+      pkg.devDependencies.typescript = catalog ?? (testCase.toolchain === "typescript-v6" ? "6.0.3" : caret ? `^${VERIFIED_TYPESCRIPT.split(".")[0]}.0.0` : VERIFIED_TYPESCRIPT)
+      pkg.devDependencies["@effect/tsgo"] = catalog ?? (testCase.toolchain === "wrong-tsgo" ? "0.20.0" : caret ? `^${VERIFIED_PROVIDER.split(".").slice(0, 2).join(".")}.0` : VERIFIED_PROVIDER)
       if (testCase.toolchain === "missing-tsgo") delete pkg.devDependencies["@effect/tsgo"]
     }
     files[path] = JSON.stringify(pkg)
@@ -592,7 +601,7 @@ function validateGateSummaryBundle() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\",\"typescript\":\"7.0.2\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\",\"typescript\":\"" + VERIFIED_TYPESCRIPT + "\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -651,7 +660,7 @@ function validateCliOutputProjection() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"generatedPaths\":[{\"glob\":\"src/generated/**\",\"owner\":\"@codegen\",\"reason\":\"generated output\"}]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\"}}",
       "src/warn.ts": "export const now = new Date()\n",
       "src/signal.ts": "export const program = Effect.succeed(1)\n",
     })
@@ -740,7 +749,7 @@ function validateComplianceHash() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\"}}",
       "src/a.ts": "export const program = Effect.succeed(1)\n",
     })
     linkFixtureNodeModules(root)
@@ -804,7 +813,7 @@ function validateNotProvenManifest() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"],\"gate\":{\"notProven\":[{\"id\":\"live-recorded-authored\",\"owner\":\"agentOS\",\"reason\":\"agentOS architectural invariant outside Effect scanner scope\"}]}}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)
@@ -831,7 +840,7 @@ function validateLibraryExportedEffectRollup() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\"}}",
       "src/no-effect.ts": "export const value = 1\n",
       "src/with-span.ts": "export const withSpan = Effect.succeed(1).pipe(Effect.withSpan(\"with-span\"))\n",
       "src/without-span.ts": "export const withoutSpan = Effect.succeed(1)\n",
@@ -864,7 +873,7 @@ function validateTimingsOutput() {
   try {
     writeFiles(root, {
       ".effect-skill.json": "{\"shape\":[\"library\"]}",
-      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"0.45.0\"}}",
+      "package.json": "{\"dependencies\":{\"effect\":\"4.0.5\"},\"devDependencies\":{\"@effect/vitest\":\"4.0.5\",\"@effect/tsgo\":\"" + VERIFIED_PROVIDER + "\"}}",
       "src/a.ts": "export const x = 1\n",
     })
     linkFixtureNodeModules(root)
@@ -948,7 +957,7 @@ function validateEffectCapabilitiesContract() {
     if (!requirementRuleIds.has(ruleId)) failures.push(`effect-capabilities: missing ${ruleId}`)
   }
   if (contract.support.effect.major !== 4) failures.push("effect-capabilities: Effect v4 is not the only supported major")
-  if (contract.support.typescript.version !== "7.0.2") failures.push("effect-capabilities: TypeScript is not pinned to 7.0.2")
+  if (contract.support.typescript.major !== 7) failures.push("effect-capabilities: TypeScript 7 is not the only supported major")
   if (contract.support.diagnostics.package !== "@effect/tsgo") failures.push("effect-capabilities: diagnostics provider is not @effect/tsgo")
   return failures
 }

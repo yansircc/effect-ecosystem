@@ -5,6 +5,8 @@ import { Ajv2020 } from "ajv/dist/2020.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_CONTRACTS_DIR = resolve(__dirname, "..", "..", "contracts")
+// Verified-version records: semver shape only; the runtime matches major + compiler marker.
+const SEMVER_PATTERN = "^\\d+\\.\\d+\\.\\d+$"
 const SIGNAL_TOP_LEVEL_KEYS = new Set(["kind", "file", "package", "facts", "skill_ref", "agent_action"])
 
 export function compileContractValidators(contractsDir = DEFAULT_CONTRACTS_DIR) {
@@ -170,8 +172,8 @@ function effectCapabilitiesShapeSchema() {
         required: ["effect", "typescript", "diagnostics"],
         properties: {
           effect: { type: "object", additionalProperties: false, required: ["major", "range"], properties: { major: { const: 4 }, range: { type: "string" } } },
-          typescript: { type: "object", additionalProperties: false, required: ["major", "version"], properties: { major: { const: 7 }, version: { const: "7.0.2" } } },
-          diagnostics: { type: "object", additionalProperties: false, required: ["package", "version", "compilerMarker"], properties: { package: { const: "@effect/tsgo" }, version: { const: "0.45.0" }, compilerMarker: { const: "+effect-tsgo." } } }
+          typescript: { type: "object", additionalProperties: false, required: ["major", "version"], properties: { major: { const: 7 }, version: { type: "string", pattern: SEMVER_PATTERN } } },
+          diagnostics: { type: "object", additionalProperties: false, required: ["package", "version", "compilerMarker"], properties: { package: { const: "@effect/tsgo" }, version: { type: "string", pattern: SEMVER_PATTERN }, compilerMarker: { const: "+effect-tsgo." } } }
         }
       },
       references: {
