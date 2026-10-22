@@ -1,0 +1,14 @@
+{
+  "description": "wrangler-worker-sentry-wrapper-spoof-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ]
+}

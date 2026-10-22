@@ -1,0 +1,29 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/local.ts",
+      "owner": "@runtime",
+      "reason": "module helper is not factory-owned",
+      "execution": {
+        "lifecycle": "package-facade",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "package": {
+          "name": "@scope/runtime",
+          "subpath": "./local",
+          "export": "createRuntime",
+          "members": [
+            {
+              "kind": "returned",
+              "path": "commit"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

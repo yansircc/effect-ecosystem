@@ -1,0 +1,27 @@
+{
+  "description": "cf-wrangler-toml-unsupported-red",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF905"
+  ],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "errors.0.code": "unsupported-wrangler-format",
+        "errors.0.source.line": 1,
+        "bindings": []
+      }
+    }
+  ]
+}

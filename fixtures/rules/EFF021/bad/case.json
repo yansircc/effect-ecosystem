@@ -1,0 +1,12 @@
+{
+  "description": "EFF021 bad: imports node:path",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF021"
+  ],
+  "exact": true
+}

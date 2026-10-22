@@ -1,0 +1,27 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/client.ts",
+      "owner": "@client-tests",
+      "reason": "browser function facade",
+      "execution": {
+        "lifecycle": "function-facade",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "facade": {
+          "export": "createClient",
+          "members": [
+            {
+              "kind": "returned",
+              "path": "load"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

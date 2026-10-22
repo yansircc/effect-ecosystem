@@ -1,0 +1,12 @@
+{
+  "description": "EFF321 bad: @effect/vitest is not a devDependency",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF321"
+  ],
+  "exact": true
+}

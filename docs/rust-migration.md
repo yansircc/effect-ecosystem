@@ -1,7 +1,11 @@
 # effect-scan: Rust rewrite
 
-Status: skeleton (syntactic slice). The TypeScript scanner stays the oracle until the Rust build
-passes the whole fixture suite; the external contract does not change (see "Contract").
+Status: complete. The Rust scanner is the only scanner. The TypeScript scanner (`validator/scan.ts`,
+`validator/lib/*`) served as the differential oracle until the Rust build agreed with it on all 229 legacy
+fixtures (findings, signals, profile, evidence, gate-json and human output: 0 differences, 22 documented
+intentional differences); it and the differential tooling were then deleted (see "Fixtures"). References to
+"the oracle" below describe that retired implementation: they document why a Rust verdict differs and are now
+the normative behaviour. The external contract does not change (see "Contract").
 
 ## Baseline and result
 
@@ -51,7 +55,7 @@ rules.json schema, `effect.requiredReferences` routing, gate-summary / scan-resu
 Known intentional differences:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
-  The fixture `manifest-rejects-singular-host-hard-cut` is pinned with `rustFindings` (Ajv `allErrors`
+  The fixture `manifest-rejects-singular-host-hard-cut` is pinned with `expectFindingKeys` (Ajv `allErrors`
   expands one `oneOf` violation into dozens of findings; the Rust engine reports one).
 - Package stage (`package/`): semver is a port of node-semver 7.x (`package/node_semver.rs`), not the
   `semver` crate, whose Cargo grammar cannot read `||`, space-joined, x-range or hyphen ranges.
@@ -63,7 +67,7 @@ Known intentional differences:
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
 - **Projection stage** (`projection/`: signals, profile, evidence, gate summary, CLI output). The
   differential harness compares every output surface (below) with **0 differences** over all
-  fixtures except the pinned `rustProjection` fixtures, which pin these v4 detection fixes (the oracle
+  fixtures except the `v4-*` fixtures under `fixtures/scenarios`, which pin these v4 detection fixes (the oracle
   keeps the v3 recognition; it is deleted with the TypeScript scanner):
   - `containsOtlpLayer`: true for any `Otlp*` layer factory (`Otlp.layer`, `OtlpTracer.layer`,
     `observability.Otlp.layer`, ...); the oracle matched the literal `Otlp.layer` only, so an
@@ -84,17 +88,17 @@ Known intentional differences:
   `EFFECT_SCAN_BUILD_INFO=<path>` at compile time (the "unknown build" record otherwise, as the
   TypeScript scanner reports without a `build-info.json`). `complianceHash` hashes `scanner.buildId`,
   so it is comparable across the two scanners only for equal build ids; the harness builds the Rust
-  binary with the oracle's `build-info.json` (`make diff-fixtures`) and refuses to run otherwise.
+  binary with the oracle's `build-info.json` (the differential harness, since removed, refused to run otherwise).
 - Contract extension (additive): `contracts/rules.json` rules may declare `coverage`
   `{ proves: string, blindSpots: string[] }` (every rule that has a real blind spot does:
   `EFF001-EFF032`, `EFF200`, `EFF3xx`, `EFF4xx`, `EFF5xx`); `gate-summary.notProven[]` gains the sources
   `rule-coverage` (the blind spots of every rule that ran in this scan) and `unproven-fact` (a fact a rule
   could not decide). Old consumers ignore unknown `source` values. The TypeScript oracle implements the same
-  `rule-coverage` aggregation (it is part of the `compliance-hash`/`gate-summary` self-tests' world);
+  `rule-coverage` aggregation (it is part of the `compliance-hash`/`gate-summary` suites' world);
   `unproven-fact` is Rust-only, fed by the contracts stage.
 - **Rule verdicts are AST facts, not text matches** (`rules.rs`; architecture requirement iii). The
   Rust scanner has no regex rule mechanism. Documented fixes over the TS oracle, each pinned by a
-  `rustOnly` good/bad fixture pair:
+  good/bad fixture pair (rule-bound variants under `fixtures/rules`):
   - W4: `source-import` reports every matching import of a file (one finding per line); the oracle
     reports the first. `require("x")` with the unshadowed global `require` counts as an import fact.
   - Shadowing/identity: a locally bound `Promise`, `process`, `Date`, `Error`, `setTimeout`, ... is not
@@ -153,7 +157,7 @@ enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
   `runMain` (`program.pipe(NodeRuntime.runMain)` is the one `runMain` reference, accepted) and for
   `Effect.run*` / `ManagedRuntime` runners (`program.pipe(Effect.runFork)` inside an edge is a runner
   reference like any call). The oracle only counts calls. Pinned by the `process-main-*pipe*` and
-  `process-main-effect-run-value-red` rustOnly fixtures. An alias initializer
+  `process-main-effect-run-value-red` fixtures. An alias initializer
   (`const run = NodeRuntime.runMain`) whose alias is used is not counted itself; its uses are.
 - EFF402: no type checker. Constructor identity comes from import bindings, scopes and `const`
   initializers; a global lookup of a platform constructor is `verified`. What only a type decides
@@ -164,23 +168,90 @@ enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
   platform constructor, are not platform constructors. The oracle's type-only reds
   (`typed-constructor-origin-unknown-red`, the typed factory in `unknown-http-fixture-origin-red`) were
   rewritten as import/declaration-provable equivalents; `typed-constructor-origin-not-proven` pins the
-  type-only form (`rustNotProven`, compared by the differential harness).
+  type-only form (`expectNotProven`).
 - EFF401 `wrangler-workflow` resolves "main exports the class" through relative re-exports on the file
   system instead of the checker; a default export count other than one is a mismatch (the oracle throws).
 
-## Differential harness
+## Fixtures
+
+Layout (one real file tree per fixture; `case.json` holds the expectations):
+
+```
+fixtures/rules/<RULE_ID>/good/        canonical compliant code for the rule
+fixtures/rules/<RULE_ID>/bad/         the same code with exactly this violation
+fixtures/rules/<RULE_ID>/good--<v>/   further variants of the verdict (edge cases, anti-cheat cases)
+fixtures/rules/<RULE_ID>/bad--<v>/
+fixtures/scenarios/<name>/            everything that is not one rule's verdict: manifest, suppression, output modes,
+                                      profile/evidence, toolchain, workspace, file collection, ...
+fixtures/suites.json                  suites that must have fixtures (`requiredSuites`)
+```
+
+Invariants (`tools/fixtures/suites.ts`, suite `fixture-coverage`): every rule of `contracts/rules.json` has a
+canonical `good` and `bad`; both are `strict`, `exact`, compile on the target toolchain (effect 4.0.5,
+`@effect/tsgo` 0.56.0, TypeScript 7.0.2), `bad` expects exactly `[rule]`, `good` expects nothing and exit 0. Only a
+rule that is itself a compiler diagnostic (family `lsp`: EFF501-503) may allow the TS error that carries it.
+Every fixture compiles on the target toolchain. A strict fixture is compiled by its own scan: an EFF504 finding
+fails the fixture unless it expects EFF504 or lists the TS code in `allowCompileErrors` (with
+`allowCompileErrorsReason`); an allowance that matches nothing is stale and fails. The compiler only runs under
+`--strict`, so a non-strict fixture (scanner behaviour without a manifest or toolchain) is probed on a scratch
+copy completed with a library manifest, the verified toolchain declaration and, when it has none, a bundler-style
+tsconfig (`noImplicitAny` off: untyped parameters are not a toolchain question); same rule, same allowances.
+Names, packages and members a snippet assumes are declared in a fixture-local ambient `scaffold.d.ts` (the scanner
+ignores declaration files), so the scanned text and its line numbers stay exactly what the test needs.
+Allowances that remain are fixtures whose subject is the invalid code: EFF501-503 (the Effect language service reports
+them on assignments that are also TS2322), `signal-effect-member-names` and `signal-token-masking` (adversarial
+syntax and member spellings).
+
+Static files, derived facts: toolchain pins in fixture `package.json` files are copies of
+`contracts/effect-capabilities.json` and the installed `effect`; `fixture-toolchain-pins` fails on drift and
+`run-fixtures --fix-pins` rewrites them. Two materialization conventions: a file named `gitignore` is written as
+`.gitignore`; a fixture that ships `node_modules/<pkg>` overrides that entry only, the rest of the installed
+toolchain is linked.
 
 ```
 make build
 node dist/tools/scripts/diff-fixtures.js dist/platforms/<platform>/effect-scan   # i.e. make diff-fixtures
+cargo build --release -p effect-scan
+node dist-dev/scripts/run-fixtures.js [--bin <path>] [--suite <name>] [--filter <id substring>] [--exact] [--fix-pins]
+make fixtures                       # build + rust-build + run
 ```
 
-Runs every fixture through both scanners and compares `(file, line, ruleId, severity)` for the rules
-the Rust build declares implemented (`effect-scan --list-implemented-rules`), and the projection layer
-(see "Differential harness: projection"). `make diff-fixtures` builds the Rust binary with the oracle's
-`build-info.json` first. The implemented set
-grows port by port; the migration is complete when it equals the whole contract, strict/profile
-fixtures included.
+`scripts/run-fixtures.ts` runs each fixture with `--output raw-json --profile --evidence` and once more with
+`--output gate-json --evidence` (stdout must equal `gate-summary.json`, same exit code, both bundle files valid
+against their schemas), then the internal suites: contract checks (rule registry, implemented rules, runtime-facts
+and signals contracts, reference routing, effect capabilities), and scanner-driven suites on base trees
+`scenarios/suite-*` (gate summary, CLI output modes, compliance hash, notProven, library rollup, timings).
+`case.json` keys are listed in `tools/fixtures/case.ts`; an unknown key fails the run.
+
+History: the legacy `fixtures.config.json` (229 JSON-escaped cases) was migrated mechanically by
+`scripts/migrate-fixtures.ts` (kept for audit; the tree was edited by hand afterwards and the script refuses to
+overwrite it). The `rust*` pins became ordinary expectations (`expectRules`, `expectFindings`,
+`expectFindingKeys`, `expectNotProven`). Removed with the oracle: `expectCompilerDiagnostics` (a tsgo-API artifact:
+file-less option diagnostics outside findings), `profile-manifest-one-truth` (asserted the TypeScript profile
+module's source text), the TS-only `source-facts-grammar` / `candidate-source` internal checks (now the scenarios
+`source-facts-grammar` and `file-collection-*`).
+
+## Source discovery
+
+Which files are scanned (`util.rs`):
+
+1. Inside a Git repository: `git ls-files --cached --others --exclude-standard`. Git is the authority for what is
+   source: build output is excluded because `.gitignore` excludes it, a tracked or unignored `build/`, `out/` or
+   `dist/` is the project's own source and is scanned.
+2. Outside a repository: a directory walk, which has no ignore information and therefore skips generated-output
+   directories whose names are unambiguous: `dist`, `coverage`, `.next`. `build` and `out` are scanned (they are
+   common names for source directories; silently hiding source from a gate is worse than scanning generated
+   code, which `generatedPaths` / `hostTooling` exclude explicitly).
+3. In both modes, never source: `.git`, `.cst`, `node_modules`, and the scanner's own build outputs `dist-dev`
+   and `dist-installed`, at any depth.
+
+Behaviour change (previously `dist`, `build`, `out`, `.next`, `coverage` were skipped in both modes, so a user
+`build/` or a tracked `dist/` was invisible): fixtures `scenarios/file-collection-*`.
+
+Default test classification (a manifest without `testGlobs`; an explicit list still replaces it): `.test` /
+`.spec` before every source extension, and every file under `__tests__/`, `test/` or `tests/` at any depth. Files
+there were source before and are test files now (exempt from source rules, EFF200 scope): fixtures
+`scenarios/file-classifier-default-test-directories` and `...-explicit-test-globs-replace-defaults`.
 
 ## Ported so far
 
@@ -199,9 +270,8 @@ drift, sorting/summary, and the **module facts layer** (`facts.rs`):
   EFF404 from `require()` and module-scope `import()`.
 
 Differential result: all 203 fixtures compared; 0 mismatches on the implemented rules, 4 pinned
-divergences (`rustFindings` in the fixture, documented fixes the TypeScript oracle lacks:
-aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403). TS self-test excludes
-`rustOnly` fixtures.
+divergences (`expectFindingKeys` in the fixture, documented fixes the TypeScript oracle lacked:
+aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403).
 
 ### Type diagnostics and toolchain (`diagnostics.rs`, `diagnostics/`)
 
@@ -261,17 +331,6 @@ Other extras (`compilerDiagnostics`, ...) pass through into the raw result in in
 Contract issue found: `compiler.fingerprint` (hence `scanner.fullHash`, the audit hash) hashes *absolute*
 scanned paths, so the same tree checked out elsewhere gets a different `fullHash`. `inputHash` and
 `complianceHash` are unaffected. Fix when the diagnostics stage lands: fingerprint the root-relative paths.
-
-## Differential harness: projection
-
-For every fixture the harness runs the Rust scanner three times and the oracle once, then compares:
-`raw-json --profile --timings --evidence` (signals, profile, evidence, summary, warnings), the five bundle files
-byte for byte, `gate-json` with and without `--evidence` byte for byte, exit codes, and (when the oracle's findings
-are all implemented rules) the human rendering. The oracle projects the Rust findings (`runScan`'s
-`findingsOverride` test seam), so the projection is compared in isolation from rule coverage; findings are
-compared separately. Only `timings` is ignored. A fixture with `rustProjection: true` (always `rustOnly`) pins a
-documented detection fix: its `expectSignals`/`expectSignalCount`/`expectSignalFacts` are asserted on the Rust
-output instead of comparing with the oracle.
 
 ## Next
 
@@ -367,3 +426,5 @@ Command name, arguments, exit codes (0/1/2/64) and the output contracts are unch
   or the TypeScript runtime packages.
 - Hashes: `scanner.buildId` (and so `complianceHash`) changes with every build as before; it now also
   covers Rust sources, so the first release of this layout re-baselines.
+4. (done) Delete the TS scanner after parity. Open: single build artifact + install path (Makefile `install` / `package`,
+   `package.json` `bin`, SKILL.md runtime paths still name `validator/scan.js`).

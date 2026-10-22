@@ -1,0 +1,11 @@
+{
+  "description": "toolchain-caret-ranges-green",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

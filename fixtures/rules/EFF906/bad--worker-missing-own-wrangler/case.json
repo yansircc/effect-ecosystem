@@ -1,0 +1,13 @@
+{
+  "description": "worker-missing-own-wrangler-red",
+  "suites": [
+    "worker-shape-ambiguity",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF906"
+  ]
+}

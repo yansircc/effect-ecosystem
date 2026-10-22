@@ -1,0 +1,15 @@
+{
+  "description": "namespace-import-ast-red",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:3:EFF403:error",
+    "src/a.ts:4:EFF403:error"
+  ]
+}

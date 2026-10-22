@@ -1,0 +1,14 @@
+{
+  "description": "ai-missing-provider-or-transport-red",
+  "suites": [
+    "package-presence",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF312"
+  ]
+}

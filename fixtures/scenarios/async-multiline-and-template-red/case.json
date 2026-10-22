@@ -1,0 +1,18 @@
+{
+  "description": "async-multiline-and-template-red",
+  "suites": [
+    "async-ast-rules",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004"
+  ],
+  "expectRuleCounts": {
+    "EFF003": 4,
+    "EFF004": 3
+  },
+  "exact": true
+}

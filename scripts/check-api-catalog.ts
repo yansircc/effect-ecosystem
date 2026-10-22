@@ -2,7 +2,7 @@
 // The catalog is derived data: it must equal what the installed packages export, and every
 // hand-written claim about the API (migrations, rule messages, capabilities) must resolve in it.
 import { readFileSync } from "node:fs"
-import { buildCatalogOffline, catalogHas, CATALOG_PATH, effectImportRoots, readCatalog, specifierOwner } from "./api-catalog.js"
+import { buildCatalogOffline, catalogHas, CATALOG_PATH, effectImportRoots, readCatalog, specifierOwner } from "../tools/api-catalog.js"
 
 const catalog = readCatalog()
 const failures: string[] = []

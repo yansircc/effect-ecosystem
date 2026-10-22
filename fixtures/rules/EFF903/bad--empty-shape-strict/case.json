@@ -1,0 +1,14 @@
+{
+  "description": "empty-shape-strict",
+  "suites": [
+    "manifest-strict",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF903"
+  ]
+}

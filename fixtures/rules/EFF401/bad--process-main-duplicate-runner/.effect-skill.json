@@ -1,0 +1,16 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@a",
+      "reason": "entry",
+      "execution": {
+        "lifecycle": "process-main",
+        "runner": "NodeRuntime.runMain"
+      }
+    }
+  ]
+}

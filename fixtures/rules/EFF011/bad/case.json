@@ -1,0 +1,12 @@
+{
+  "description": "EFF011 bad: imports lodash",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF011"
+  ],
+  "exact": true
+}

@@ -1,0 +1,11 @@
+{
+  "description": "workflow-shape-green",
+  "suites": [
+    "workflow-shape",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

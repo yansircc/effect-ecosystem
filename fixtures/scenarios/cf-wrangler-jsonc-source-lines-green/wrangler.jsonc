@@ -1,0 +1,9 @@
+{
+  // compatibility_date = "2020-01-01"
+  "main": "src/index.ts",
+  "compatibility_date": "2025-12-17",
+  "kv_namespaces": [
+    { "binding": "EDGE_KV", "id": "kv-id" }
+  ],
+  "limits": { "cpu_ms": 30 }
+}

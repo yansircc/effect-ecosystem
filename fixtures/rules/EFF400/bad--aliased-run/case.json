@@ -1,0 +1,35 @@
+{
+  "description": "aliased-run-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindings": [
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 2,
+      "lineTextIncludes": "const run = Effect.runPromise"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 3,
+      "lineTextIncludes": "run(program)"
+    }
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:2:EFF400:error",
+    "src/a.ts:3:EFF400:error"
+  ],
+  "expectRuleCounts": {
+    "EFF400": 2
+  }
+}

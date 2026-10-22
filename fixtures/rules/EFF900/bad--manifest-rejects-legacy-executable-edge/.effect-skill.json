@@ -1,0 +1,12 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@a",
+      "reason": "legacy implicit lifecycle"
+    }
+  ]
+}

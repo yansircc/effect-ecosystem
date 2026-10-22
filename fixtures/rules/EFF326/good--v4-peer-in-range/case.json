@@ -1,0 +1,12 @@
+{
+  "description": "v4-peer-in-range-green",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

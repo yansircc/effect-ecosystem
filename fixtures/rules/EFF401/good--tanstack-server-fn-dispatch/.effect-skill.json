@@ -1,0 +1,18 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/handler.ts",
+      "owner": "@tanstack-server-fn-tests",
+      "reason": "TanStack ServerFn handler",
+      "execution": {
+        "lifecycle": "tanstack-server-fn",
+        "runners": [
+          "Effect.runPromise"
+        ]
+      }
+    }
+  ]
+}

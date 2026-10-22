@@ -1,0 +1,16 @@
+{
+  "shape": [
+    "db:pg",
+    "db:mysql",
+    "db:sqlite",
+    "db:d1",
+    "db:clickhouse",
+    "http-server",
+    "http-client",
+    "ai",
+    "rpc",
+    "frontend",
+    "workflow",
+    "node"
+  ]
+}

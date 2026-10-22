@@ -1,0 +1,21 @@
+{
+  "description": "package-presence-all-red",
+  "suites": [
+    "package-presence",
+    "red-green-fixtures",
+    "fixture-coverage"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF300",
+    "EFF301",
+    "EFF302",
+    "EFF303",
+    "EFF304",
+    "EFF310",
+    "EFF311",
+    "EFF312",
+    "EFF321"
+  ]
+}

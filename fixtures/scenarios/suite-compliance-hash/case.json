@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the compliance-hash suite",
+  "suites": [
+    "compliance-hash"
+  ],
+  "suite": "compliance-hash"
+}

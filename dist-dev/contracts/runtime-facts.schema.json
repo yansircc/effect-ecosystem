@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://effect-ecosystem-skill.local/runtime-facts.schema.json",
+  "title": "Runtime facts emitted by scanner signals",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["platform", "compatDate", "compatFlags", "bindings", "entryPoint", "limits", "errors"],
+  "properties": {
+    "platform": { "$ref": "#/$defs/fact" },
+    "compatDate": { "$ref": "#/$defs/fact" },
+    "compatFlags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fact" }
+    },
+    "bindings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bindingFact" }
+    },
+    "entryPoint": { "$ref": "#/$defs/fact" },
+    "limits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/limitFact" }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/errorFact" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "line"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": {},
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+    "bindingFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name", "source"],
+      "properties": {
+        "type": {
+          "enum": [
+            "ai",
+            "d1_database",
+            "durable_object",
+            "kv_namespace",
+            "queue_consumer",
+            "queue_producer",
+            "r2_bucket",
+            "service"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+    "limitFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "source"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "value": {},
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+    "errorFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "source"],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid-wrangler-config",
+            "missing-wrangler-config",
+            "unsupported-wrangler-format"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    }
+  }
+}

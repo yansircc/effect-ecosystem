@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "rules": [
+    {
+      "id": "EFF001",
+      "name": "custom-try",
+      "family": "source",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "custom",
+      "references": [],
+      "facts": [
+        "source.code"
+      ],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "try-statement",
+        "include": [
+          "src/enforced/**"
+        ],
+        "exclude": [
+          "src/enforced/skip.ts"
+        ]
+      }
+    }
+  ]
+}

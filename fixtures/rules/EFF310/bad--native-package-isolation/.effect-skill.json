@@ -1,0 +1,24 @@
+{
+  "packages": [
+    {
+      "path": "packages/a",
+      "shape": [
+        "http-server"
+      ]
+    },
+    {
+      "path": "packages/b",
+      "shape": [
+        "http-server"
+      ]
+    }
+  ],
+  "nativeDependencyBoundaries": [
+    {
+      "package": "packages/a",
+      "dependency": "hono",
+      "owner": "@host-runtime",
+      "reason": "Retained framework router uses Hono objects."
+    }
+  ]
+}

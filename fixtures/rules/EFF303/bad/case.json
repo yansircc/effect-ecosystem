@@ -1,0 +1,12 @@
+{
+  "description": "EFF303 bad: shape db:d1 without the Effect package",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF303"
+  ],
+  "exact": true
+}

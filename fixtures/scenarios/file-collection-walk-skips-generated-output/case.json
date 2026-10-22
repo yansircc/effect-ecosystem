@@ -1,0 +1,13 @@
+{
+  "description": "outside a Git repository the walk skips dist, coverage, .next and the scanner's own dist-dev / dist-installed",
+  "suites": [
+    "candidate-source"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "src/keep.ts"
+  ]
+}

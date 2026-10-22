@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { resolve } from "node:path"
-import { compileContractValidators } from "../validator/lib/contract-validation.js"
+import { compileContractValidators } from "../tools/lib/contract-validation.js"
 
 const contractsDir = resolve(process.cwd(), "contracts")
 const evidenceDir = resolve(contractsDir, "evidence")

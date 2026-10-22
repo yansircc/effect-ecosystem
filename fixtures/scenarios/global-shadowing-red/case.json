@@ -1,0 +1,33 @@
+{
+  "description": "global-shadowing-red",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004",
+    "EFF005",
+    "EFF022",
+    "EFF023",
+    "EFF024",
+    "EFF026",
+    "EFF027",
+    "EFF032"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF003:error",
+    "src/a.ts:2:EFF004:error",
+    "src/a.ts:2:EFF005:error",
+    "src/a.ts:3:EFF022:error",
+    "src/a.ts:4:EFF023:error",
+    "src/a.ts:5:EFF026:error",
+    "src/a.ts:6:EFF032:warning",
+    "src/a.ts:7:EFF024:error",
+    "src/a.ts:8:EFF005:error",
+    "src/a.ts:8:EFF022:error",
+    "src/a.ts:8:EFF026:error",
+    "src/a.ts:8:EFF027:error"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "allowedAdapters": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler main is the terminal Response adapter",
+      "rules": [
+        "EFF402"
+      ]
+    }
+  ],
+  "executableEdges": [
+    {
+      "path": "src/workflow.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler workflow dispatch",
+      "execution": {
+        "lifecycle": "wrangler-workflow",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "workflow": {
+          "className": "TestWorkflow",
+          "methods": [
+            "run"
+          ]
+        }
+      }
+    }
+  ]
+}

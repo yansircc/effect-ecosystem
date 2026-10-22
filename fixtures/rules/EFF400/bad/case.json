@@ -1,0 +1,12 @@
+{
+  "description": "EFF400 bad: Effect.runPromise outside an executable edge",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "exact": true
+}

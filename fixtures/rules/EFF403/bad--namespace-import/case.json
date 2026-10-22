@@ -1,0 +1,13 @@
+{
+  "description": "namespace-import-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "evil-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "description": "EFF025 bad: throw statement",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF025"
+  ],
+  "exact": true
+}

@@ -1,0 +1,17 @@
+{
+  "description": "profile-exit-failing",
+  "suites": [
+    "profile-output",
+    "profile-exit-code",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectProfile": true
+}

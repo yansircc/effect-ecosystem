@@ -1,0 +1,1 @@
+import {Effect} from "effect"; export function observe() { return class Deferred { value = Effect.runFork(Effect.succeed(1)); }; }

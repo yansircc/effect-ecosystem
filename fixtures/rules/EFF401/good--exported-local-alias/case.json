@@ -1,0 +1,11 @@
+{
+  "description": "exported-local-alias-green",
+  "suites": [
+    "exported-function-ownership",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

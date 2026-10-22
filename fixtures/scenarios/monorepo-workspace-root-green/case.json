@@ -1,0 +1,10 @@
+{
+  "description": "monorepo-workspace-root-green",
+  "suites": [
+    "monorepo-dependency-resolution",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

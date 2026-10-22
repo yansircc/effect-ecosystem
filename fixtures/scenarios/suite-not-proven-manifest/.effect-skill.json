@@ -1,0 +1,14 @@
+{
+  "shape": [
+    "library"
+  ],
+  "gate": {
+    "notProven": [
+      {
+        "id": "live-recorded-authored",
+        "owner": "agentOS",
+        "reason": "agentOS architectural invariant outside Effect scanner scope"
+      }
+    ]
+  }
+}

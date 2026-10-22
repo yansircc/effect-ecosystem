@@ -1,0 +1,14 @@
+{
+  "description": "custom-test-http-fixtures-green",
+  "suites": [
+    "platform-constructor-identity",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectRuleCounts": {
+    "EFF402": 0
+  },
+  "exact": true
+}

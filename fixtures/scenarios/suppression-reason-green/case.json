@@ -1,0 +1,9 @@
+{
+  "description": "suppression-reason-green",
+  "suites": [
+    "suppression",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

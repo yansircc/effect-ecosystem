@@ -1,0 +1,12 @@
+{
+  "description": "EFF903 bad: empty shape under --strict",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF903"
+  ],
+  "exact": true
+}

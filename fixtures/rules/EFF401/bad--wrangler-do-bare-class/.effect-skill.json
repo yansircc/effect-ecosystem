@@ -1,0 +1,25 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "executableEdges": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "bare class is not a host binding",
+      "execution": {
+        "lifecycle": "wrangler-do",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "durableObject": {
+          "className": "WorkerDO",
+          "methods": [
+            "project"
+          ]
+        }
+      }
+    }
+  ]
+}

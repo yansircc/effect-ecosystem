@@ -1,0 +1,12 @@
+{
+  "description": "EFF010 bad: imports io-ts",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF010"
+  ],
+  "exact": true
+}

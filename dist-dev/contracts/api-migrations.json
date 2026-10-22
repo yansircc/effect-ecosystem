@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "note": "v3 spellings that no longer exist in the supported Effect line, with their v4 replacement. scripts/check-api-catalog.ts proves every `from` is absent and every `to` is present in contracts/api-catalog.json.",
+  "symbols": [
+    {
+      "from": "Context.Tag",
+      "to": "Context.Service"
+    },
+    {
+      "from": "Context.GenericTag",
+      "to": "Context.Service"
+    },
+    {
+      "from": "Effect.catchAll",
+      "to": "Effect.catch"
+    },
+    {
+      "from": "Option.fromNullable",
+      "to": "Option.fromNullishOr"
+    },
+    {
+      "from": "Effect.validateAll",
+      "to": "Effect.partition"
+    },
+    {
+      "from": "Effect.forkDaemon",
+      "to": "Effect.forkDetach"
+    },
+    {
+      "from": "Layer.toRuntime",
+      "to": "Layer.build"
+    },
+    {
+      "from": "Config.string",
+      "to": "Config.String"
+    },
+    {
+      "from": "DateTime.unsafeNow",
+      "to": "DateTime.nowUnsafe"
+    }
+  ],
+  "packages": [
+    {
+      "from": "@effect/platform",
+      "to": [
+        "effect/http",
+        "effect/FileSystem",
+        "effect/Path"
+      ]
+    },
+    {
+      "from": "@effect/sql",
+      "to": [
+        "effect/sql"
+      ]
+    },
+    {
+      "from": "@effect/rpc",
+      "to": [
+        "effect/rpc"
+      ]
+    },
+    {
+      "from": "@effect/ai",
+      "to": [
+        "effect/ai"
+      ]
+    },
+    {
+      "from": "@effect/workflow",
+      "to": [
+        "effect/workflow"
+      ]
+    },
+    {
+      "from": "@effect/cluster",
+      "to": [
+        "effect/cluster"
+      ]
+    },
+    {
+      "from": "@effect/cli",
+      "to": [
+        "effect/cli"
+      ]
+    },
+    {
+      "from": "@effect/experimental",
+      "to": [
+        "effect/persistence",
+        "effect/eventlog",
+        "effect/reactivity"
+      ]
+    },
+    {
+      "from": "@effect-atom/atom",
+      "to": [
+        "effect/reactivity"
+      ]
+    },
+    {
+      "from": "@effect-atom/atom-react",
+      "to": [
+        "@effect/atom-react",
+        "effect/reactivity"
+      ]
+    }
+  ]
+}

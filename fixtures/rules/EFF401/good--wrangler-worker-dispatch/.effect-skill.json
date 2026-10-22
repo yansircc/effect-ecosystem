@@ -1,0 +1,34 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "allowedAdapters": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler main is the terminal Response adapter",
+      "rules": [
+        "EFF402"
+      ]
+    }
+  ],
+  "executableEdges": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler default dispatch",
+      "execution": {
+        "lifecycle": "wrangler-worker",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "worker": {
+          "methods": [
+            "fetch"
+          ]
+        }
+      }
+    }
+  ]
+}

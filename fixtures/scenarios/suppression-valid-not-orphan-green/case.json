@@ -1,0 +1,10 @@
+{
+  "description": "suppression-valid-not-orphan-green",
+  "suites": [
+    "suppression-drift",
+    "red-green-fixtures"
+  ],
+  "failOnSuppressionDrift": true,
+  "expectExit": 0,
+  "expectRules": []
+}

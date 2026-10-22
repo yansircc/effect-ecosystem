@@ -1,0 +1,12 @@
+{
+  "description": "EFF027 bad: process.env",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF027"
+  ],
+  "exact": true
+}

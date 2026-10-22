@@ -1,0 +1,14 @@
+{
+  "shape": [
+    "library"
+  ],
+  "allowedAdapters": [
+    {
+      "path": "src/a.ts",
+      "rules": [
+        "EFF402"
+      ],
+      "reason": "x"
+    }
+  ]
+}

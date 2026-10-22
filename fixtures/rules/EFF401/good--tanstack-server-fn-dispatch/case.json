@@ -1,0 +1,10 @@
+{
+  "description": "tanstack-server-fn-dispatch-green",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

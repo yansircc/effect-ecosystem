@@ -1,0 +1,23 @@
+{
+  "description": "native-package-isolation-red",
+  "suites": [
+    "native-dependency-boundaries",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF310"
+  ],
+  "expectRuleCounts": {
+    "EFF310": 1
+  },
+  "exact": true,
+  "expectFindings": [
+    {
+      "ruleId": "EFF310",
+      "file": "packages/b/package.json",
+      "messageIncludes": "hono"
+    }
+  ]
+}

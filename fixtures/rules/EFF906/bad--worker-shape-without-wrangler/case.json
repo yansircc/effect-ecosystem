@@ -1,0 +1,14 @@
+{
+  "description": "worker-shape-without-wrangler-red",
+  "suites": [
+    "worker-shape-ambiguity",
+    "package-presence",
+    "fixture-coverage",
+    "evil-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF906"
+  ]
+}

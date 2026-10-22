@@ -1,0 +1,12 @@
+{
+  "description": "EFF304 bad: shape db:clickhouse without the Effect package",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF304"
+  ],
+  "exact": true
+}

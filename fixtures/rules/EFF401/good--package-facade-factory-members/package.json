@@ -1,0 +1,17 @@
+{
+  "name": "@scope/runtime",
+  "exports": {
+    "./local": {
+      "types": "./src/local.ts",
+      "default": "./src/local.ts"
+    }
+  },
+  "dependencies": {
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "description": "workspace-root-leak",
+  "suites": [
+    "monorepo-dependency-resolution",
+    "evil-monorepo-root-leak",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF312"
+  ]
+}

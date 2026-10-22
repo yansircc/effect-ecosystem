@@ -1,0 +1,42 @@
+{
+  "description": "ai-owned-transport-green",
+  "suites": [
+    "package-presence",
+    "profile-output",
+    "profile-required-references",
+    "atomic-signals",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "ai-runtime-facts",
+    "observability-wiring-facts"
+  ],
+  "expectRequiredReferences": [
+    "references/effect-ai.md §Provider ownership",
+    "references/observability.md §4. 导出 telemetry"
+  ],
+  "expectRequiredReferenceCount": 2,
+  "expectSignalFacts": [
+    {
+      "kind": "ai-runtime-facts",
+      "facts": {
+        "hasEffectAiDependency": true,
+        "effectAiProviderPackages": [],
+        "directProviderSdkDependencies": []
+      }
+    }
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "ai-runtime-facts",
+      "paths": {
+        "facts.declaredProviderTransports.0.path": "src/provider-transport.ts",
+        "facts.declaredProviderTransports.0.owner": "@ai-transport"
+      }
+    }
+  ]
+}

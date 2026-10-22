@@ -1,0 +1,13 @@
+{
+  "description": "EFF907 bad: dependency owner is outside the workspace",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF907"
+  ],
+  "exact": true,
+  "scanPath": "apps/runtime"
+}

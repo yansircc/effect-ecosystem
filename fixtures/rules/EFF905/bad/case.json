@@ -1,0 +1,12 @@
+{
+  "description": "EFF905 bad: wrangler.toml is not a supported runtime fact source",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF905"
+  ],
+  "exact": true
+}

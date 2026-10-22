@@ -1,0 +1,16 @@
+{
+  "description": "EFF502 bad: Effect error missing from the expected type",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF502"
+  ],
+  "exact": true,
+  "allowCompileErrors": [
+    "TS2322"
+  ],
+  "allowCompileErrorsReason": "the Effect language service reports this rule on an assignment that is also a TS2322 compile error; the compile error is the diagnostic under test"
+}

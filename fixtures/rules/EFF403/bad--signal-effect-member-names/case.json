@@ -1,0 +1,22 @@
+{
+  "description": "signal-effect-member-names",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ],
+  "expectSignalCount": 9,
+  "allowCompileErrors": [
+    "TS1192",
+    "TS2339",
+    "TS2420",
+    "TS2559",
+    "TS2635"
+  ],
+  "allowCompileErrorsReason": "adversarial member-name fixture: Effect members are spelled through aliases, optional chains, element access, JSX and heritage clauses that are not valid API (`Schedule.Foo`, a default import of effect/Effect) because the subject is name recognition, not API validity"
+}

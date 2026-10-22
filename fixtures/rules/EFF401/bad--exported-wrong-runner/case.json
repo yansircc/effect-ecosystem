@@ -1,0 +1,13 @@
+{
+  "description": "exported-wrong-runner-red",
+  "suites": [
+    "exported-function-ownership",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "exact": true
+}

@@ -1,0 +1,557 @@
+# Scanner v2 Manifest And Agent Workflow
+
+Scanner v2 has three outputs with different authority:
+
+- `findings`: deterministic, mechanically falsifiable evidence. Error findings
+  decide exit code; warning findings are report-only.
+- `profile`: resolved routing state for the reviewer. It is not a semantic
+  verdict.
+- `signals`: atomic observations for agent review. They never prove the review
+  is complete.
+
+`effect-scan --strict` passing means the mechanical layer found no
+violations. It does not mean the agent completed the semantic review required by
+`SKILL.md`.
+
+Gate actionability is fixed: error findings are `BLOCK`, warning findings are
+`REPORT`, and signals are `REVIEW`.
+
+## Manifest
+
+Every strict target needs `.effect-skill.json`.
+
+Single package:
+
+```json
+{
+  "shape": ["http-server", "db:pg", "node"],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@runtime",
+      "reason": "node entry",
+      "execution": {
+        "lifecycle": "process-main",
+        "runner": "NodeRuntime.runMain"
+      }
+    }
+  ],
+  "allowedAdapters": [
+    {
+      "path": "src/platform/http-edge.ts",
+      "owner": "@platform",
+      "reason": "terminal HTTP adapter",
+      "rules": ["EFF402"]
+    }
+  ],
+  "aiProviderTransports": [
+    {
+      "path": "src/ai/provider-transport.ts",
+      "owner": "@ai-transport",
+      "reason": "terminal provider HTTP transport; @effect/ai owns loop semantics"
+    }
+  ]
+}
+```
+
+Every executable edge declares exactly one terminal execution lifecycle. The
+manifest grammar is a hard cut; legacy `{ path, owner, reason }` entries are
+invalid rather than inferred from source text.
+
+Process entry points declare `process-main` with one of
+`NodeRuntime.runMain`, `BunRuntime.runMain`, or `BrowserRuntime.runMain`. Host
+framework registrars declare a non-empty unique set of exact named imports and
+callback positions. Singular `runner` / `host` grammar is not accepted:
+
+```json
+{
+  "path": "src/backend-conformance-registrar.ts",
+  "owner": "@runtime-tests",
+  "reason": "host test callback owns terminal Effect execution",
+  "execution": {
+    "lifecycle": "host-callback",
+    "runners": ["Effect.runPromise"],
+    "hosts": [
+      {
+        "module": "vite-plus/test",
+        "export": "beforeAll",
+        "callbackArgument": 0
+      },
+      {
+        "module": "vite-plus/test",
+        "export": "afterAll",
+        "callbackArgument": 0
+      }
+    ]
+  }
+}
+```
+
+Package facades bind execution to the exact package name, export subpath target,
+exported factory, and runner-owning factory members:
+
+```json
+{
+  "path": "src/local.ts",
+  "owner": "@runtime",
+  "reason": "public local Promise and Response facade",
+  "execution": {
+    "lifecycle": "package-facade",
+    "runners": ["Effect.runFork", "Effect.runPromise"],
+    "package": {
+      "name": "@scope/runtime",
+      "subpath": "./local",
+      "export": "createRuntime",
+      "members": [
+        { "kind": "factory" },
+        { "kind": "factory-local", "name": "commit" },
+        { "kind": "returned", "path": "runtime.submit" }
+      ]
+    }
+  }
+}
+```
+
+Every string target under the declared package export condition map must resolve
+directly to the edge file; a re-export bridge is not execution proof. The
+exported factory must directly return one object facade. A `factory-local`
+member is a referenced `const` function declared directly in that factory;
+module helpers are not admitted. A `returned` member is a direct callable at
+the exact returned object path. A bare exported Promise function is not a
+package facade.
+
+Wrangler Durable Objects derive the config path from the owning package's one
+`wranglerPath` fact, then bind `main`, a local (no `script_name`)
+`durable_objects.bindings[].class_name`, the exact exported class, and its
+runner-owning public methods:
+
+```json
+{
+  "path": "src/worker.ts",
+  "owner": "@worker",
+  "reason": "Wrangler-bound Durable Object",
+  "execution": {
+    "lifecycle": "wrangler-do",
+    "runners": ["Effect.runPromise", "Effect.runPromiseExit"],
+    "durableObject": {
+      "className": "WorkerDO",
+      "methods": ["project", "inspect"]
+    }
+  }
+}
+```
+
+For every host-managed variant, `runners` is the exact non-empty unique set of
+terminal runner forms present in the file. Every declared member or host binding
+must own a call, and every terminal call must be directly owned exactly once.
+
+The scanner proves the declared import binding and AST lifecycle position.
+Immutable object aliases, destructured members, direct member aliases, and
+aliased named imports retain their import origin. Lexically shadowed locals do
+not inherit that origin. Unresolved terminal-looking calls fail closed.
+Comments, strings, a different module/export, a different callback argument,
+nested callbacks, and additional uncovered `Effect.run*` calls do not satisfy
+the contract.
+
+Single-package Cloudflare targets can add top-level `wranglerPath`. Monorepos
+declare `wranglerPath` on each package, relative to that package root, so each
+Worker has one runtime fact source.
+Only `wrangler.json` and `wrangler.jsonc` are supported until a real TOML parser
+with source positions owns TOML.
+
+Monorepos use `packages[]`. `dependencyOwner: "workspace-root"` means the
+workspace root owns dependency intent for that package; otherwise the package
+local `package.json` is the dependency owner. When scanning a workspace package
+directly, the scanner discovers the nearest containing `pnpm-workspace.yaml`,
+verifies package membership, and uses that root for dependencies and tooling.
+
+`worker` is not a semantic profile by itself. A package that declares
+`shape: ["worker"]` must also declare `wranglerPath`; otherwise the scanner
+emits `EFF906` because the runtime role is ambiguous.
+
+Targets may append product-specific non-proof boundaries to the gate summary:
+
+```json
+{
+  "shape": ["library"],
+  "gate": {
+    "notProven": [
+      {
+        "id": "live-recorded-authored",
+        "owner": "agentOS",
+        "reason": "agentOS architecture invariant outside Effect scanner scope"
+      }
+    ]
+  }
+}
+```
+
+The scanner default `notProven` list contains only generic categories such as
+type-level limits beyond LSP, runtime behavior, and architecture boundaries.
+Product-specific names belong in the target manifest, not scanner code.
+
+## Contract Owners
+
+Growing scanner contract enumerations must live in a checked owner. Unchecked
+prose is not a contract surface.
+
+### Manifest grammar owner
+
+`validator/manifest.schema.json` is the runtime grammar owner for
+`.effect-skill.json`. `loadManifest` applies it through Ajv before
+normalization. Runtime code does not maintain a parallel handwritten manifest
+shape. `executableEdges[].execution` is a discriminated `process-main |
+host-callback | package-facade | wrangler-do` contract. The Effect runner enum
+and runner-set uniqueness are owned only by this schema; execution validation
+derives its terminal inventory from that enum and routes each discriminant
+through one verifier dispatch table before applying the shared ownership gate.
+
+### Contract Owner: rules
+
+`contracts/rules.json` owns every rule family, fact requirement, scanner plan,
+and finding metadata. Runtime registration and generated docs derive from it.
+
+### Contract Owner: signals
+
+`contracts/signals.schema.json` owns signal kinds, required top-level fields,
+fact schemas, `skill_ref`, and `agent_action`.
+
+### Contract Owner: effect-capabilities
+
+`contracts/effect-capabilities.json` owns the version-indexed Effect target
+capability, its exact TypeScript and diagnostics prerequisite, package
+requirement, import-root, and runtime-adapter boundary.
+
+### Contract Owner: scan-evidence
+
+`contracts/scan-evidence.schema.json` owns `ScanEvidenceV2`. The hash-stable
+input subtree is `target + resolution + capabilities + references`; references
+are the exact finding and signal sections required for this scan, not a profile
+or global preload list. Scanner provenance is stored separately and only
+affects `fullHash`.
+
+### Contract Owner: gate-summary
+
+`contracts/gate-summary.schema.json` owns the CST/CI gate projection. It is
+derived from raw scan output and scan evidence; it must not recompute resolver
+or provenance facts.
+
+## Strict Contract
+
+`--strict` has no fallback:
+
+### EFF000 missing-manifest
+
+Missing `.effect-skill.json` is an infra error.
+
+### EFF900 invalid-manifest
+
+Invalid manifest JSON or schema shape is an infra error.
+
+### EFF901 missing-tsc
+
+Strict mode requires the exact project-local TypeScript version selected by the
+resolved Effect major. Effect 3 requires TypeScript 6.0.3; Effect 4 requires
+TypeScript 7.0.2 patched by `@effect/tsgo@0.21.0`.
+
+### EFF902 missing-effect-diagnostics-provider
+
+Effect 4 strict mode requires project-local `@effect/tsgo@0.21.0`. Effect 3 has
+no diagnostics-provider prerequisite. The selected major contract has no
+fallback to another toolchain.
+
+### EFF903 empty-shape
+
+Strict mode requires at least one declared package shape.
+
+Profile routing has no fallback. The resolver separates declared intent from
+installed reality:
+
+- `declaredMajor`: manifest dependency owner -> `package.json` range. For pnpm
+  workspaces, `catalog:` and `catalog:<name>` specs are resolved through the
+  workspace root `pnpm-workspace.yaml` `catalog` / `catalogs` entries before
+  version-major classification.
+- `installedMajor`: supported lockfile -> local non-symlink
+  `node_modules/effect/package.json`.
+- comparison: `matched | conflict | declared-only | installed-only |
+  unresolved`.
+
+If gate output `effect.resolution` is `unresolved`, fix dependency ownership
+before semantic review. If it is `conflict`, fix the declared/installed major
+drift before trusting v3-only or v4-only findings.
+
+## Package And Capability Rules
+
+### EFF300 pg-without-effect-sql
+
+`db:pg` must be owned by the Effect SQL capability for the resolved Effect
+major.
+
+### EFF301 mysql-without-effect-sql
+
+`db:mysql` must be owned by the Effect SQL capability for the resolved Effect
+major.
+
+### EFF302 sqlite-without-effect-sql
+
+`db:sqlite` must be owned by the Effect SQL capability for the resolved Effect
+major.
+
+### EFF304 clickhouse-without-effect-sql
+
+`db:clickhouse` must be owned by the Effect SQL capability for the resolved
+Effect major.
+
+### EFF310 http-server-without-effect-platform
+
+HTTP server capability must follow the resolved major contract. v3 requires
+`@effect/platform` plus an adapter; v4 may be satisfied by the v4 `effect`
+unstable HTTP capability.
+
+### EFF311 http-client-without-effect-platform
+
+HTTP client capability must follow the resolved major contract and avoid direct
+HTTP client libraries.
+
+### EFF312 ai-without-effect-ai
+
+AI capability must be owned by `@effect/ai` in v3 or the v4 capability
+contract. Provider SDKs are terminal adapters only.
+
+### EFF315 frontend-without-effect-atom
+
+Frontend React state integration still requires a proven React adapter. v4
+browser runtime proof is not React integration proof.
+
+### EFF321 missing-effect-vitest
+
+Any non-empty shape requires `@effect/vitest` in `devDependencies`.
+
+### EFF323 v4-opentelemetry-missing-peer
+
+OpenTelemetry export is an explicit capability, not an implication of an
+application shape. Projects without an external telemetry sink do not need
+`@effect/opentelemetry`. When a project installs it, the package requires the
+peer closure declared by its installed `package.json#peerDependencies`.
+
+### EFF324 effect-version-conflict
+
+Declared and installed Effect major versions disagree. The scanner emits this
+finding and pauses version-gated package rules until dependency reality matches
+declared intent.
+
+### EFF908 unsupported-effect-version
+
+Effect must satisfy the range declared for its major. Unknown majors, ambiguous
+ranges, and unverified future lines fail closed before semantic rule projection.
+
+## Executable And Adapter Rules
+
+### EFF200 effect-test-without-effect-vitest
+
+Effect tests must use `@effect/vitest`.
+
+### EFF400 run-outside-executable-edge
+
+Terminal `Effect.run*` calls are derived from the TypeScript AST and import
+bindings. They are only allowed in manifest-owned executable edges. EFF400 is a
+positive admission rule and cannot be suppressed by line comments,
+`generatedPaths`, or `allowedAdapters`.
+
+The current terminal inventory is `runCallback`, `runCallbackWith`, `runFork`,
+`runForkWith`, `runPromise`, `runPromiseWith`, `runPromiseExit`,
+`runPromiseExitWith`, `runSync`, `runSyncWith`, `runSyncExit`, and
+`runSyncExitWith`.
+
+### EFF401 edge-execution-contract-mismatch
+
+An executable edge must prove its declared lifecycle from AST bindings and
+nesting. `process-main` requires exactly one exact imported runtime runner at
+module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
+named host import and callback position. `package-facade` proves the package
+manifest subpath, exported object factory, and its direct runner-owning members.
+`wrangler-do` proves JSONC `main`, Durable Object `class_name`, exported class,
+and direct public method ownership. Host-managed runner sets must exactly equal
+the bound calls, with complete unique coverage. Duplicate contracts for one path
+are invalid. EFF401 cannot be suppressed.
+
+### EFF402 platform-constructor-outside-adapter
+
+Platform constructors such as `Response`, `Request`, `WebSocket`, and
+`EventSource` are only allowed in manifest-owned adapters.
+
+### EFF403 namespace-import-effect
+
+Namespace imports from `effect` or `@effect/*` are forbidden.
+
+### EFF404 dynamic-import-require-in-src
+
+`require()` and top-level dynamic `import()` are forbidden in source files.
+
+### EFF905 invalid-runtime-fact-source
+
+Declared runtime fact source could not be read as supported facts.
+
+### EFF906 ambiguous-worker-shape
+
+`shape: ["worker"]` is ambiguous without a runtime fact source such as
+`wranglerPath`.
+
+### EFF907 workspace-owner-outside-workspace
+
+`dependencyOwner: "workspace-root"` is invalid unless the scan target is the
+workspace root or matches its declared `pnpm-workspace.yaml` package globs.
+
+## LSP Rules
+
+`EFF500`-`EFF503` are emitted only from the major-matched Effect diagnostics provider; the scanner
+does not reimplement Effect typeflow.
+
+## Agent Workflow
+
+1. Run `effect-scan <repo> --strict --output gate-json --evidence <dir>`
+   when the task touches Effect or as its delivery gate; do not run it merely
+   because the repository depends on Effect.
+2. Read only the exact `path §heading` entries in
+   `effect.requiredReferences`. They derive from emitted findings and signals;
+   an empty array requires no reference loading.
+3. Treat error findings as mechanical blockers. Warning findings are report-only.
+4. If Effect support is unresolved, stop and repair the
+   dependency owner or install state before version-gated semantic review.
+5. Treat signals as review prompts. Their `skill_ref` values are already
+   projected into `requiredReferences`; compare each fact to the code and write
+   an explicit judgment.
+6. Record `gate-summary.json` in CST/CI evidence and keep raw JSON as an
+   artifact path. Do not paste full raw JSON into task evidence.
+7. Do not batch-fix signals by name. A signal is an atomic fact, not a verdict.
+
+## Agent Review Signals
+
+### Signal: cloudflare-runtime-facts
+
+Reports supported `wranglerPath` facts per package: platform, compatibility
+date, flags, entry point, bindings, limits, and source-positioned parse errors.
+
+### Signal: http-api-boundary-file
+
+Reports files containing HttpApi tokens and whether Schema imports are visible.
+
+### Signal: rpc-boundary-file
+
+Reports files containing RPC boundary tokens and whether Schema imports are
+visible.
+
+### Signal: library-exported-effect-file
+
+Reports exported library Effect files that contain Effect tokens and no visible
+`Effect.withSpan` token.
+
+### Signal: library-exported-effect-package
+
+Reports one package-level rollup for exported library Effect files, including
+counts with and without visible span tokens.
+
+### Signal: ai-runtime-facts
+
+Reports AI dependency presence, Effect AI provider packages, manifest-declared
+provider transports, and direct provider SDK dependencies.
+
+### Signal: observability-wiring-facts
+
+Reports dependency presence and discovered `@effect/opentelemetry` layer
+factories such as `NodeSdk.layer`, `WebSdk.layer`, or `Otlp.layer`.
+
+### Signal: resilience-boundary-file
+
+Reports retry/repeat calls, Schedule members, and no semantic judgment about
+whether jitter is required.
+
+### Signal: pubsub-ordering-file
+
+Reports PubSub calls and constructors. Subscriber ordering is reviewed by the
+agent against replay requirements.
+
+## Evidence Bundle
+
+`effect-scan <repo> --strict --output gate-json --evidence <dir>` writes:
+
+- `scan-evidence.json`
+- `scan-result.json`
+- `gate-summary.json`
+- `input.sha256`
+- `full.sha256`
+
+`input.sha256` covers only `target + resolution + capabilities + references`
+and is the target-state replay/debug hash. The references axis changes only
+when findings or review signals require different evidence. `full.sha256` covers the whole
+evidence record, including scanner `build-info.json`, and is the audit hash.
+
+`gate-summary.json` is the CST/CI consumption surface. It contains
+`ok = errors === 0`, block/report/review tiers, scanner provenance references,
+and `complianceHash`.
+
+`--output` and `--evidence` are orthogonal. `--output gate-json` writes the
+gate summary to stdout and is valid without `--evidence`; in that case
+`artifacts` is `null`. `--evidence` writes the bundle above and does not decide
+stdout. Without an explicit `--output`, TTY stdout defaults to `human`, while
+non-TTY stdout defaults to `gate-json`. `--output raw-json` is available for
+debugging but is never the default. The removed `--json` flag is a usage error.
+
+`complianceHash` hashes normalized block/report findings plus scanner build id.
+It is comparable only when `scanner.buildId` is equal. If the scanner build
+changes, re-baseline the gate instead of treating the hash as comparable. Dirty
+scanner builds are not reproducible acceptance evidence.
+
+`complianceHash`, `input.sha256`, and `full.sha256` do not include stdout mode,
+artifact paths, whether `--evidence` was used, or temporary directories.
+
+## Timings And Cache
+
+`--timings` adds non-deterministic stage timings to the scan result. Timings are
+debug telemetry only; they must not enter `input.sha256` or any other
+hash-stable target-state oracle.
+
+Strict Effect diagnostics remain part of `--strict`. The scanner may cache provider diagnostics by
+full tsconfig program closure, Effect version, TypeScript version, provider kind/version, package metadata,
+lockfile content, repo-relative program paths, and program file content. It must
+not use mtime as a cache correctness input. Cache provenance is scanner
+provenance: it can affect `full.sha256`, but it must not affect `input.sha256`.
+
+The diagnostics mapping proof guards rename drift for diagnostics the scanner maps into
+EFF500-EFF503. It does not claim full coverage of every diagnostic currently
+emitted by the selected provider; unmapped diagnostics are signal candidates
+for future rule graduation, not current scanner failures.
+
+## Suppression
+
+Line suppression requires a reason and applies only to diagnostic rules that do
+not establish positive boundary admission:
+
+```ts
+try { work() } catch (error) {} // eff-ignore EFF001 reason="legacy adapter"
+```
+
+EFF400 and EFF401 are never suppressible. Declare and satisfy an
+`executableEdges[].execution` contract instead.
+
+Manifest path suppression requires owner and reason:
+
+```json
+{
+  "allowedAdapters": [
+    {
+      "path": "src/platform/http-edge.ts",
+      "owner": "@platform",
+      "reason": "only terminal adapter may construct Response",
+      "rules": ["EFF402"]
+    }
+  ]
+}
+```
+
+`allowedAdapters.path` uses the same glob matcher as generated and host-tooling
+paths, so one owner entry can cover a coherent adapter family such as
+`src/lib/**/*.test.ts`.
+
+Use `--fail-on-suppression-drift` to reject expired, orphaned, or ownerless
+suppressions.

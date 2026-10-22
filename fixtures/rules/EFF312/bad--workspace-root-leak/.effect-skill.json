@@ -1,0 +1,10 @@
+{
+  "packages": [
+    {
+      "path": "apps/web",
+      "shape": [
+        "ai"
+      ]
+    }
+  ]
+}

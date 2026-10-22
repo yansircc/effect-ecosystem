@@ -1,0 +1,25 @@
+{
+  "description": "cf-nodejs-compat-not-node-verdict-red",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "signals-no-semantic-verdicts",
+    "cheapest-plausible-lies"
+  ],
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ],
+  "expectForbiddenActiveProfiles": [
+    "node"
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "compatFlags.0.value": "nodejs_compat"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "catalog:toolchain",
+    "@effect/tsgo": "catalog:toolchain"
+  }
+}

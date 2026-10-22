@@ -1,0 +1,90 @@
+{
+  "description": "effect-terminal-runner-coverage-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectRuleCounts": {
+    "EFF400": 12
+  },
+  "expectFindings": [
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 2,
+      "lineTextIncludes": "runCallback(a)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 3,
+      "lineTextIncludes": "runCallbackWith"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 4,
+      "lineTextIncludes": "runFork(b)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 5,
+      "lineTextIncludes": "runForkWith"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 6,
+      "lineTextIncludes": "runPromise(c)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 7,
+      "lineTextIncludes": "runPromiseWith"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 8,
+      "lineTextIncludes": "runPromiseExit(d)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 9,
+      "lineTextIncludes": "runPromiseExitWith"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 10,
+      "lineTextIncludes": "runSync(e)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 11,
+      "lineTextIncludes": "runSyncWith"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 12,
+      "lineTextIncludes": "runSyncExit(f)"
+    },
+    {
+      "ruleId": "EFF400",
+      "file": "src/a.ts",
+      "line": 13,
+      "lineTextIncludes": "runSyncExitWith"
+    }
+  ]
+}

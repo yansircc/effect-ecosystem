@@ -1,0 +1,14 @@
+{
+  "description": "unpatched-ts7-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF901"
+  ],
+  "exact": true
+}

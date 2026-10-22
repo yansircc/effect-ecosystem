@@ -1,0 +1,10 @@
+{
+  "description": "legacy-test-excluded-green",
+  "suites": [
+    "legacy-line-rules",
+    "file-classifier",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

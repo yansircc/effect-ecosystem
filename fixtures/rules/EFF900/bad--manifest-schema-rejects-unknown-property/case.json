@@ -1,0 +1,12 @@
+{
+  "description": "manifest-schema-rejects-unknown-property",
+  "suites": [
+    "manifest-schema",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ]
+}

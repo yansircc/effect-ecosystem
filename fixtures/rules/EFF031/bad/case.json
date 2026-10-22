@@ -1,0 +1,12 @@
+{
+  "description": "EFF031 bad: imports moment (warning)",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [
+    "EFF031"
+  ],
+  "exact": true
+}

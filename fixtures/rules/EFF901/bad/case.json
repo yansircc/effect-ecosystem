@@ -1,0 +1,12 @@
+{
+  "description": "EFF901 bad: declared TypeScript major is not 7",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF901"
+  ],
+  "exact": true
+}

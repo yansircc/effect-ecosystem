@@ -1,0 +1,6 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc"
+}

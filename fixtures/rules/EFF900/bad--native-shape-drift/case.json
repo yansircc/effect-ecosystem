@@ -1,0 +1,14 @@
+{
+  "description": "native-shape-drift-red",
+  "suites": [
+    "native-dependency-boundaries",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectRuleCounts": {},
+  "exact": true
+}

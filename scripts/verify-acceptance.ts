@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { supportedToolchain } from "../validator/lib/effect-capabilities.js"
+import { supportedToolchain } from "../tools/lib/effect-capabilities.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = mkdtempSync("/tmp/effect-skill-v4-acceptance-")

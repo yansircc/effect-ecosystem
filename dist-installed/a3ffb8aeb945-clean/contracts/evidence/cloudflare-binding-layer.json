@@ -1,0 +1,44 @@
+{
+  "friction": "cloudflare-d1-binding-to-layer-request-scope",
+  "owner": "reference",
+  "runtimeFacts": {
+    "platform": {
+      "value": "cloudflare-worker",
+      "source": { "path": "wrangler.jsonc", "line": 1 }
+    },
+    "compatDate": {
+      "value": "2025-12-17",
+      "source": { "path": "wrangler.jsonc", "line": 2 }
+    },
+    "compatFlags": [
+      {
+        "value": "nodejs_compat",
+        "source": { "path": "wrangler.jsonc", "line": 3 }
+      }
+    ],
+    "entryPoint": {
+      "value": "src/index.ts",
+      "source": { "path": "wrangler.jsonc", "line": 4 }
+    },
+    "bindings": [
+      {
+        "type": "d1_database",
+        "name": "DB",
+        "source": { "path": "wrangler.jsonc", "line": 5 }
+      }
+    ],
+    "limits": [],
+    "errors": []
+  },
+  "verdict": "supported",
+  "validUnder": {
+    "compatDate": "2025-12-17",
+    "flags": ["nodejs_compat"]
+  },
+  "proofCommand": "wrangler dev --config wrangler.jsonc --local --port 8799 && curl -fsS http://127.0.0.1:8799/",
+  "negativeCase": "Capturing env.DB at import time is rejected because Worker bindings are only supplied to the fetch handler runtime.",
+  "artifactChanges": [
+    "references/runtime-boundaries.md Cloudflare Binding To Layer"
+  ],
+  "removalCondition": "Replace this example when the scanner owns Cloudflare binding-to-Layer wiring verification."
+}

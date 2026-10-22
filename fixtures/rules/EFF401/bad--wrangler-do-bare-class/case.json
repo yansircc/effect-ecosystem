@@ -1,0 +1,22 @@
+{
+  "description": "wrangler-do-bare-class-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "expectFindings": [
+    {
+      "ruleId": "EFF401",
+      "count": 1,
+      "file": "src/worker.ts",
+      "line": 1,
+      "messageIncludes": "is not a class defined and exported by the edge file"
+    }
+  ]
+}

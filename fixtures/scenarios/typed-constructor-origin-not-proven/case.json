@@ -1,0 +1,19 @@
+{
+  "description": "typed-constructor-origin-not-proven",
+  "suites": [
+    "platform-constructor-identity",
+    "red-green-fixtures"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": [],
+  "expectNotProven": [
+    "src/typed.test.ts:1:EFF402",
+    "src/typed.test.ts:3:EFF402",
+    "src/typed.test.ts:6:EFF402",
+    "src/typed.test.ts:8:EFF402",
+    "src/typed.test.ts:9:EFF402",
+    "src/typed.test.ts:11:EFF402"
+  ]
+}

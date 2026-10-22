@@ -1,0 +1,30 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/local.ts",
+      "owner": "@runtime",
+      "reason": "runner set must be exact",
+      "execution": {
+        "lifecycle": "package-facade",
+        "runners": [
+          "Effect.runPromise",
+          "Effect.runPromiseExit"
+        ],
+        "package": {
+          "name": "@scope/runtime",
+          "subpath": "./local",
+          "export": "createRuntime",
+          "members": [
+            {
+              "kind": "factory-local",
+              "name": "commit"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

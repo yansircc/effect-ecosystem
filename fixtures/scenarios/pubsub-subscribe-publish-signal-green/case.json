@@ -1,0 +1,29 @@
+{
+  "description": "pubsub-subscribe-publish-signal-green",
+  "suites": [
+    "pubsub-signals",
+    "atomic-signals",
+    "red-green-fixtures"
+  ],
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "pubsub-ordering-file"
+  ],
+  "expectSignalFacts": [
+    {
+      "kind": "pubsub-ordering-file",
+      "facts": {
+        "calls": [
+          "PubSub.bounded",
+          "PubSub.publish",
+          "PubSub.subscribe"
+        ],
+        "pubsubConstructors": [
+          "PubSub.bounded"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "native-missing-and-forbidden-are-atomic-red",
+  "suites": [
+    "native-dependency-boundaries",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF310"
+  ],
+  "expectRuleCounts": {
+    "EFF310": 3
+  },
+  "exact": true
+}

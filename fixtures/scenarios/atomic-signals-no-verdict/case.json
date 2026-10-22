@@ -1,0 +1,16 @@
+{
+  "description": "atomic-signals-no-verdict",
+  "suites": [
+    "atomic-signals",
+    "signals-no-semantic-verdicts"
+  ],
+  "strict": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "http-api-boundary-file",
+    "library-exported-effect-file",
+    "library-exported-effect-package"
+  ]
+}

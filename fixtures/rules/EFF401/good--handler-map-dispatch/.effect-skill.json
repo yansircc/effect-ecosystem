@@ -1,0 +1,21 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/handlers.ts",
+      "owner": "@http-tests",
+      "reason": "HTTP handler map",
+      "execution": {
+        "lifecycle": "handler-map",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "handlerMap": {
+          "factory": "handlers"
+        }
+      }
+    }
+  ]
+}

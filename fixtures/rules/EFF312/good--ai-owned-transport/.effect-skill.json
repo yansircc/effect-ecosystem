@@ -1,0 +1,12 @@
+{
+  "shape": [
+    "ai"
+  ],
+  "aiProviderTransports": [
+    {
+      "path": "src/provider-transport.ts",
+      "owner": "@ai-transport",
+      "reason": "terminal provider HTTP transport"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "generated-path-cannot-admit-run-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ]
+}

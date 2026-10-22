@@ -1,0 +1,1602 @@
+{
+  "schemaVersion": 2,
+  "retiredRuleIds": [
+    "EFF017",
+    "EFF018",
+    "EFF019",
+    "EFF315"
+  ],
+  "defaults": {
+    "include": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.mts",
+      "**/*.cts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs"
+    ],
+    "exclude": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/*.test.tsx",
+      "**/*.spec.tsx",
+      "**/*.test.mts",
+      "**/*.spec.mts",
+      "**/*.test.cts",
+      "**/*.spec.cts",
+      "**/*.test.js",
+      "**/*.spec.js",
+      "**/*.test.jsx",
+      "**/*.spec.jsx",
+      "**/*.test.mjs",
+      "**/*.spec.mjs",
+      "**/*.test.cjs",
+      "**/*.spec.cjs",
+      "**/*.d.ts",
+      "**/*.d.mts",
+      "**/*.d.cts"
+    ]
+  },
+  "rules": [
+    {
+      "id": "EFF000",
+      "name": "missing-manifest",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "--strict requires .effect-skill.json",
+      "references": [
+        "references/scanner-manifest.md §EFF000 missing-manifest"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF001",
+      "name": "raw-try-catch",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "try-statement"
+      },
+      "family": "source",
+      "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 try 语句(Effect.try/tryPromise/promise/sync 边界回调内除外)",
+        "blindSpots": [
+          "Promise 的 .catch()/.then() 错误处理不被检查",
+          "经变量间接传给 Effect 边界的回调按普通函数处理(可能误报,不会漏报)",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF002",
+      "name": "async-function",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "async-function"
+      },
+      "family": "source",
+      "message": "禁用 async function。改写为 Effect.gen(function* () { ... }) + yield*",
+      "facts": [
+        "source.syntax"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 async function/方法声明(Effect 边界回调内除外)",
+        "blindSpots": [
+          "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF003",
+      "name": "async-arrow",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "async-arrow"
+      },
+      "family": "source",
+      "message": "禁用 async 箭头函数。改写为 Effect.gen + yield*",
+      "facts": [
+        "source.syntax"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 async 箭头函数(Effect 边界回调内除外)",
+        "blindSpots": [
+          "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF004",
+      "name": "await-keyword",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "await"
+      },
+      "family": "source",
+      "message": "禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain",
+      "facts": [
+        "source.syntax"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 await/for await/await using(Effect 边界回调内除外)",
+        "blindSpots": [
+          "Promise .then() 链式等待不被识别",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF005",
+      "name": "promise-static",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "promise-combinator"
+      },
+      "family": "source",
+      "message": "禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有经全局 Promise 绑定调用 all/allSettled/race/any",
+        "blindSpots": [
+          "经函数参数、动态属性或无法解析到全局 Promise 的值调用的组合子不可见",
+          "new Promise(...) 构造不在本规则范围",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF006",
+      "name": "import-axios",
+      "severity": "error",
+      "profiles": [
+        "http-client",
+        "http-server"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "axios"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 axios 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF007",
+      "name": "import-zod",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "zod"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 zod。改用 effect/Schema (双向 codec)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 zod 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF008",
+      "name": "import-yup",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "yup"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 yup。改用 effect/Schema",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 yup 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF009",
+      "name": "import-arktype",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "arktype"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 arktype。改用 effect/Schema",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 arktype 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF010",
+      "name": "import-io-ts",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "io-ts"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 io-ts。改用 effect/Schema",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 io-ts 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF011",
+      "name": "import-lodash",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packagePrefixes": [
+          "lodash"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 lodash。改用 effect/Array / effect/HashMap / effect/HashSet / effect/Option 等",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 lodash* 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF012",
+      "name": "import-ramda",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "ramda"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 ramda。改用 effect 内置集合与组合子",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 ramda 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF013",
+      "name": "import-ts-pattern",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "ts-pattern"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 ts-pattern。改用 effect/Match",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 ts-pattern 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF014",
+      "name": "import-tanstack-query",
+      "severity": "error",
+      "profiles": [
+        "frontend"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "@tanstack/react-query",
+          "@tanstack/query-core",
+          "swr"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 @tanstack/react-query / @tanstack/query-core / swr 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF015",
+      "name": "import-zustand",
+      "severity": "error",
+      "profiles": [
+        "frontend"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packagePrefixes": [
+          "zustand"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 zustand* 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF016",
+      "name": "import-jotai",
+      "severity": "error",
+      "profiles": [
+        "frontend"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packagePrefixes": [
+          "jotai"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 jotai* 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF020",
+      "name": "import-node-fs",
+      "severity": "error",
+      "profiles": [
+        "node"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "fs",
+          "fs-extra"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 node:fs / fs-extra 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF021",
+      "name": "import-node-path",
+      "severity": "error",
+      "profiles": [
+        "node"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "path"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 node:path 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF022",
+      "name": "set-timeout",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "set-timeout"
+      },
+      "family": "source",
+      "message": "禁用 setTimeout。改用 Effect.sleep(Duration 字面量)",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有经全局 setTimeout 绑定的调用",
+        "blindSpots": [
+          "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
+          "setImmediate/queueMicrotask/requestAnimationFrame 不在本规则范围",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF023",
+      "name": "set-interval",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "set-interval"
+      },
+      "family": "source",
+      "message": "禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有经全局 setInterval 绑定的调用",
+        "blindSpots": [
+          "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF024",
+      "name": "new-error",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "new-error"
+      },
+      "family": "source",
+      "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 new Error(...) 表达式",
+        "blindSpots": [
+          "class X extends Error、不带 new 的 Error(...) 与库内部构造的错误不被识别",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF025",
+      "name": "raw-throw",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "throw-statement"
+      },
+      "family": "source",
+      "message": "禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 throw 语句",
+        "blindSpots": [
+          "被调用代码(依赖、运行时)抛出的异常不可见,只检查扫描范围内的 throw 语句",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF026",
+      "name": "date-now",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "date-now"
+      },
+      "family": "source",
+      "message": "业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有经全局 Date 绑定调用 Date.now()",
+        "blindSpots": [
+          "performance.now() 与经无法解析的别名调用的 Date.now 不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF027",
+      "name": "process-env",
+      "severity": "error",
+      "profiles": [
+        "node"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "process-env"
+      },
+      "family": "source",
+      "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 process.env/Bun.env/import.meta.env 的读取",
+        "blindSpots": [
+          "经 dotenv、Deno.env、其他配置对象间接读取环境不可见",
+          "经无法解析的别名取得的 env 对象不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF028",
+      "name": "import-node-cron",
+      "severity": "error",
+      "profiles": [
+        "node"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "node-cron"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 node-cron。改用 Schedule.cron(\"M H D M W\") + Effect.repeat",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 node-cron 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF029",
+      "name": "import-trpc",
+      "severity": "error",
+      "profiles": [
+        "rpc"
+      ],
+      "references": [
+        "references/sql-and-rpc.md §第二部分：effect/rpc"
+      ],
+      "scanner": {
+        "kind": "source-import",
+        "packagePrefixes": [
+          "@trpc/"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 @trpc/* 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF030",
+      "name": "import-prisma",
+      "severity": "error",
+      "profiles": [
+        "db"
+      ],
+      "references": [
+        "references/sql-and-rpc.md §第一部分：effect/sql"
+      ],
+      "scanner": {
+        "kind": "source-import",
+        "packages": [
+          "@prisma/client"
+        ]
+      },
+      "family": "source",
+      "message": "禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 @prisma/client 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF031",
+      "name": "import-moment-like",
+      "severity": "warning",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-import",
+        "packagePrefixes": [
+          "moment",
+          "dayjs",
+          "date-fns"
+        ]
+      },
+      "family": "source",
+      "message": "避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区)",
+      "facts": [
+        "source.imports"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有对 moment/dayjs/date-fns* 的字面量 import/require",
+        "blindSpots": [
+          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF032",
+      "name": "new-date",
+      "severity": "warning",
+      "profiles": [
+        "core"
+      ],
+      "references": [],
+      "scanner": {
+        "kind": "source-ast",
+        "selector": "new-date"
+      },
+      "family": "source",
+      "message": "业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string",
+      "facts": [
+        "source.code"
+      ],
+      "coverage": {
+        "proves": "扫描范围内没有 new Date(...) 表达式(警告)",
+        "blindSpots": [
+          "来自 API/依赖的 Date 实例、Date.parse 与 performance.now 不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF200",
+      "name": "effect-test-without-effect-vitest",
+      "family": "file-pair",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect tests must import @effect/vitest.",
+      "references": [
+        "references/scanner-manifest.md §EFF200 effect-test-without-effect-vitest"
+      ],
+      "facts": [
+        "source.imports"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "识别为 Effect 测试的文件导入了 @effect/vitest",
+        "blindSpots": [
+          "测试文件只按 manifest testGlobs/默认 glob 识别;经辅助模块间接使用 Effect 的测试不被标记"
+        ]
+      }
+    },
+    {
+      "id": "EFF300",
+      "name": "pg-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:pg requires @effect/sql-pg and forbids direct pg dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF300 pg-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 db:pg 的包在 package.json 中声明了 @effect/sql-pg 且没有直接 pg 依赖",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的使用适配器、锁文件与安装树中的实际版本不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF301",
+      "name": "mysql-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF301 mysql-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 db:mysql 的包声明了 @effect/sql-mysql2 且没有直接 mysql2 依赖",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF302",
+      "name": "sqlite-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:sqlite requires one of @effect/sql-sqlite-node, @effect/sql-sqlite-bun, @effect/sql-sqlite-do, @effect/sql-sqlite-wasm or @effect/sql-libsql and forbids direct better-sqlite3 dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF302 sqlite-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 db:sqlite 的包声明了受支持的 @effect/sql-sqlite-* 适配器",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF303",
+      "name": "d1-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:d1 requires @effect/sql-d1.",
+      "references": [
+        "references/scanner-manifest.md §EFF303 d1-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 db:d1 的包声明了 @effect/sql-d1",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF304",
+      "name": "clickhouse-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF304 clickhouse-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 db:clickhouse 的包声明了 @effect/sql-clickhouse 且没有直接 ClickHouse 客户端依赖",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF310",
+      "name": "http-server-without-effect-platform",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.",
+      "references": [
+        "references/scanner-manifest.md §EFF310 http-server-without-effect-platform"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 http-server 的包声明了 effect,且原生服务端依赖都有 manifest nativeDependencyBoundaries 声明",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的通过 effect/http 提供服务不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF311",
+      "name": "http-client-without-effect-platform",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies.",
+      "references": [
+        "references/scanner-manifest.md §EFF311 http-client-without-effect-platform"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 http-client 的包声明了 effect 且没有直接 HTTP 客户端依赖",
+        "blindSpots": [
+          "只读声明的依赖:源码是否真的通过 effect/http 发起请求不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF312",
+      "name": "ai-without-effect-ai",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.",
+      "references": [
+        "references/scanner-manifest.md §EFF312 ai-without-effect-ai"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 ai 的包声明了 effect,并有 @effect/ai-* 提供方包或 manifest 声明的 aiProviderTransports",
+        "blindSpots": [
+          "只读声明的依赖:提供方是否被接入 AI 循环、直接 SDK 的使用不在本规则证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF321",
+      "name": "missing-effect-vitest",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "non-empty shape requires @effect/vitest in devDependencies.",
+      "references": [
+        "references/scanner-manifest.md §EFF321 missing-effect-vitest"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "非空 shape 的包在 devDependencies 中声明了 @effect/vitest",
+        "blindSpots": [
+          "只证明声明;测试是否使用 @effect/vitest 由 EFF200 在导入层检查"
+        ]
+      }
+    },
+    {
+      "id": "EFF323",
+      "name": "v4-opentelemetry-missing-peer",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges.",
+      "references": [
+        "references/scanner-manifest.md §EFF323 v4-opentelemetry-missing-peer"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明 @effect/opentelemetry 的 v4 包满足其 @opentelemetry/* peer 依赖声明",
+        "blindSpots": [
+          "只比较声明与已安装 package.json 的 peer 范围;运行时/打包后的实际加载版本不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF325",
+      "name": "v3-line-package",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json).",
+      "references": [
+        "references/scanner-manifest.md §EFF325 v3-line-package"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "v4 项目没有声明 v3 线(0.x)的 @effect/* 包",
+        "blindSpots": [
+          "只检查声明的依赖;经传递依赖引入的 v3 线包不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF326",
+      "name": "v4-peer-requirement",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "An installed @effect/* v4 package has a missing or out-of-range peer dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF326 v4-peer-requirement"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "已安装的 v4 @effect/* 包的 peer 依赖存在且在范围内",
+        "blindSpots": [
+          "只检查已安装树中的 package.json;运行时实际解析到的副本与打包别名不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF324",
+      "name": "effect-version-conflict",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent.",
+      "references": [
+        "references/scanner-manifest.md §EFF324 effect-version-conflict"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明与已安装的 Effect 主版本一致",
+        "blindSpots": [
+          "主版本取自声明范围与已安装 package.json;嵌套 node_modules 中的多份拷贝与打包器别名不被检查"
+        ]
+      }
+    },
+    {
+      "id": "EFF400",
+      "name": "run-outside-executable-edge",
+      "family": "edge",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect.run* is only allowed in manifest executableEdges.",
+      "references": [
+        "references/scanner-manifest.md §EFF400 run-outside-executable-edge"
+      ],
+      "facts": [
+        "compiler.execution"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "Effect.run*/ManagedRuntime 运行器/*Runtime.runMain 的每个引用(调用或作为值传递)都位于 manifest executableEdges",
+        "blindSpots": [
+          "只检查运行器引用本身:经 executableEdges 内导出的包装函数在别处被调用不会被标记",
+          "经动态属性/函数参数取得的运行器不可见",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF401",
+      "name": "edge-execution-contract-mismatch",
+      "family": "edge",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Executable edge source does not prove its declared terminal execution lifecycle.",
+      "references": [
+        "references/scanner-manifest.md §EFF401 edge-execution-contract-mismatch"
+      ],
+      "facts": [
+        "compiler.execution"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "声明的可执行边在源码中满足其 execution 合同(运行器引用与处理器形状)",
+        "blindSpots": [
+          "只证明边文件的源码形状;该文件是否真的是进程/宿主入口(wrangler、宿主配置消费)不在证明范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF402",
+      "name": "platform-constructor-outside-adapter",
+      "family": "edge",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Platform constructors require manifest allowedAdapters; test-role files may construct verified native Request/Response fixtures only.",
+      "references": [
+        "references/scanner-manifest.md §EFF402 platform-constructor-outside-adapter"
+      ],
+      "facts": [
+        "compiler.execution"
+      ],
+      "scanner": {
+        "kind": "projection",
+        "constructors": [
+          "Response",
+          "Request",
+          "XMLHttpRequest",
+          "WebSocket",
+          "EventSource"
+        ],
+        "testFixtures": [
+          "Request",
+          "Response"
+        ]
+      },
+      "coverage": {
+        "proves": "已知平台构造器(经 import 绑定识别)只出现在 allowedAdapters 或测试夹具位置",
+        "blindSpots": [
+          "无类型检查器时无法证明的构造(经再导出工厂、函数参数、泛型辅助得到的构造器)不被判定,以 unproven-fact 列出"
+        ]
+      }
+    },
+    {
+      "id": "EFF403",
+      "name": "namespace-import-effect",
+      "family": "edge",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Namespace imports from effect or @effect/* are forbidden.",
+      "references": [
+        "references/scanner-manifest.md §EFF403 namespace-import-effect"
+      ],
+      "facts": [
+        "compiler.execution"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "没有对 effect 或 @effect/* 的 import * as 命名空间导入",
+        "blindSpots": [
+          "只检查 import 声明;require('effect')/import() 的命名空间对象由 EFF404 管辖"
+        ]
+      }
+    },
+    {
+      "id": "EFF404",
+      "name": "dynamic-import-require-in-src",
+      "family": "edge",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "require() and top-level dynamic import() are forbidden in source files.",
+      "references": [
+        "references/scanner-manifest.md §EFF404 dynamic-import-require-in-src"
+      ],
+      "facts": [
+        "compiler.execution"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "源码文件没有 require() 与模块作用域 import()",
+        "blindSpots": [
+          "函数体内的 import() 按规则允许;非字面量说明符与打包器魔法注释不被分析",
+          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+        ]
+      }
+    },
+    {
+      "id": "EFF500",
+      "name": "floating-effect",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "The Effect diagnostics provider reported a floating Effect.",
+      "references": [
+        "references/language-service.md §3. 关键诊断"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "诊断提供方没有对程序内文件报告 floating Effect",
+        "blindSpots": [
+          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被 ts-ignore/抑制的代码不可见,Effect 类型流本身不被重新实现"
+        ]
+      }
+    },
+    {
+      "id": "EFF501",
+      "name": "missing-effect-context",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "The Effect diagnostics provider reported an unprovided service dependency.",
+      "references": [
+        "references/language-service.md §3. 关键诊断"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "诊断提供方没有对程序内文件报告缺失的 Effect 上下文",
+        "blindSpots": [
+          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF502",
+      "name": "missing-effect-error",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "The Effect diagnostics provider reported an unhandled error channel.",
+      "references": [
+        "references/language-service.md §3. 关键诊断"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "诊断提供方没有对程序内文件报告未处理的错误通道",
+        "blindSpots": [
+          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF503",
+      "name": "unclosed-layer",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "The Effect diagnostics provider reported an unclosed Layer dependency/error channel.",
+      "references": [
+        "references/language-service.md §3. 关键诊断"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "诊断提供方没有对程序内文件报告未关闭的 Layer 依赖",
+        "blindSpots": [
+          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+        ]
+      }
+    },
+    {
+      "id": "EFF504",
+      "name": "typescript-compile-error",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant.",
+      "references": [
+        "references/scanner-manifest.md §EFF504 typescript-compile-error"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      },
+      "coverage": {
+        "proves": "程序内扫描文件在项目 tsconfig 下通过 TypeScript 编译",
+        "blindSpots": [
+          "不在 tsconfig 程序内的文件、skipLibCheck 的声明文件与 ts-expect-error/ts-ignore 抑制的错误不被报告"
+        ]
+      }
+    },
+    {
+      "id": "EFF900",
+      "name": "invalid-manifest",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": ".effect-skill.json failed schema validation.",
+      "references": [
+        "references/scanner-manifest.md §EFF900 invalid-manifest"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF901",
+      "name": "missing-tsc",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "--strict requires a project-local TypeScript compiler.",
+      "references": [
+        "references/scanner-manifest.md §EFF901 missing-tsc"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF902",
+      "name": "missing-effect-diagnostics-provider",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "--strict requires the Effect diagnostics provider matching the installed TypeScript major.",
+      "references": [
+        "references/scanner-manifest.md §EFF902 missing-effect-diagnostics-provider"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF903",
+      "name": "empty-shape",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "--strict requires a non-empty package shape.",
+      "references": [
+        "references/scanner-manifest.md §EFF903 empty-shape"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF905",
+      "name": "invalid-runtime-fact-source",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Declared runtime fact source could not be read as supported facts.",
+      "references": [
+        "references/scanner-manifest.md §EFF905 invalid-runtime-fact-source"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF906",
+      "name": "ambiguous-worker-shape",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape worker is ambiguous without a declared runtime fact source such as wranglerPath.",
+      "references": [
+        "references/scanner-manifest.md §EFF906 ambiguous-worker-shape"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF907",
+      "name": "workspace-owner-outside-workspace",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "dependencyOwner workspace-root requires the scan target to be a declared workspace package.",
+      "references": [
+        "references/scanner-manifest.md §EFF907 workspace-owner-outside-workspace"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF908",
+      "name": "unsupported-effect-version",
+      "family": "infra",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect must satisfy the supported v4 range.",
+      "references": [
+        "references/scanner-manifest.md §EFF908 unsupported-effect-version"
+      ],
+      "facts": [
+        "toolchain"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    }
+  ]
+}

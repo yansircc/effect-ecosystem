@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the cli-output suite",
+  "suites": [
+    "cli-output"
+  ],
+  "suite": "cli-output"
+}

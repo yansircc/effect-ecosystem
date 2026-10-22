@@ -1,0 +1,16 @@
+{
+  "description": "manifest-rejects-singular-host-hard-cut",
+  "suites": [
+    "manifest-schema",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "expectFindingKeys": [
+    ".effect-skill.json:1:EFF900:error"
+  ]
+}

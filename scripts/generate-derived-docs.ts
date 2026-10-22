@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
-import { checklistMarkdown, profileRoutingMarkdown, readRegistry, rulesSummaryMarkdown } from "./rule-registry.js"
+import { checklistMarkdown, profileRoutingMarkdown, readRegistry, rulesSummaryMarkdown } from "../tools/rule-registry.js"
 
 const check = process.argv.includes("--check")
 const registry = readRegistry()

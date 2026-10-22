@@ -1,0 +1,10 @@
+{
+  "description": "tanstack-file-route-dispatch-green",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

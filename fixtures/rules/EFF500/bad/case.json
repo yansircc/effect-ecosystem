@@ -1,0 +1,12 @@
+{
+  "description": "EFF500 bad: floating Effect statement",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF500"
+  ],
+  "exact": true
+}

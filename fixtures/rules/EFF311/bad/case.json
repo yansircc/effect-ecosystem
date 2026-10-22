@@ -1,0 +1,12 @@
+{
+  "description": "EFF311 bad: shape http-client without the Effect package",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF311"
+  ],
+  "exact": true
+}

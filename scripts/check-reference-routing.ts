@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { collectReferenceRoutes, validateReferenceRouting } from "../validator/lib/reference-routing.js"
+import { collectReferenceRoutes, validateReferenceRouting } from "../tools/lib/reference-routing.js"
 
 const failures = validateReferenceRouting(process.cwd())
 if (failures.length > 0) {

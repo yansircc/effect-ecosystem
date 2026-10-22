@@ -1,0 +1,6 @@
+{
+  "shape": [
+    "library"
+  ],
+  "wranglerPath": "wrangler.toml"
+}

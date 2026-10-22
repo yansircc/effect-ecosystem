@@ -1,0 +1,14 @@
+{
+  "description": "manifest-test-suffix-reclassified-source-red",
+  "suites": [
+    "async-ast-rules",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004"
+  ],
+  "exact": true
+}

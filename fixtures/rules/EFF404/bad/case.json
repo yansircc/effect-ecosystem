@@ -1,0 +1,12 @@
+{
+  "description": "EFF404 bad: module-scope dynamic import()",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF404"
+  ],
+  "exact": true
+}

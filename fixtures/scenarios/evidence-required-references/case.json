@@ -1,0 +1,30 @@
+{
+  "description": "evidence-required-references",
+  "suites": [
+    "profile-output",
+    "profile-facts",
+    "profile-required-references",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectProfile": true,
+  "expectActiveProfiles": [
+    "ai",
+    "core",
+    "db",
+    "frontend",
+    "http-server",
+    "node",
+    "rpc",
+    "workflow"
+  ],
+  "expectRequiredReferences": [
+    "references/effect-ai.md §Provider ownership",
+    "references/observability.md §4. 导出 telemetry"
+  ],
+  "expectRequiredReferenceCount": 2,
+  "expectEffectVersion": "4.0.5"
+}

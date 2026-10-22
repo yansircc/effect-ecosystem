@@ -1,0 +1,6 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "wranglerPath": "wrangler.toml"
+}

@@ -1,0 +1,20 @@
+{
+  "description": "async-syntax-forms-red",
+  "suites": [
+    "async-ast-rules",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF002",
+    "EFF003",
+    "EFF004"
+  ],
+  "expectRuleCounts": {
+    "EFF002": 6,
+    "EFF003": 3,
+    "EFF004": 4
+  },
+  "exact": true
+}

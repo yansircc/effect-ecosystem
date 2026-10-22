@@ -15,20 +15,18 @@ BUILD_INFO := $(TOOLS)/build-info.json
 # Platforms without a build become marked placeholders (structure checks only). CI passes PACK_FLAGS= to require all.
 PACK_FLAGS ?= --placeholder-missing
 
-.PHONY: tools build diff-fixtures install skill npm-package package verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
+.PHONY: tools build fixtures install skill npm-package package verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
 
 tools:
 	rm -rf "$(TOOLS)"
 	node scripts/prepare-effect-tsgo.mjs
 	./node_modules/.bin/tsc -p tsconfig.json --outDir "$(TOOLS)"
 	node "$(TOOLS)/scripts/write-build-info.js" "$(TOOLS)"
-	mkdir -p "$(TOOLS)/validator/fixtures" "$(TOOLS)/references" "$(TOOLS)/contracts/evidence"
+	mkdir -p "$(TOOLS)/validator" "$(TOOLS)/references" "$(TOOLS)/contracts/evidence"
 	cp validator/manifest.schema.json "$(TOOLS)/validator/"
-	cp validator/fixtures/fixtures.config.json "$(TOOLS)/validator/fixtures/"
 	cp -R references/. "$(TOOLS)/references/"
 	cp contracts/*.json "$(TOOLS)/contracts/"
 	cp contracts/evidence/*.json "$(TOOLS)/contracts/evidence/"
-	chmod +x "$(TOOLS)/validator/scan.js"
 
 # The binary embeds the build provenance written by `tools` (scanner.buildId, complianceHash).
 build: tools
@@ -38,9 +36,9 @@ build: tools
 	cp "$(BUILD_INFO)" "$(dir $(BINARY))build-info.json"
 	node scripts/release/check-binary.mjs "$(BINARY)" "$(BUILD_INFO)"
 
-# The differential harness needs the binary built with the oracle's build-info, which `build` guarantees.
-diff-fixtures: build
-	node "$(TOOLS)/scripts/diff-fixtures.js" "$(BINARY)"
+# Every fixture under fixtures/ (rules/<RULE_ID>/{good,bad}, scenarios/) and the internal suites, through the binary.
+fixtures: build
+	node "$(TOOLS)/scripts/run-fixtures.js" --bin "$(BINARY)" --exact
 
 install: build
 	@set -eu; \
@@ -87,8 +85,7 @@ verify-offline: build
 	node "$(TOOLS)/scripts/check-api-catalog.js"
 	node "$(TOOLS)/scripts/check-reference-routing.js"
 	node "$(TOOLS)/scripts/typecheck-references.js"
-	node "$(TOOLS)/scripts/self-test.js" --exact
-	node "$(TOOLS)/scripts/self-test.js" --contract
+	node "$(TOOLS)/scripts/run-fixtures.js" --bin "$(BINARY)" --exact
 	"$(BINARY)" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
 	node scripts/check-skill-entry.mjs "$(DIST)/skill"

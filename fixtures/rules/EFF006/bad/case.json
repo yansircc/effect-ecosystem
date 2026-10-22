@@ -1,0 +1,12 @@
+{
+  "description": "EFF006 bad: imports axios",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF006"
+  ],
+  "exact": true
+}

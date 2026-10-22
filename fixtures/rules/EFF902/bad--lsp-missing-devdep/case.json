@@ -1,0 +1,12 @@
+{
+  "description": "lsp-missing-devdep",
+  "suites": [
+    "lsp-prerequisites",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF902"
+  ]
+}

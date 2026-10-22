@@ -1,0 +1,14 @@
+{
+  "description": "explicit testGlobs replace the default test classification, directories included",
+  "suites": [
+    "file-classifier",
+    "manifest-schema"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "test/a.ts"
+  ]
+}

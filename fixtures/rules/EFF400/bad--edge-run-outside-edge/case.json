@@ -1,0 +1,12 @@
+{
+  "description": "edge-run-outside-edge",
+  "suites": [
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ]
+}

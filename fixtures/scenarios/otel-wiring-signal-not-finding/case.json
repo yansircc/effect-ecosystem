@@ -1,0 +1,14 @@
+{
+  "description": "otel-wiring-signal-not-finding",
+  "suites": [
+    "otel-signal-boundary",
+    "atomic-signals"
+  ],
+  "strict": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "observability-wiring-facts"
+  ]
+}

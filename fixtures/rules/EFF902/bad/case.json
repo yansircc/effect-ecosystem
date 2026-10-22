@@ -1,0 +1,12 @@
+{
+  "description": "EFF902 bad: @effect/tsgo does not match the verified provider",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF902"
+  ],
+  "exact": true
+}

@@ -1,0 +1,19 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@fixture",
+      "reason": "Module singleton initialization only.",
+      "execution": {
+        "lifecycle": "module-singleton",
+        "runners": [
+          "Effect.runSync",
+          "Effect.runPromise"
+        ]
+      }
+    }
+  ]
+}

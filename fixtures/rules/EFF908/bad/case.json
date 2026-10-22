@@ -1,0 +1,12 @@
+{
+  "description": "EFF908 bad: Effect v3 declared",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF908"
+  ],
+  "exact": true
+}

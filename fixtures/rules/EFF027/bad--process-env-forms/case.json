@@ -1,0 +1,19 @@
+{
+  "description": "process-env-forms-red",
+  "suites": [
+    "legacy-line-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF027"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF027:error",
+    "src/a.ts:2:EFF027:error",
+    "src/a.ts:3:EFF027:error",
+    "src/a.ts:5:EFF027:error",
+    "src/a.ts:7:EFF027:error",
+    "src/a.ts:8:EFF027:error"
+  ]
+}

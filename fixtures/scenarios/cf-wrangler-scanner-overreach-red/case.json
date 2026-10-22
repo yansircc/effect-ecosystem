@@ -1,0 +1,15 @@
+{
+  "description": "cf-wrangler-scanner-overreach-red",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "signals-no-semantic-verdicts",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ]
+}

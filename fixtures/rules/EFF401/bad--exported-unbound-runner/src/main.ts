@@ -1,0 +1,1 @@
+export function observe() { Effect.runFork(Effect.void); }

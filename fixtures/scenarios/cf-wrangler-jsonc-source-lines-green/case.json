@@ -1,0 +1,24 @@
+{
+  "description": "cf-wrangler-jsonc-source-lines-green",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "red-green-fixtures"
+  ],
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "compatDate.source.line": 4,
+        "entryPoint.source.line": 3,
+        "bindings.0.source.line": 6,
+        "limits.0.source.line": 8
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "description": "v3-line-atom-package-red",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF325"
+  ],
+  "exact": true
+}

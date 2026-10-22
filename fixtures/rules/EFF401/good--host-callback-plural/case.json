@@ -1,0 +1,13 @@
+{
+  "description": "host-callback-plural-green",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

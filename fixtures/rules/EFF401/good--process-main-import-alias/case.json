@@ -1,0 +1,11 @@
+{
+  "description": "process-main-import-alias-green",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

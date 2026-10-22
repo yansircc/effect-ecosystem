@@ -1,0 +1,27 @@
+{
+  "description": "inside a Git repository git ls-files decides: tracked and unignored files count (build/, a tracked dist/), .gitignore / info/exclude / nested ignores and re-includes apply, dist-dev is never source",
+  "suites": [
+    "candidate-source"
+  ],
+  "git": {
+    "track": [
+      "tracked.ts",
+      "dist/tracked.ts"
+    ],
+    "exclude": "info-ignored.ts\n"
+  },
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "build/own.ts",
+    "dist/tracked.ts",
+    "nested/visible.ts",
+    "packages/app/in.ts",
+    "packages/sibling/out.ts",
+    "reinclude/keep.ts",
+    "tracked.ts",
+    "visible.ts"
+  ]
+}
