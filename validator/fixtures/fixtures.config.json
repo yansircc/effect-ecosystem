@@ -272,7 +272,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
-        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\",\"@effect-atom/atom-react\":\"1.0.0\",\"@tanstack/react-form\":\"1.33.2\",\"react-hook-form\":\"7.0.0\",\"formik\":\"2.0.0\"}}",
+        "package.json": "{\"dependencies\":{\"effect\":\"4.0.0-beta.97\",\"@effect/atom-react\":\"4.0.0-beta.97\",\"@tanstack/react-form\":\"1.33.2\",\"react-hook-form\":\"7.0.0\",\"formik\":\"2.0.0\"}}",
         "src/forms.ts": "import { Schema } from \"effect\"\nimport { useForm } from \"@tanstack/react-form\"\nimport { useForm as useReactHookForm } from \"react-hook-form\"\nimport { useFormik } from \"formik\"\nexport const formFacts = { Schema, useForm, useReactHookForm, useFormik }\n"
       },
       "expectExit": 0,
@@ -2058,7 +2058,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/web\",\"shape\":[\"ai\"],\"dependencyOwner\":\"workspace-root\",\"dependencyOwnerReason\":\"workspace deps\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai\":\"4.0.0-beta.97\",\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "apps/web/src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2077,8 +2077,8 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"ai\"],\"aiProviderTransports\":[{\"path\":\"src/provider-transport.ts\",\"owner\":\"@ai-transport\",\"reason\":\"terminal provider HTTP transport\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
-        "src/provider-transport.ts": "export const transport = 1\n"
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "src/provider-transport.ts": "import { LanguageModel } from \"effect/ai\"\nexport const transport = LanguageModel\n"
       },
       "expectExit": 0,
       "expectRules": [],
@@ -2121,7 +2121,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"ai\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 1,
@@ -2241,7 +2241,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"packages\":[{\"path\":\"apps/web\",\"shape\":[\"ai\"]}]}",
-        "package.json": "{\"dependencies\":{\"@effect/ai\":\"4.0.0-beta.97\",\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/ai-openai\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "apps/web/package.json": "{}",
         "apps/web/src/a.ts": "export const x = 1\n"
       },
@@ -2268,6 +2268,7 @@
         "EFF300",
         "EFF301",
         "EFF302",
+        "EFF303",
         "EFF304",
         "EFF310",
         "EFF311",
@@ -2299,7 +2300,7 @@
       "strict": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2315,7 +2316,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -2350,7 +2351,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "src/a.ts": "// NodeSdk.layer docs only\nconst docs = `WebSdk.layer docs only`\n"
       },
       "expectExit": 0,
@@ -2378,7 +2379,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-client\"]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "src/a.ts": "import { Otlp as WorkerOtlp } from \"@effect/opentelemetry\"\nimport { layer as otlpLayer } from \"@effect/opentelemetry/Otlp\"\nimport { HttpClient } from \"@effect/platform\"\nexport const OtelLive = WorkerOtlp.layer\nexport const OtelLive2 = otlpLayer({})\nexport const Client = HttpClient.HttpClient\n"
       },
       "expectExit": 0,
@@ -2414,7 +2415,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"compatibility_flags\":[\"nodejs_compat\"],\"kv_namespaces\":[{\"binding\":\"EDGE_KV\",\"id\":\"kv-id\"}],\"d1_databases\":[{\"binding\":\"DB\",\"database_id\":\"d1-id\"}],\"limits\":{\"cpu_ms\":30}}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2465,7 +2466,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"kv_namespaces\":[{\"binding\":\"EDGE_KV\",\"id\":\"kv-id\"}]}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2485,7 +2486,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\"main\":\"src/index.ts\",\"compatibility_date\":\"2025-12-17\",\"compatibility_flags\":[\"nodejs_compat\"]}",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2515,7 +2516,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.jsonc\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.jsonc": "{\n  // compatibility_date = \"2020-01-01\"\n  \"main\": \"src/index.ts\",\n  \"compatibility_date\": \"2025-12-17\",\n  \"kv_namespaces\": [\n    { \"binding\": \"EDGE_KV\", \"id\": \"kv-id\" }\n  ],\n  \"limits\": { \"cpu_ms\": 30 }\n}\n",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2546,7 +2547,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\"],\"wranglerPath\":\"wrangler.toml\"}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-bun\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "wrangler.toml": "main = \"src/index.ts\"\ncompatibility_date = \"2025-12-17\"\nkv_namespaces = [{ binding = \"EDGE_KV\", id = \"kv-id\" }]\n",
         "src/a.ts": "export const x = 1\n"
       },
@@ -2704,7 +2705,7 @@
       "profile": true,
       "files": {
         ".effect-skill.json": "{\"shape\":[\"http-server\",\"db:pg\",\"ai\",\"rpc\",\"frontend\",\"workflow\",\"node\"],\"aiProviderTransports\":[{\"path\":\"src/ai-transport.ts\",\"owner\":\"@ai-transport\",\"reason\":\"terminal provider transport\"}]}",
-        "package.json": "{\"dependencies\":{\"@effect/platform\":\"4.0.0-beta.97\",\"@effect/platform-node\":\"4.0.0-beta.97\",\"@effect/sql-pg\":\"4.0.0-beta.97\",\"@effect/ai\":\"4.0.0-beta.97\",\"@effect/rpc\":\"4.0.0-beta.97\",\"@effect/workflow\":\"4.0.0-beta.97\",\"@effect-atom/atom-react\":\"1.0.0\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
+        "package.json": "{\"dependencies\":{\"@effect/platform-node\":\"4.0.0-beta.97\",\"@effect/sql-pg\":\"4.0.0-beta.97\",\"@effect/atom-react\":\"4.0.0-beta.97\",\"@effect/opentelemetry\":\"4.0.0-beta.97\"}}",
         "src/a.ts": "export const x = 1\n"
       },
       "expectExit": 0,
@@ -4374,6 +4375,120 @@
         "package.json": "{\"type\":\"module\",\"devDependencies\":{\"@effect/vitest\":\"4.0.0-beta.98\"}}",
         "src/example.d.mts": "export declare const work: () => void\n",
         "src/example.d.cts": "export declare const work: () => void\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "v3-line-package-red",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{\"dependencies\": {\"@effect/platform\": \"0.97.2\"}}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF325"
+      ],
+      "exact": true
+    },
+    {
+      "name": "v3-line-atom-package-red",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"frontend\"]}",
+        "package.json": "{\"dependencies\": {\"@effect-atom/atom-react\": \"0.7.1\"}}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF325"
+      ],
+      "exact": true
+    },
+    {
+      "name": "d1-without-adapter-red",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"db:d1\"]}",
+        "package.json": "{\"dependencies\": {}}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF303"
+      ],
+      "exact": true
+    },
+    {
+      "name": "d1-with-adapter-green",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"db:d1\"]}",
+        "package.json": "{\"dependencies\": {\"@effect/sql-d1\": \"x\"}}",
+        "src/a.ts": "export const x = 1\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "exact": true
+    },
+    {
+      "name": "v4-peer-out-of-range-red",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{\"dependencies\": {\"@effect/atom-react\": \"x\"}}",
+        "src/a.ts": "export const x = 1\n",
+        "node_modules/@effect/atom-react/package.json": "{\"version\": \"4.0.5\", \"peerDependencies\": {\"react\": \">=19.0.0 <20.0.0\"}}",
+        "node_modules/react/package.json": "{\"name\": \"react\", \"version\": \"18.3.1\"}"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF326"
+      ],
+      "exact": true
+    },
+    {
+      "name": "v4-peer-in-range-green",
+      "suites": [
+        "v4-package-rules",
+        "package-presence",
+        "fixture-coverage"
+      ],
+      "strict": false,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{\"dependencies\": {\"@effect/atom-react\": \"x\"}}",
+        "src/a.ts": "export const x = 1\n",
+        "node_modules/@effect/atom-react/package.json": "{\"version\": \"4.0.5\", \"peerDependencies\": {\"react\": \">=19.0.0 <20.0.0\"}}",
+        "node_modules/react/package.json": "{\"name\": \"react\", \"version\": \"19.2.0\"}"
       },
       "expectExit": 0,
       "expectRules": [],

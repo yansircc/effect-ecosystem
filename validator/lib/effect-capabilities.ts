@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { compileContractValidators } from "./contract-validation.js"
@@ -31,4 +32,14 @@ export function toolingPackages() {
 
 export function runtimeAdapters() {
   return effectCapabilitiesContract().runtimeAdapters ?? []
+}
+
+export function v3LinePackages(): string[] {
+  return effectCapabilitiesContract().v3LinePackages
+}
+
+/** v3 package -> v4 import specifiers; derived claims live in contracts/api-migrations.json. */
+export function v3PackageMigrations(): Map<string, string[]> {
+  const migrations = JSON.parse(readFileSync(resolve(DEFAULT_CONTRACTS_DIR, "api-migrations.json"), "utf8"))
+  return new Map(migrations.packages.map((entry) => [entry.from, entry.to]))
 }

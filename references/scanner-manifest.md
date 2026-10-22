@@ -361,6 +361,11 @@ major.
 `db:sqlite` must be owned by the Effect SQL capability for the resolved Effect
 major.
 
+### EFF303 d1-without-effect-sql
+
+`db:d1` requires `@effect/sql-d1`; the Cloudflare D1 binding is reached only through
+the Effect SQL client.
+
 ### EFF304 clickhouse-without-effect-sql
 
 `db:clickhouse` must be owned by the Effect SQL capability for the resolved
@@ -393,7 +398,26 @@ Any non-empty shape requires `@effect/vitest` in `devDependencies`.
 OpenTelemetry export is an explicit capability, not an implication of an
 application shape. Projects without an external telemetry sink do not need
 `@effect/opentelemetry`. When a project installs it, the package requires the
-peer closure declared by its installed `package.json#peerDependencies`.
+peer closure declared by its installed `package.json#peerDependencies`, within the declared
+ranges (for example OpenTelemetry SDK 3.x is outside `>=2 <3`).
+
+### EFF325 v3-line-package
+
+With Effect v4 resolved, any dependency named in the capability contract's
+`v3LinePackages` (`@effect/platform`, `@effect/sql`, `@effect/rpc`, `@effect/ai`,
+`@effect/workflow`, `@effect/cluster`, `@effect/cli`, ...) is an error: those packages are
+0.x on the registry and their API now lives inside `effect` (`effect/http`, `effect/rpc`,
+`effect/sql`, ...). The finding message names the v4 import specifiers from
+`contracts/api-migrations.json`. The list is verified against the registry by
+`scripts/generate-api-catalog.ts`.
+
+### EFF326 v4-peer-requirement
+
+Every installed v4 `@effect/*` package (and `effect`) declares peer dependencies. A
+required peer that is not installed, or installed outside its declared range, is an error;
+optional peers are checked only when installed. Examples: `@effect/vitest` needs
+`vitest >=5 <6`, `@effect/atom-react` needs `react >=19 <20`, `@effect/platform-node` needs
+`redis >=5 <7`. `@effect/opentelemetry` peers are reported as `EFF323` (same check).
 
 ### EFF324 effect-version-conflict
 

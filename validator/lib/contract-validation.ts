@@ -152,13 +152,14 @@ function effectCapabilitiesShapeSchema() {
       anyOf: packageNames(),
       prefixAnyOf: packageNames(),
       providerPrefixAnyOf: packageNames(),
-      forbidden: packageNames()
+      forbidden: packageNames(),
+      forbiddenPrefixes: packageNames()
     }
   }
   return {
     type: "object",
     additionalProperties: false,
-    required: ["$schema", "$id", "schemaVersion", "support", "references", "importRoots", "runtimeAdapters", "unstableBoundaries", "packageRequirements"],
+    required: ["$schema", "$id", "schemaVersion", "support", "references", "importRoots", "v3LinePackages", "runtimeAdapters", "unstableBoundaries", "packageRequirements"],
     properties: {
       $schema: { type: "string" },
       $id: { type: "string" },
@@ -186,6 +187,7 @@ function effectCapabilitiesShapeSchema() {
         }
       },
       importRoots: packageNames(),
+      v3LinePackages: packageNames(),
       runtimeAdapters: packageNames(),
       unstableBoundaries: { type: "array", items: { type: "string", minLength: 1 } },
       packageRequirements: { type: "array", minItems: 1, items: requirement }

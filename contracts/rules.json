@@ -72,7 +72,7 @@
         "pattern": "\\btry\\s*\\{"
       },
       "family": "source",
-      "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Data.TaggedError",
+      "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
       "facts": [
         "source.code"
       ]
@@ -163,7 +163,7 @@
         "pattern": "from\\s+['\"]axios['\"]"
       },
       "family": "source",
-      "message": "禁用 axios。改用 @effect/platform/HttpClient,配合 Schema 化解码",
+      "message": "禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码",
       "facts": [
         "source.imports"
       ]
@@ -307,7 +307,7 @@
         "pattern": "from\\s+['\"]@tanstack/react-query['\"]"
       },
       "family": "source",
-      "message": "禁用 @tanstack/react-query。改用 effect-atom (@effect-atom/atom-react) + Result 状态机",
+      "message": "禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)",
       "facts": [
         "source.imports"
       ]
@@ -325,7 +325,7 @@
         "pattern": "from\\s+['\"]zustand"
       },
       "family": "source",
-      "message": "禁用 zustand。改用 effect-atom (Atom.make)",
+      "message": "禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)",
       "facts": [
         "source.imports"
       ]
@@ -343,7 +343,7 @@
         "pattern": "from\\s+['\"]jotai"
       },
       "family": "source",
-      "message": "禁用 jotai。改用 effect-atom",
+      "message": "禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom",
       "facts": [
         "source.imports"
       ]
@@ -361,7 +361,7 @@
         "pattern": "from\\s+['\"](?:node:)?fs(?:/promises)?['\"]"
       },
       "family": "source",
-      "message": "禁用 node 原生 fs。改用 @effect/platform/FileSystem (Context 注入)",
+      "message": "禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)",
       "facts": [
         "source.imports"
       ]
@@ -379,7 +379,7 @@
         "pattern": "from\\s+['\"](?:node:)?path['\"]"
       },
       "family": "source",
-      "message": "禁用 node 原生 path。改用 @effect/platform/Path",
+      "message": "禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)",
       "facts": [
         "source.imports"
       ]
@@ -433,7 +433,7 @@
         "pattern": "\\bnew\\s+Error\\s*\\("
       },
       "family": "source",
-      "message": "禁止 new Error。所有领域错误用 Data.TaggedError class 声明",
+      "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
       "facts": [
         "source.code"
       ]
@@ -487,7 +487,7 @@
         "pattern": "\\bprocess\\.env\\."
       },
       "family": "source",
-      "message": "禁止直读 process.env。改用 Config.string / Config.redacted + Layer 注入",
+      "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
       "facts": [
         "source.code"
       ]
@@ -525,7 +525,7 @@
         "pattern": "from\\s+['\"]@trpc/"
       },
       "family": "source",
-      "message": "禁用 trpc。改用 @effect/rpc (Schema 化请求/响应/错误)",
+      "message": "禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)",
       "facts": [
         "source.imports"
       ]
@@ -545,7 +545,7 @@
         "pattern": "from\\s+['\"]@prisma/client['\"]"
       },
       "family": "source",
-      "message": "禁用 prisma。改用 @effect/sql-* 适配器 + SqlClient + Migrator",
+      "message": "禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator",
       "facts": [
         "source.imports"
       ]
@@ -651,9 +651,28 @@
       "profiles": [
         "core"
       ],
-      "message": "shape db:sqlite requires @effect/sql-sqlite-node or @effect/sql-sqlite-bun and forbids direct better-sqlite3 dependency.",
+      "message": "shape db:sqlite requires one of @effect/sql-sqlite-node, @effect/sql-sqlite-bun, @effect/sql-sqlite-do, @effect/sql-sqlite-wasm or @effect/sql-libsql and forbids direct better-sqlite3 dependency.",
       "references": [
         "references/scanner-manifest.md §EFF302 sqlite-without-effect-sql"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF303",
+      "name": "d1-without-effect-sql",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "shape db:d1 requires @effect/sql-d1.",
+      "references": [
+        "references/scanner-manifest.md §EFF303 d1-without-effect-sql"
       ],
       "facts": [
         "package"
@@ -689,7 +708,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.",
+      "message": "shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.",
       "references": [
         "references/scanner-manifest.md §EFF310 http-server-without-effect-platform"
       ],
@@ -708,7 +727,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies.",
+      "message": "shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies.",
       "references": [
         "references/scanner-manifest.md §EFF311 http-client-without-effect-platform"
       ],
@@ -727,7 +746,7 @@
       "profiles": [
         "core"
       ],
-      "message": "shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.",
+      "message": "shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.",
       "references": [
         "references/scanner-manifest.md §EFF312 ai-without-effect-ai"
       ],
@@ -765,9 +784,47 @@
       "profiles": [
         "core"
       ],
-      "message": "Effect v4 @effect/opentelemetry requires the full @opentelemetry/* peer closure.",
+      "message": "Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges.",
       "references": [
         "references/scanner-manifest.md §EFF323 v4-opentelemetry-missing-peer"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF325",
+      "name": "v3-line-package",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json).",
+      "references": [
+        "references/scanner-manifest.md §EFF325 v3-line-package"
+      ],
+      "facts": [
+        "package"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
+      "id": "EFF326",
+      "name": "v4-peer-requirement",
+      "family": "package",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "An installed @effect/* v4 package has a missing or out-of-range peer dependency.",
+      "references": [
+        "references/scanner-manifest.md §EFF326 v4-peer-requirement"
       ],
       "facts": [
         "package"

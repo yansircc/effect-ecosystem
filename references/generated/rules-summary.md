@@ -5,12 +5,12 @@ Source of truth: `contracts/rules.json`.
 | ID | Name | Severity | Profiles | Rule |
 |---|---|---|---|---|
 | EFF000 | missing-manifest | error | core | --strict requires .effect-skill.json |
-| EFF001 | raw-try-catch | error | core | 禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Data.TaggedError |
+| EFF001 | raw-try-catch | error | core | 禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError |
 | EFF002 | async-function | error | core | 禁用 async function。改写为 Effect.gen(function* () { ... }) + yield* |
 | EFF003 | async-arrow | error | core | 禁用 async 箭头函数。改写为 Effect.gen + yield* |
 | EFF004 | await-keyword | error | core | 禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain |
 | EFF005 | promise-static | error | core | 禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition |
-| EFF006 | import-axios | error | http-client, http-server | 禁用 axios。改用 @effect/platform/HttpClient,配合 Schema 化解码 |
+| EFF006 | import-axios | error | http-client, http-server | 禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码 |
 | EFF007 | import-zod | error | core | 禁用 zod。改用 effect/Schema (双向 codec) |
 | EFF008 | import-yup | error | core | 禁用 yup。改用 effect/Schema |
 | EFF009 | import-arktype | error | core | 禁用 arktype。改用 effect/Schema |
@@ -18,32 +18,35 @@ Source of truth: `contracts/rules.json`.
 | EFF011 | import-lodash | error | core | 禁用 lodash。改用 effect/Array / effect/HashMap / effect/HashSet / effect/Option 等 |
 | EFF012 | import-ramda | error | core | 禁用 ramda。改用 effect 内置集合与组合子 |
 | EFF013 | import-ts-pattern | error | core | 禁用 ts-pattern。改用 effect/Match |
-| EFF014 | import-tanstack-query | error | frontend | 禁用 @tanstack/react-query。改用 effect-atom (@effect-atom/atom-react) + Result 状态机 |
-| EFF015 | import-zustand | error | frontend | 禁用 zustand。改用 effect-atom (Atom.make) |
-| EFF016 | import-jotai | error | frontend | 禁用 jotai。改用 effect-atom |
-| EFF020 | import-node-fs | error | node | 禁用 node 原生 fs。改用 @effect/platform/FileSystem (Context 注入) |
-| EFF021 | import-node-path | error | node | 禁用 node 原生 path。改用 @effect/platform/Path |
+| EFF014 | import-tanstack-query | error | frontend | 禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机) |
+| EFF015 | import-zustand | error | frontend | 禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make) |
+| EFF016 | import-jotai | error | frontend | 禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom |
+| EFF020 | import-node-fs | error | node | 禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem) |
+| EFF021 | import-node-path | error | node | 禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath) |
 | EFF022 | set-timeout | error | core | 禁用 setTimeout。改用 Effect.sleep(Duration 字面量) |
 | EFF023 | set-interval | error | core | 禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped |
-| EFF024 | new-error | error | core | 禁止 new Error。所有领域错误用 Data.TaggedError class 声明 |
+| EFF024 | new-error | error | core | 禁止 new Error。所有领域错误用 Schema.TaggedError class 声明 |
 | EFF025 | raw-throw | error | core | 禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail |
 | EFF026 | date-now | error | core | 业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试) |
-| EFF027 | process-env | error | node | 禁止直读 process.env。改用 Config.string / Config.redacted + Layer 注入 |
+| EFF027 | process-env | error | node | 禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入 |
 | EFF028 | import-node-cron | error | node | 禁用 node-cron。改用 Schedule.cron("M H D M W") + Effect.repeat |
-| EFF029 | import-trpc | error | rpc | 禁用 trpc。改用 @effect/rpc (Schema 化请求/响应/错误) |
-| EFF030 | import-prisma | error | db | 禁用 prisma。改用 @effect/sql-* 适配器 + SqlClient + Migrator |
+| EFF029 | import-trpc | error | rpc | 禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误) |
+| EFF030 | import-prisma | error | db | 禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator |
 | EFF031 | import-moment-like | warning | core | 避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区) |
 | EFF032 | new-date | warning | core | 业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string |
 | EFF200 | effect-test-without-effect-vitest | error | core | Effect tests must import @effect/vitest. |
 | EFF300 | pg-without-effect-sql | error | core | shape db:pg requires @effect/sql-pg and forbids direct pg dependency. |
 | EFF301 | mysql-without-effect-sql | error | core | shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency. |
-| EFF302 | sqlite-without-effect-sql | error | core | shape db:sqlite requires @effect/sql-sqlite-node or @effect/sql-sqlite-bun and forbids direct better-sqlite3 dependency. |
+| EFF302 | sqlite-without-effect-sql | error | core | shape db:sqlite requires one of @effect/sql-sqlite-node, @effect/sql-sqlite-bun, @effect/sql-sqlite-do, @effect/sql-sqlite-wasm or @effect/sql-libsql and forbids direct better-sqlite3 dependency. |
+| EFF303 | d1-without-effect-sql | error | core | shape db:d1 requires @effect/sql-d1. |
 | EFF304 | clickhouse-without-effect-sql | error | core | shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @clickhouse/client dependency. |
-| EFF310 | http-server-without-effect-platform | error | core | shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration. |
-| EFF311 | http-client-without-effect-platform | error | core | shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies. |
-| EFF312 | ai-without-effect-ai | error | core | shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden. |
+| EFF310 | http-server-without-effect-platform | error | core | shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration. |
+| EFF311 | http-client-without-effect-platform | error | core | shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies. |
+| EFF312 | ai-without-effect-ai | error | core | shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden. |
 | EFF321 | missing-effect-vitest | error | core | non-empty shape requires @effect/vitest in devDependencies. |
-| EFF323 | v4-opentelemetry-missing-peer | error | core | Effect v4 @effect/opentelemetry requires the full @opentelemetry/* peer closure. |
+| EFF323 | v4-opentelemetry-missing-peer | error | core | Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges. |
+| EFF325 | v3-line-package | error | core | Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json). |
+| EFF326 | v4-peer-requirement | error | core | An installed @effect/* v4 package has a missing or out-of-range peer dependency. |
 | EFF324 | effect-version-conflict | error | core | Declared and installed Effect major versions disagree; version-gated rules are paused until dependency reality matches intent. |
 | EFF400 | run-outside-executable-edge | error | core | Effect.run* is only allowed in manifest executableEdges. |
 | EFF401 | edge-execution-contract-mismatch | error | core | Executable edge source does not prove its declared terminal execution lifecycle. |
@@ -74,7 +77,7 @@ Rule: --strict requires .effect-skill.json
 
 Profiles: core
 
-Rule: 禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Data.TaggedError
+Rule: 禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError
 
 ## EFF002 async-function
 
@@ -104,7 +107,7 @@ Rule: 禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.
 
 Profiles: http-client, http-server
 
-Rule: 禁用 axios。改用 @effect/platform/HttpClient,配合 Schema 化解码
+Rule: 禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码
 
 ## EFF007 import-zod
 
@@ -152,31 +155,31 @@ Rule: 禁用 ts-pattern。改用 effect/Match
 
 Profiles: frontend
 
-Rule: 禁用 @tanstack/react-query。改用 effect-atom (@effect-atom/atom-react) + Result 状态机
+Rule: 禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)
 
 ## EFF015 import-zustand
 
 Profiles: frontend
 
-Rule: 禁用 zustand。改用 effect-atom (Atom.make)
+Rule: 禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)
 
 ## EFF016 import-jotai
 
 Profiles: frontend
 
-Rule: 禁用 jotai。改用 effect-atom
+Rule: 禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom
 
 ## EFF020 import-node-fs
 
 Profiles: node
 
-Rule: 禁用 node 原生 fs。改用 @effect/platform/FileSystem (Context 注入)
+Rule: 禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)
 
 ## EFF021 import-node-path
 
 Profiles: node
 
-Rule: 禁用 node 原生 path。改用 @effect/platform/Path
+Rule: 禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)
 
 ## EFF022 set-timeout
 
@@ -194,7 +197,7 @@ Rule: 禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fix
 
 Profiles: core
 
-Rule: 禁止 new Error。所有领域错误用 Data.TaggedError class 声明
+Rule: 禁止 new Error。所有领域错误用 Schema.TaggedError class 声明
 
 ## EFF025 raw-throw
 
@@ -212,7 +215,7 @@ Rule: 业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)
 
 Profiles: node
 
-Rule: 禁止直读 process.env。改用 Config.string / Config.redacted + Layer 注入
+Rule: 禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入
 
 ## EFF028 import-node-cron
 
@@ -224,13 +227,13 @@ Rule: 禁用 node-cron。改用 Schedule.cron("M H D M W") + Effect.repeat
 
 Profiles: rpc
 
-Rule: 禁用 trpc。改用 @effect/rpc (Schema 化请求/响应/错误)
+Rule: 禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)
 
 ## EFF030 import-prisma
 
 Profiles: db
 
-Rule: 禁用 prisma。改用 @effect/sql-* 适配器 + SqlClient + Migrator
+Rule: 禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator
 
 ## EFF031 import-moment-like
 
@@ -266,7 +269,13 @@ Rule: shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 depen
 
 Profiles: core
 
-Rule: shape db:sqlite requires @effect/sql-sqlite-node or @effect/sql-sqlite-bun and forbids direct better-sqlite3 dependency.
+Rule: shape db:sqlite requires one of @effect/sql-sqlite-node, @effect/sql-sqlite-bun, @effect/sql-sqlite-do, @effect/sql-sqlite-wasm or @effect/sql-libsql and forbids direct better-sqlite3 dependency.
+
+## EFF303 d1-without-effect-sql
+
+Profiles: core
+
+Rule: shape db:d1 requires @effect/sql-d1.
 
 ## EFF304 clickhouse-without-effect-sql
 
@@ -278,19 +287,19 @@ Rule: shape db:clickhouse requires @effect/sql-clickhouse and forbids direct @cl
 
 Profiles: core
 
-Rule: shape http-server requires Effect HTTP capability; forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.
+Rule: shape http-server requires effect (effect/http, effect/http-api); forbidden native server dependencies need an exact owned nativeDependencyBoundaries declaration.
 
 ## EFF311 http-client-without-effect-platform
 
 Profiles: core
 
-Rule: shape http-client requires @effect/platform and forbids direct axios/got/node-fetch dependencies.
+Rule: shape http-client requires effect (effect/http HttpClient) and forbids direct axios/got/node-fetch/ky/undici dependencies.
 
 ## EFF312 ai-without-effect-ai
 
 Profiles: core
 
-Rule: shape ai requires @effect/ai plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies are forbidden.
+Rule: shape ai requires effect (effect/ai) plus either an @effect/ai-* provider package or manifest-owned aiProviderTransports; direct provider SDK dependencies (openai, @anthropic-ai/sdk, @google/genai, ai, @ai-sdk/*, langchain, @langchain/*) are forbidden.
 
 ## EFF321 missing-effect-vitest
 
@@ -302,7 +311,19 @@ Rule: non-empty shape requires @effect/vitest in devDependencies.
 
 Profiles: core
 
-Rule: Effect v4 @effect/opentelemetry requires the full @opentelemetry/* peer closure.
+Rule: Effect v4 @effect/opentelemetry requires its full @opentelemetry/* peer closure, installed within the declared peer ranges.
+
+## EFF325 v3-line-package
+
+Profiles: core
+
+Rule: Effect v4 project depends on a v3-line @effect/* package (0.x); its API now ships inside effect (see contracts/api-migrations.json).
+
+## EFF326 v4-peer-requirement
+
+Profiles: core
+
+Rule: An installed @effect/* v4 package has a missing or out-of-range peer dependency.
 
 ## EFF324 effect-version-conflict
 

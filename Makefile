@@ -72,6 +72,7 @@ verify:
 	node "$(BUILD_DIR)/scripts/check-evidence-contracts.js" && \
 	node "$(BUILD_DIR)/scripts/check-signal-contracts.js" && \
 	node "$(BUILD_DIR)/scripts/check-effect-capabilities.js" && \
+	node "$(BUILD_DIR)/scripts/check-api-catalog.js" && \
 	node "$(BUILD_DIR)/scripts/check-reference-routing.js" && \
 	node "$(BUILD_DIR)/scripts/typecheck-snippets.js" && \
 	node "$(BUILD_DIR)/scripts/self-test.js" --exact && \

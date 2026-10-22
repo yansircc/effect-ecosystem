@@ -29,11 +29,27 @@
   ],
   "importRoots": [
     "effect",
-    "effect/unstable/http",
-    "effect/unstable/rpc",
-    "effect/unstable/sql",
-    "effect/unstable/ai",
-    "effect/unstable/workflow"
+    "effect/ai",
+    "effect/cli",
+    "effect/cluster",
+    "effect/devtools",
+    "effect/encoding",
+    "effect/eventlog",
+    "effect/graphql",
+    "effect/http",
+    "effect/http-api",
+    "effect/net",
+    "effect/observability",
+    "effect/persistence",
+    "effect/process",
+    "effect/reactivity",
+    "effect/rpc",
+    "effect/schema",
+    "effect/socket",
+    "effect/sql",
+    "effect/testing",
+    "effect/workers",
+    "effect/workflow"
   ],
   "runtimeAdapters": [
     "@effect/platform-node",
@@ -52,7 +68,8 @@
         "db:pg"
       ],
       "allOf": [
-        "effect"
+        "effect",
+        "@effect/sql-pg"
       ],
       "forbidden": [
         "pg"
@@ -64,7 +81,8 @@
         "db:mysql"
       ],
       "allOf": [
-        "effect"
+        "effect",
+        "@effect/sql-mysql2"
       ],
       "forbidden": [
         "mysql2"
@@ -80,6 +98,23 @@
       ],
       "forbidden": [
         "better-sqlite3"
+      ],
+      "anyOf": [
+        "@effect/sql-sqlite-node",
+        "@effect/sql-sqlite-bun",
+        "@effect/sql-sqlite-do",
+        "@effect/sql-sqlite-wasm",
+        "@effect/sql-libsql"
+      ]
+    },
+    {
+      "ruleId": "EFF303",
+      "shapes": [
+        "db:d1"
+      ],
+      "allOf": [
+        "effect",
+        "@effect/sql-d1"
       ]
     },
     {
@@ -88,7 +123,8 @@
         "db:clickhouse"
       ],
       "allOf": [
-        "effect"
+        "effect",
+        "@effect/sql-clickhouse"
       ],
       "forbidden": [
         "@clickhouse/client"
@@ -121,7 +157,9 @@
       "forbidden": [
         "axios",
         "got",
-        "node-fetch"
+        "node-fetch",
+        "ky",
+        "undici"
       ]
     },
     {
@@ -135,11 +173,35 @@
       "forbidden": [
         "openai",
         "@anthropic-ai/sdk",
-        "@google/genai"
+        "@google/genai",
+        "ai",
+        "langchain"
       ],
       "providerPrefixAnyOf": [
         "@effect/ai-"
+      ],
+      "forbiddenPrefixes": [
+        "@ai-sdk/",
+        "@langchain/"
       ]
     }
+  ],
+  "v3LinePackages": [
+    "@effect/platform",
+    "@effect/sql",
+    "@effect/sql-drizzle",
+    "@effect/sql-kysely",
+    "@effect/rpc",
+    "@effect/ai",
+    "@effect/ai-google",
+    "@effect/ai-amazon-bedrock",
+    "@effect/workflow",
+    "@effect/cluster",
+    "@effect/cli",
+    "@effect/experimental",
+    "@effect/printer",
+    "@effect/typeclass",
+    "@effect-atom/atom",
+    "@effect-atom/atom-react"
   ]
 }

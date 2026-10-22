@@ -97,9 +97,14 @@ export function buildSignals(root, manifest, files, scanState = null) {
     })
   }
   const libraryEffectRollups = new Map()
+  // In v4 the AI capability ships inside `effect` (effect/ai); it is used when a package imports it.
+  const effectAiImporters = new Set<string>()
   for (const file of files) {
     if (file.roles.generated) continue
     const sourceFacts = sourceFactsForFile(file)
+    if (file.package && sourceFacts.imports.some((entry) => entry.specifier === "effect/ai" || entry.specifier.startsWith("effect/ai/"))) {
+      effectAiImporters.add(file.package.path)
+    }
     const text = sourceFacts.codeLines.join("\n")
     const importsSchema = sourceFacts.imports.some((entry) => entry.specifier === "effect" || entry.specifier === "effect/Schema")
     const facts = semanticFactsForFile(file)
@@ -179,7 +184,7 @@ export function buildSignals(root, manifest, files, scanState = null) {
       emit("ai-runtime-facts", {
         package: pkg.path,
         facts: {
-          hasEffectAiDependency: Boolean(pkg.deps["@effect/ai"]),
+          hasEffectAiDependency: effectAiImporters.has(pkg.path) || effectAiProviderPackages.length > 0,
           effectAiProviderPackages,
           declaredProviderTransports: manifest.aiProviderTransports
             .filter((transport) => belongsToPackage(pkg.path, transport.path))

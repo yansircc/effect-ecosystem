@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
-import { subset, validRange } from "semver"
-import { packageRequirements, supportedToolchain } from "./effect-capabilities.js"
+import { satisfies, subset, validRange } from "semver"
+import { packageRequirements, supportedToolchain, v3LinePackages, v3PackageMigrations } from "./effect-capabilities.js"
 import { makeFinding } from "./findings.js"
 import { packageResolution, safePackageMajor } from "./resolver.js"
 
@@ -39,7 +39,7 @@ export function scanPackageRules(root, manifest, scanState = null) {
         package: pkg.path,
         message: `missing ${missing.join(" or ")}`,
       }))
-      for (const dependency of (requirement.forbidden ?? []).filter((name) => hasDep(pkg.deps, name))) {
+      for (const dependency of forbiddenDependencies(requirement, pkg.deps)) {
         if (nativeBoundaries.has(`${pkg.path}\0${dependency}`)) continue
         findings.push(makeFinding(root, {
           ruleId: requirement.ruleId,
@@ -59,6 +59,17 @@ export function scanPackageRules(root, manifest, scanState = null) {
       }
       continue
     }
+    if (effectMajor === 4) {
+      const migrations = v3PackageMigrations()
+      for (const name of v3LinePackages().filter((candidate) => hasDep(pkg.deps, candidate))) {
+        findings.push(makeFinding(root, {
+          ruleId: "EFF325",
+          file: pkg.relativePackageJson,
+          package: pkg.path,
+          message: `${name} is the v3 line; use ${(migrations.get(name) ?? []).join(", ")} from effect`,
+        }))
+      }
+    }
     if (effectMajor !== 4 || !effectVersionSupported(resolved)) {
       findings.push(makeFinding(root, {
         ruleId: "EFF908",
@@ -68,13 +79,12 @@ export function scanPackageRules(root, manifest, scanState = null) {
       }))
       continue
     }
-    const missingOtelPeers = missingOtelPeerClosure(pkg)
-    if (missingOtelPeers.length > 0) {
+    for (const problem of peerProblems(pkg)) {
       findings.push(makeFinding(root, {
-        ruleId: "EFF323",
+        ruleId: problem.owner === "@effect/opentelemetry" ? "EFF323" : "EFF326",
         file: pkg.relativePackageJson,
         package: pkg.path,
-        message: `missing ${missingOtelPeers.join(", ")}`,
+        message: problem.message,
       }))
     }
     if (pkg.shape.length > 0 && !hasDep(pkg.devDeps, "@effect/vitest")) {
@@ -103,7 +113,7 @@ function validateNativeDependencyBoundaries(root, manifest, findings) {
     const pkg = candidates.length === 1 ? candidates[0] : undefined
     const applicable = pkg && packageRequirements().some((requirement) =>
       requirement.shapes.some((shape) => pkg.shape.includes(shape))
-      && requirement.forbidden?.includes(declaration.dependency))
+      && forbiddenDependencies(requirement, { [declaration.dependency]: "" }).length > 0)
     const reason = counts.get(key) !== 1 ? "duplicate package/dependency selector"
       : !pkg ? "package must identify exactly one declared package path"
       : !hasDep(pkg.deps, declaration.dependency) ? "dependency is not a current direct dependency (stale boundary)"
@@ -153,16 +163,42 @@ function missingRequirement(deps, requirement, options: { hasDeclaredAiProviderT
   return missing
 }
 
+/** Direct dependencies a requirement forbids: exact names plus name prefixes (`@ai-sdk/`). */
+function forbiddenDependencies(requirement, deps) {
+  const prefixes = requirement.forbiddenPrefixes ?? []
+  return Object.keys(deps).filter((name) =>
+    (requirement.forbidden ?? []).includes(name) || prefixes.some((prefix) => name.startsWith(prefix)))
+}
+
 function hasDep(deps, name) {
   return Object.prototype.hasOwnProperty.call(deps, name)
 }
 
-function missingOtelPeerClosure(pkg) {
-  if (!hasDep(pkg.deps, "@effect/opentelemetry")) return []
-  const packageJson = findInstalledPackageJson(pkg.dependencyRoot, ["@effect", "opentelemetry"])
-  if (!existsSync(packageJson)) return ["installed @effect/opentelemetry package metadata"]
-  const peers = Object.keys(JSON.parse(readFileSync(packageJson, "utf8")).peerDependencies ?? {})
-  return peers.filter((name) => !existsSync(findInstalledPackageJson(pkg.dependencyRoot, name.split("/"))))
+/** Installed v4 @effect/* packages (and effect) must have every required peer installed within its declared range. */
+function peerProblems(pkg): { owner: string; message: string }[] {
+  const problems = []
+  const v3Line = new Set(v3LinePackages())
+  for (const owner of Object.keys(pkg.deps).filter((name) => (name === "effect" || name.startsWith("@effect/")) && !v3Line.has(name))) {
+    const manifestPath = findInstalledPackageJson(pkg.dependencyRoot, owner.split("/"))
+    if (!existsSync(manifestPath)) {
+      if (owner === "@effect/opentelemetry") problems.push({ owner, message: "installed @effect/opentelemetry package metadata is missing" })
+      continue
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+    for (const [peer, range] of Object.entries<string>(manifest.peerDependencies ?? {})) {
+      const optional = manifest.peerDependenciesMeta?.[peer]?.optional === true
+      const peerPath = findInstalledPackageJson(pkg.dependencyRoot, peer.split("/"))
+      if (!existsSync(peerPath)) {
+        if (!optional) problems.push({ owner, message: `${owner} requires peer ${peer}@${range}, which is not installed` })
+        continue
+      }
+      const version = JSON.parse(readFileSync(peerPath, "utf8")).version
+      if (!satisfies(version, range, { includePrerelease: true })) {
+        problems.push({ owner, message: `${owner} requires peer ${peer}@${range}, but ${version} is installed` })
+      }
+    }
+  }
+  return problems
 }
 
 function findInstalledPackageJson(start, segments) {
