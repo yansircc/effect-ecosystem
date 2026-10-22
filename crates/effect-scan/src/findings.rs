@@ -55,6 +55,10 @@ impl Registry {
     /// Validates the whole contract up front: every later stage may then treat a rule's `scanner`
     /// as well-formed (a bad contract is exit 2 with the rule id, never a panic mid-scan).
     pub fn from_json(value: &Value) -> Result<Self, String> {
+        match value.get("schemaVersion").and_then(Value::as_u64) {
+            Some(RULES_SCHEMA_VERSION) => {}
+            other => return Err(format!("rules.json schemaVersion must be {RULES_SCHEMA_VERSION}, got {}", other.map_or("none".into(), |v| v.to_string()))),
+        }
         let list = value.get("rules").and_then(Value::as_array).ok_or("rules.json has no rules array")?;
         if list.is_empty() {
             return Err("rules.json has an empty rules array".into());
@@ -125,6 +129,10 @@ impl Registry {
         }
     }
 }
+
+/// Revision of `contracts/rules.json`: 3 removed `scanner.pattern` (regex kinds) in favour of `selector` /
+/// `packages` / `packagePrefixes`; revision 2 contracts are rejected, not reinterpreted.
+const RULES_SCHEMA_VERSION: u64 = 3;
 
 /// Scanner kinds of the rule contract. `line-regex` was retired with the TypeScript scanner:
 /// a text match is not a fact about the program, so it is rejected rather than skipped.

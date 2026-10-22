@@ -113,6 +113,16 @@
     {
       "args": [
         "--rules",
+        "{work}/tree/contracts/old-schema-version.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "schemaVersion must be 3, got 2"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
         "{work}/tree/contracts/does-not-exist.json"
       ],
       "expectExit": 2,

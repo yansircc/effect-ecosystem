@@ -1,0 +1,1 @@
+{"schemaVersion":2,"rules":[{"id":"EFF001","name":"x","family":"f","severity":"error","message":"m","scanner":{"kind":"source-ast","selector":"try-statement"}}]}

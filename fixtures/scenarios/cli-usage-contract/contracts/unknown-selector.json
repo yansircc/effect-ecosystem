@@ -1,1 +1,1 @@
-{"rules":[{"id":"EFF001","name":"x","family":"f","severity":"error","message":"m","scanner":{"kind":"source-ast","selector":"no-such-selector"}}]}
+{"schemaVersion":3,"rules":[{"id":"EFF001","name":"x","family":"f","severity":"error","message":"m","scanner":{"kind":"source-ast","selector":"no-such-selector"}}]}

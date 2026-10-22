@@ -19,8 +19,8 @@ Gate actionability is fixed: error findings are `BLOCK`, warning findings are
 ## Source languages
 
 Source discovery covers `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and
-`.cjs`. The TypeScript compiler supplies AST and binding facts for all of them;
-a JavaScript extension does not bypass source rules or terminal ownership.
+`.cjs`. The oxc parser and semantic model supply AST and binding facts for all of them
+(no type checker is involved in source rules); a JavaScript extension does not bypass source rules or terminal ownership.
 Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are not executable source. Default
 test classification recognizes `.test` and `.spec` before every supported
 extension, and every file under a `__tests__/`, `test/` or `tests/` directory at any
@@ -286,7 +286,7 @@ prose is not a contract surface.
 ### Manifest grammar owner
 
 `validator/manifest.schema.json` is the runtime grammar owner for
-`.effect-skill.json`. `loadManifest` applies it through Ajv before
+`.effect-skill.json`. The scanner applies it with a JSON-schema validator (the `jsonschema` crate) before
 normalization. Runtime code does not maintain a parallel handwritten manifest
 shape. `executableEdges[].execution` is a discriminated `process-main |
 host-callback | tanstack-server-fn | package-facade | wrangler-do |
@@ -467,7 +467,7 @@ Effect tests must use `@effect/vitest`.
 
 ### EFF400 run-outside-executable-edge
 
-Terminal `Effect.run*` calls are derived from the TypeScript AST and import
+Terminal `Effect.run*` calls are derived from the oxc AST and import
 bindings. They are only allowed in manifest-owned executable edges. EFF400 is a
 positive admission rule and cannot be suppressed by line comments,
 `generatedPaths`, or `allowedAdapters`.
@@ -584,8 +584,9 @@ does not reimplement Effect typeflow.
 
 Every TypeScript error-category diagnostic from the same compiler transaction is an `EFF504`
 finding in `--strict` mode. Code that does not compile against the installed Effect version
-(for example a removed v3 API) therefore fails the gate; `compilerDiagnostics` in the scan
-result keeps the raw rendering. Suppress only with a reasoned `eff-ignore EFF504`.
+(for example a removed v3 API) therefore fails the gate. The finding's `lineText` is the compiler's
+own rendering, `TSxxxx: message`; the scan result carries no separate raw-diagnostics key. Suppress only
+with a reasoned `eff-ignore EFF504`.
 
 ## Agent Workflow
 
@@ -702,8 +703,8 @@ artifact paths, whether `--evidence` was used, or temporary directories.
 debug telemetry only; they must not enter `input.sha256` or any other
 hash-stable target-state oracle.
 
-Strict Effect diagnostics remain part of `--strict`. The scanner may cache provider diagnostics by
-full tsconfig program closure, Effect version, TypeScript version, provider kind/version, package metadata,
+Strict Effect diagnostics remain part of `--strict`. The scanner does not cache diagnostics. A cache, if one
+is added, must key on the full tsconfig program closure, Effect version, TypeScript version, provider kind/version, package metadata,
 lockfile content, repo-relative program paths, and program file content. It must
 not use mtime as a cache correctness input. Cache provenance is scanner
 provenance: it can affect `full.sha256`, but it must not affect `input.sha256`.
@@ -746,4 +747,30 @@ paths, so one owner entry can cover a coherent adapter family such as
 `src/lib/**/*.test.ts`.
 
 Use `--fail-on-suppression-drift` to reject expired, orphaned, or ownerless
-suppressions.
+suppressions. With it, an `eff-ignore` comment yields a finding on its own line when:
+
+- it has no `reason="..."`;
+- no finding of that rule remains on the line (orphan);
+- `expires="..."` is a past instant (`eff-ignore EFFxxx expired at <value>`), or is not a date at all
+  (`eff-ignore expires is not a valid date: <value>`; an unparseable `expires` is never silently accepted).
+
+`expires` is compared as an instant (`parsed value < now`), not as text. Supported formats:
+
+| form | examples | read as |
+|---|---|---|
+| ISO 8601 date | `2026-10-22`, `2026-10`, `2026` | 00:00:00 UTC |
+| ISO 8601 date-time | `2026-10-22T09:30:00Z`, `2026-10-22T09:30:00.250+08:00`, `2026-10-22 09:30` | the stated offset; no offset = UTC |
+| month name | `Jan 1 2020`, `January 1, 2020`, `Wed Jan 1 2020`, `1 Jan 2020` | 00:00 UTC, or the stated time/zone (`GMT`, `UTC`, `Z`, `+0800`) |
+| US numeric | `12/31/2099` (month/day/year) | 00:00 UTC, or the stated time/zone |
+
+These are the common forms accepted by JavaScript's `Date.parse`, which the previous scanner used. Two differences:
+JavaScript reads a zone-less date-time and the non-ISO forms in the machine's local time zone, this scanner reads them
+as UTC (the result differs only on the expiry day, by the UTC offset), and only the forms above are accepted
+(`31/12/2099` is invalid, not guessed). Impossible dates (`2021-02-29`, month 13) are invalid. Prefer
+`YYYY-MM-DD` or an ISO date-time with an explicit offset.
+
+Command line: unknown flags, a repeated value flag and extra positional arguments exit 64 (usage error);
+`--help` prints every flag and the exit codes and exits 0. An invalid rule contract or manifest exits 2. An internal
+error (a panic) exits 2 with a message, never an abort code. `--rules <file>` replaces the embedded rule contract
+for fixtures only: the contract is validated in full (kinds, selectors, `packages`) and the override is recorded as the
+first entry of `warnings`.
