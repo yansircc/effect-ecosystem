@@ -2,7 +2,6 @@
 #   $(DIST)/platforms/<platform>/effect-scan   the native binary (+ build-info.json it embeds)
 #   $(DIST)/tools/                             TypeScript development tools (self-test, checks, oracle); never shipped
 #   $(DIST)/skill/                             the assembled skill        (make skill)
-#   $(DIST)/npm/                               the npm release set        (make npm-package)
 # One install path: $(BIN) -> $(INSTALL_ROOT)/<buildId>/effect-scan   (make install)
 PREFIX ?= $(HOME)/.local
 BIN ?= $(PREFIX)/bin/effect-scan
@@ -12,10 +11,8 @@ TOOLS := $(DIST)/tools
 HOST := $(shell node scripts/release/platforms.mjs host)
 BINARY := $(DIST)/platforms/$(HOST)/effect-scan
 BUILD_INFO := $(TOOLS)/build-info.json
-# Platforms without a build become marked placeholders (structure checks only). CI passes PACK_FLAGS= to require all.
-PACK_FLAGS ?= --placeholder-missing
 
-.PHONY: tools build fixtures install skill npm-package package verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
+.PHONY: tools build fixtures install install-built skill verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
 
 tools:
 	rm -rf "$(TOOLS)"
@@ -41,6 +38,10 @@ fixtures: build
 	node "$(TOOLS)/scripts/run-fixtures.js" --bin "$(BINARY)" --exact
 
 install: build
+	$(MAKE) install-built
+
+# Installs the existing build (no rebuild); verify-install.mjs runs it against a temporary PREFIX.
+install-built:
 	@set -eu; \
 	build_id=$$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).buildId' "$(BUILD_INFO)"); \
 	target="$(abspath $(INSTALL_ROOT))/$$build_id/effect-scan"; \
@@ -55,11 +56,6 @@ skill: build
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
 	node scripts/check-skill-entry.mjs "$(DIST)/skill"
 
-npm-package: build
-	node scripts/release/pack.mjs --dist "$(DIST)" --out "$(DIST)/npm" $(PACK_FLAGS)
-
-package: skill npm-package
-
 # Local gate: offline parts, then the networked acceptance and performance gates.
 # The installed scanner must not change while it runs.
 verify:
@@ -72,7 +68,7 @@ verify:
 	if [ "$$before" != "$$after" ]; then echo "installed scanner changed during make verify: $$before -> $$after" >&2; exit 1; fi; \
 	exit "$$status"
 
-# Everything that needs no network. CI runs this on every platform.
+# Everything that needs no network (including a `make install` into a temporary PREFIX). CI runs this on every platform.
 verify-offline: build
 	node "$(TOOLS)/scripts/verify-build-provenance.js"
 	node "$(TOOLS)/scripts/check-registry.js"
@@ -89,7 +85,7 @@ verify-offline: build
 	"$(BINARY)" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
 	node scripts/check-skill-entry.mjs "$(DIST)/skill"
-	node scripts/verify-package.mjs
+	node scripts/verify-install.mjs
 
 # Networked gates (npm install, wrangler, benchmark): one CI job runs them.
 verify-online:

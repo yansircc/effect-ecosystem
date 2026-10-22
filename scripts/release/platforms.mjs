@@ -1,7 +1,7 @@
-// The one list of supported platforms. Everything else (platform npm packages, skill runtime/,
-// CI matrix, the launcher) is derived from or checked against it.
+// The one list of supported platforms. Everything else (skill runtime/, CI matrix, the launcher)
+// is derived from or checked against it.
 // `minGlibc` is the highest GLIBC symbol version the shipped binary may require (the runner image's
-// glibc). check-glibc.mjs fails a build that needs more; the npm shim reports an older host clearly.
+// glibc). check-glibc.mjs fails a build that needs more.
 // Raising it drops hosts: do it deliberately, in the same change as the build that needs it.
 export const PLATFORMS = [
   { key: "darwin-arm64", os: "darwin", cpu: "arm64", runner: "macos-14" },

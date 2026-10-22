@@ -1,5 +1,4 @@
-// GLIBC symbol-version arithmetic. Ships next to the shim (bin/glibc.mjs); also used by
-// scripts/release/check-glibc.mjs (CI) so build-time and run-time checks share one comparison.
+// GLIBC symbol-version arithmetic used by check-glibc.mjs.
 export const parseVersion = (text) => String(text).split(".").map(Number)
 export const compareVersions = (a, b) => {
   const left = parseVersion(a)

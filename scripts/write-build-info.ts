@@ -30,13 +30,7 @@ const gitCommit = git(["rev-parse", "HEAD"]) ?? "unknown"
 const status = gitRaw(["status", "--porcelain=v1", "--untracked-files=all", "--", ...SOURCE_PATHS]) ?? "unknown"
 const diff = gitRaw(["diff", "--binary", "HEAD", "--", ...SOURCE_PATHS]) ?? ""
 const buildInfo = {
-  ...deriveBuildInfo({
-    gitCommit,
-    status,
-    diff,
-    releaseSourceCommit: process.env.EFFECT_SCAN_RELEASE_SOURCE_SHA,
-    releaseFiles: process.env.EFFECT_SCAN_RELEASE_FILES,
-  }),
+  ...deriveBuildInfo({ gitCommit, status, diff }),
   sourceRootRelative: toPosix(relative(gitRoot, sourceRoot) || "."),
 }
 

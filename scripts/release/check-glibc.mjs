@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // A Linux binary must not need a newer glibc than its platform entry promises (platforms.mjs minGlibc),
-// because the npm shim and the docs tell users that version is enough. Run on the runner that built it.
+// because the docs tell users that version is enough. Run on the runner that built it.
 //
 // usage: check-glibc.mjs <binary> <platform-key>
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
-import { compareVersions, maxGlibcVersion } from "../../packaging/npm/bin/glibc.mjs"
+import { compareVersions, maxGlibcVersion } from "./glibc.mjs"
 import { platformByKey } from "./platforms.mjs"
 
 const [binary, key] = process.argv.slice(2)

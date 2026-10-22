@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Assembles the single skill directory from the same collected platform builds as the npm packages:
+// Assembles the single skill directory from the collected platform builds:
 //   SKILL.md agents/ references/ contracts/ build-info.json
 //   runtime/effect-scan                  launcher (SKILL.md's command path)
 //   runtime/<platform>/effect-scan       native binaries

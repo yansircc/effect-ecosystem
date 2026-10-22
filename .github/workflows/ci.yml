@@ -16,54 +16,14 @@ env:
   GIT_CONFIG_VALUE_0: main
 
 concurrency:
-  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && 'release-main' || format('{0}-{1}', github.workflow, github.ref) }}
-  cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]') }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # The release identity (version, tag, bump) is computed once. Every other job reproduces it from the
-  # same source commit and must agree (see "Require the reproduced release identity").
-  identity:
-    name: Release identity
-    if: github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    outputs:
-      name: ${{ steps.release.outputs.name }}
-      version: ${{ steps.release.outputs.version }}
-      tag: ${{ steps.release.outputs.tag }}
-      mode: ${{ steps.release.outputs.mode }}
-      bump: ${{ steps.release.outputs.bump }}
-      source_sha: ${{ steps.release.outputs.sourceSha }}
-      release_files: ${{ steps.release.outputs.releaseFiles }}
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.11.0
-
-      - name: Check out the event source
-        run: |
-          git fetch origin main --tags
-          git checkout --detach "${GITHUB_SHA}"
-
-      - name: Prepare release version
-        id: release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node scripts/release/prepare.mjs "${GITHUB_SHA}"
-
-  # One native binary per platform, built and verified where it runs. The release patch (version
-  # bump) is applied before building so every platform embeds the same build id.
+  # One native binary per platform, built and verified where it runs. Nothing is published: CI only
+  # verifies, and a push to main has no write permission.
   build:
     name: Build and verify (${{ matrix.platform }})
-    needs:
-      - identity
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 
@@ -84,8 +44,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -98,31 +56,10 @@ jobs:
           rustup default stable
           rustc --version
 
-      - name: Check out the event source
-        run: |
-          git fetch origin main --tags
-          git checkout --detach "${GITHUB_SHA}"
-
-      - name: Reproduce release version
-        id: release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node scripts/release/prepare.mjs "${GITHUB_SHA}"
-
-      - name: Require the reproduced release identity
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        env:
-          ACTUAL: ${{ steps.release.outputs.version }}|${{ steps.release.outputs.tag }}|${{ steps.release.outputs.bump }}|${{ steps.release.outputs.sourceSha }}|${{ steps.release.outputs.releaseFiles }}
-          EXPECTED: ${{ needs.identity.outputs.version }}|${{ needs.identity.outputs.tag }}|${{ needs.identity.outputs.bump }}|${{ needs.identity.outputs.source_sha }}|${{ needs.identity.outputs.release_files }}
-        run: test "${ACTUAL}" = "${EXPECTED}"
-
       - name: Install dependencies
         run: npm ci
 
       - name: Build and verify offline gates
-        env:
-          EFFECT_SCAN_RELEASE_SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
-          EFFECT_SCAN_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
         run: make verify-offline
 
       - name: Check the binary's glibc requirement against platforms.mjs
@@ -141,14 +78,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # Collects the three binaries into the npm release set and the skill, verifies them, and dry-runs
-  # the publish. Nothing here publishes. Artifacts are kept 30 days: recovering a failed release means
-  # re-running the failed jobs of this run, which reuses these exact bytes (a rebuild is not guaranteed
-  # byte-identical; see "Recovering a failed release" in docs/rust-migration.md).
-  package:
-    name: Package release set
+  # Collects the three binaries into the skill and verifies its structure (all platforms required).
+  # Artifacts are kept 30 days. Nothing is published.
+  skill:
+    name: Assemble and verify skill
     needs:
-      - identity
       - build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -156,29 +90,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.11.0
-
-      - name: Check out the event source
-        run: |
-          git fetch origin main --tags
-          git checkout --detach "${GITHUB_SHA}"
-
-      - name: Reproduce release version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node scripts/release/prepare.mjs "${GITHUB_SHA}"
-
-      - name: Install dependencies
-        run: npm ci
-
-      # The installed scanner self-scans this checkout with --strict, which needs the Effect-patched TypeScript.
-      - name: Patch TypeScript with the Effect diagnostics provider
-        run: node scripts/prepare-effect-tsgo.mjs
 
       - name: Download platform binaries
         uses: actions/download-artifact@v8
@@ -190,35 +106,10 @@ jobs:
       - name: Restore executable bits (artifacts do not keep modes)
         run: chmod +x dist/platforms/*/effect-scan
 
-      - name: Pack npm release set (all platforms required)
-        run: node scripts/release/pack.mjs --dist dist --out dist/npm
-
-      - name: Verify npm release set
-        run: node scripts/verify-package.mjs --packages dist/npm
-
-      - name: Verify release build provenance
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          node scripts/release/verify-release-build-info.mjs \
-            dist/npm/yansircc-effect-scan-[0-9]*.tgz \
-            "${{ needs.identity.outputs.source_sha }}" \
-            "${{ needs.identity.outputs.release_files }}"
-
       - name: Assemble and verify skill
         run: |
           node scripts/release/assemble-skill.mjs --dist dist --require-all-platforms
           node scripts/check-skill-entry.mjs dist/skill --require-all-platforms
-
-      - name: Dry-run publish
-        run: node scripts/release/publish.mjs dist/npm --dry-run
-
-      - name: Upload verified npm release set
-        uses: actions/upload-artifact@v7
-        with:
-          name: npm-packages-${{ github.sha }}
-          path: dist/npm/*.tgz
-          if-no-files-found: error
-          retention-days: 30
 
       # upload-artifact stores files in a zip and drops modes; a tar keeps runtime/**/effect-scan executable.
       - name: Archive skill (preserves executable bits)
@@ -231,108 +122,3 @@ jobs:
           path: skill-${{ github.sha }}.tar.gz
           if-no-files-found: error
           retention-days: 30
-
-  # Publishing comes before recording: a failed publish leaves no tag and no release commit, so the
-  # next run computes the same release again; a failed record step leaves published packages that
-  # push-release.mjs completes idempotently. Needs only the artifact, no git write access.
-  publish:
-    name: Publish npm packages
-    needs:
-      - identity
-      - package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.11.0
-
-      - name: Download verified npm release set
-        uses: actions/download-artifact@v8
-        with:
-          name: npm-packages-${{ github.sha }}
-          path: release
-
-      # Fails before uploading anything if a package name was never bootstrapped (trusted publishing
-      # cannot create packages); otherwise platform packages first, shim last, idempotent by integrity.
-      - name: Publish verified packages
-        run: node scripts/release/publish.mjs release
-
-  commit_release:
-    name: Record release (commit and tag)
-    needs:
-      - identity
-      - publish
-
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.11.0
-
-      # Re-applies the release patch to the current tip of main and retries when main moved while
-      # this release was building; accepts a release commit/tag that already records this source.
-      - name: Commit and tag release
-        shell: bash
-        env:
-          VERSION: ${{ needs.identity.outputs.version }}
-          TAG: ${{ needs.identity.outputs.tag }}
-          BUMP: ${{ needs.identity.outputs.bump }}
-          SOURCE_SHA: ${{ needs.identity.outputs.source_sha }}
-          RELEASE_FILES: ${{ needs.identity.outputs.release_files }}
-        run: |
-          node scripts/release/push-release.mjs \
-            --version "${VERSION}" --tag "${TAG}" --bump "${BUMP}" \
-            --source "${SOURCE_SHA}" --files "${RELEASE_FILES}"
-
-  verify-public:
-    name: Verify public projection
-    needs:
-      - identity
-      - publish
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.11.0
-
-      - name: Download verified npm release set
-        uses: actions/download-artifact@v8
-        with:
-          name: npm-packages-${{ github.sha }}
-          path: release
-
-      - name: Verify registry integrity and public installation
-        run: node scripts/release/verify-public.mjs release

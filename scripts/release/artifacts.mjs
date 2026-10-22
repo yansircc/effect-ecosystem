@@ -1,4 +1,4 @@
-// Shared by pack.mjs and assemble-skill.mjs: what a collected platform build looks like.
+// Shared by assemble-skill.mjs, check-binary.mjs and check-skill-entry.mjs: what a collected platform build looks like.
 //   <dist>/platforms/<key>/effect-scan        native binary
 //   <dist>/platforms/<key>/build-info.json    the provenance that binary embeds (EFFECT_SCAN_BUILD_INFO)
 import assert from "node:assert/strict"
@@ -40,7 +40,7 @@ export function sortKeys(value) {
 }
 
 // Returns [{ platform, binary, buildInfo }] for every platform that has a build, and requires
-// that all of them carry one build-info (one release is one build id).
+// that all of them carry one build-info (one build id per skill).
 export function collectPlatformBuilds(distDir) {
   const builds = []
   for (const platform of PLATFORMS) {

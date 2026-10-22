@@ -23,7 +23,7 @@
     {
       "path": "packaging/**",
       "owner": "@effect-ecosystem-skill",
-      "reason": "Delivery shims (npm bin shim, skill launcher) that locate and exec the native scanner; not Effect application code."
+      "reason": "Delivery shim (skill launcher) that locates and exec the native scanner; not Effect application code."
     },
     {
       "path": "fixtures/**",
