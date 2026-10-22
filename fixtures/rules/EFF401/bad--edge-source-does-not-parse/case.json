@@ -14,7 +14,7 @@
     "src/main.ts:4:EFF504:error"
   ],
   "allowCompileErrors": [
-    "TS1005"
+    "src/main.ts:TS1005"
   ],
   "allowCompileErrorsReason": "the fixture is a deliberate syntax error: the scanner must report the file itself"
 }
