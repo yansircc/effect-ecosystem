@@ -31,7 +31,9 @@ export function deriveBuildInfo(input: {
   if (!releaseSourceCommit) return dirtyOrCleanBuild(input, shortCommit)
 
   if (input.gitCommit === "unknown" || releaseSourceCommit !== input.gitCommit) {
-    throw new Error("release provenance source commit must equal the checked-out commit")
+    throw new Error(
+      "release provenance source commit must equal the checked-out commit: release builds check out the source commit and re-apply the release patch (scripts/release/prepare.mjs), never the release commit",
+    )
   }
 
   const files = parseReleaseFiles(releaseFiles!)

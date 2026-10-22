@@ -125,6 +125,10 @@ jobs:
           EFFECT_SCAN_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
         run: make verify-offline
 
+      - name: Check the binary's glibc requirement against platforms.mjs
+        if: runner.os == 'Linux'
+        run: node scripts/release/check-glibc.mjs "dist/platforms/${{ matrix.platform }}/effect-scan" "${{ matrix.platform }}"
+
       - name: Verify networked acceptance and performance gates
         if: matrix.online
         run: make verify-online
@@ -135,10 +139,12 @@ jobs:
           name: binary-${{ matrix.platform }}
           path: dist/platforms
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
 
   # Collects the three binaries into the npm release set and the skill, verifies them, and dry-runs
-  # the publish. Nothing here publishes.
+  # the publish. Nothing here publishes. Artifacts are kept 30 days: recovering a failed release means
+  # re-running the failed jobs of this run, which reuses these exact bytes (a rebuild is not guaranteed
+  # byte-identical; see "Recovering a failed release" in docs/rust-migration.md).
   package:
     name: Package release set
     needs:
@@ -208,109 +214,28 @@ jobs:
           name: npm-packages-${{ github.sha }}
           path: dist/npm/*.tgz
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
+
+      # upload-artifact stores files in a zip and drops modes; a tar keeps runtime/**/effect-scan executable.
+      - name: Archive skill (preserves executable bits)
+        run: tar -C dist -czf "skill-${GITHUB_SHA}.tar.gz" skill
 
       - name: Upload skill
         uses: actions/upload-artifact@v7
         with:
           name: skill-${{ github.sha }}
-          path: dist/skill
+          path: skill-${{ github.sha }}.tar.gz
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
-  commit_release:
-    name: Commit and tag release
-    needs:
-      - identity
-      - package
-
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.11.0
-
-      - name: Reproduce release version
-        id: release
-        env:
-          SOURCE_SHA: ${{ needs.identity.outputs.source_sha }}
-        run: |
-          git fetch origin main --tags
-          git checkout --detach "${SOURCE_SHA}"
-          node scripts/release/prepare.mjs "${SOURCE_SHA}"
-
-      - name: Require the reproduced release identity
-        shell: bash
-        env:
-          ACTUAL_NAME: ${{ steps.release.outputs.name }}
-          ACTUAL_VERSION: ${{ steps.release.outputs.version }}
-          ACTUAL_TAG: ${{ steps.release.outputs.tag }}
-          ACTUAL_MODE: ${{ steps.release.outputs.mode }}
-          ACTUAL_BUMP: ${{ steps.release.outputs.bump }}
-          ACTUAL_SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
-          ACTUAL_RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
-          EXPECTED_NAME: ${{ needs.identity.outputs.name }}
-          EXPECTED_VERSION: ${{ needs.identity.outputs.version }}
-          EXPECTED_TAG: ${{ needs.identity.outputs.tag }}
-          EXPECTED_MODE: ${{ needs.identity.outputs.mode }}
-          EXPECTED_BUMP: ${{ needs.identity.outputs.bump }}
-          EXPECTED_SOURCE_SHA: ${{ needs.identity.outputs.source_sha }}
-          EXPECTED_RELEASE_FILES: ${{ needs.identity.outputs.release_files }}
-        run: |
-          test "${ACTUAL_NAME}" = "${EXPECTED_NAME}"
-          test "${ACTUAL_VERSION}" = "${EXPECTED_VERSION}"
-          test "${ACTUAL_TAG}" = "${EXPECTED_TAG}"
-          test "${ACTUAL_MODE}" = "${EXPECTED_MODE}"
-          test "${ACTUAL_BUMP}" = "${EXPECTED_BUMP}"
-          test "${ACTUAL_SOURCE_SHA}" = "${EXPECTED_SOURCE_SHA}"
-          test "${ACTUAL_RELEASE_FILES}" = "${EXPECTED_RELEASE_FILES}"
-
-      - name: Commit and tag release
-        if: steps.release.outputs.mode == 'new'
-        shell: bash
-        env:
-          VERSION: ${{ steps.release.outputs.version }}
-          TAG: ${{ steps.release.outputs.tag }}
-          BUMP: ${{ steps.release.outputs.bump }}
-          SOURCE_SHA: ${{ steps.release.outputs.sourceSha }}
-          RELEASE_FILES: ${{ steps.release.outputs.releaseFiles }}
-        run: |
-          IFS=, read -r -a release_files <<< "${RELEASE_FILES}"
-          actual="$(git diff --name-only | sort)"
-          expected="$(printf '%s\n' "${release_files[@]}" | sort)"
-          if [[ "${actual}" != "${expected}" ]]; then
-            echo "Release preparation changed unexpected files." >&2
-            diff -u <(printf '%s\n' "${expected}") <(printf '%s\n' "${actual}") || true
-            exit 1
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "${release_files[@]}"
-          git commit \
-            -m "chore(release): v${VERSION}" \
-            -m "Release-Source: ${SOURCE_SHA}" \
-            -m "Release-Bump: ${BUMP}"
-          git tag -a "${TAG}" -m "${TAG}"
-          git push --atomic origin HEAD:main "refs/tags/${TAG}"
-
+  # Publishing comes before recording: a failed publish leaves no tag and no release commit, so the
+  # next run computes the same release again; a failed record step leaves published packages that
+  # push-release.mjs completes idempotently. Needs only the artifact, no git write access.
   publish:
     name: Publish npm packages
     needs:
       - identity
       - package
-      - commit_release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -334,8 +259,49 @@ jobs:
           name: npm-packages-${{ github.sha }}
           path: release
 
-      - name: Publish verified packages (platform packages first, shim last; idempotent)
+      # Fails before uploading anything if a package name was never bootstrapped (trusted publishing
+      # cannot create packages); otherwise platform packages first, shim last, idempotent by integrity.
+      - name: Publish verified packages
         run: node scripts/release/publish.mjs release
+
+  commit_release:
+    name: Record release (commit and tag)
+    needs:
+      - identity
+      - publish
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      # Re-applies the release patch to the current tip of main and retries when main moved while
+      # this release was building; accepts a release commit/tag that already records this source.
+      - name: Commit and tag release
+        shell: bash
+        env:
+          VERSION: ${{ needs.identity.outputs.version }}
+          TAG: ${{ needs.identity.outputs.tag }}
+          BUMP: ${{ needs.identity.outputs.bump }}
+          SOURCE_SHA: ${{ needs.identity.outputs.source_sha }}
+          RELEASE_FILES: ${{ needs.identity.outputs.release_files }}
+        run: |
+          node scripts/release/push-release.mjs \
+            --version "${VERSION}" --tag "${TAG}" --bump "${BUMP}" \
+            --source "${SOURCE_SHA}" --files "${RELEASE_FILES}"
 
   verify-public:
     name: Verify public projection

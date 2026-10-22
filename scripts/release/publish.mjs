@@ -13,6 +13,19 @@ import { readFileSync, readdirSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 const REGISTRY = "https://registry.npmjs.org/"
+// Trusted publishing (OIDC) can only be configured for a package that already exists, so each package
+// name needs one manual first publish. Printed whenever that is the likely cause.
+const BOOTSTRAP_HINT =
+  "Trusted publishing needs the package to exist first. One-time bootstrap (see docs/rust-migration.md, " +
+  '"First publish of a new package name"): node scripts/release/bootstrap-packages.mjs --out <dir>, publish the ' +
+  "0.0.0 placeholders by hand with a short-lived granular token, then add the trusted publisher " +
+  "(GitHub Actions, workflow ci.yml) on npmjs.com for each package."
+const exists = (name) => {
+  const view = spawnSync("npm", ["view", name, "name", "--json", "--registry", REGISTRY], { encoding: "utf8" })
+  if (view.status === 0) return true
+  assert.ok(view.stderr.includes("E404"), `could not determine whether ${name} exists:\n${view.stderr}`)
+  return false
+}
 const args = process.argv.slice(2)
 const dir = resolve(args.find((arg) => !arg.startsWith("--")) ?? "")
 const dryRun = args.includes("--dry-run")
@@ -30,6 +43,18 @@ for (const { archive, manifest } of archives) {
   assert.ok(!manifest.effectScanPlaceholder, `${archive} is a placeholder build and must not be published`)
 }
 
+// Before anything is uploaded: a missing package name would otherwise fail midway, after the
+// platform packages were published and before the shim, leaving a half release.
+const missing = [...new Set(archives.map(({ manifest }) => manifest.name))].filter((packageName) => !exists(packageName))
+if (missing.length > 0) {
+  const message = `package(s) not on the registry yet: ${missing.join(", ")}.\n${BOOTSTRAP_HINT}`
+  if (!dryRun) {
+    console.error(message)
+    process.exit(1)
+  }
+  console.warn(`warning: ${message}`)
+}
+
 for (const { archive, manifest } of archives) {
   const spec = `${manifest.name}@${manifest.version}`
   if (dryRun) {
@@ -44,10 +69,23 @@ for (const { archive, manifest } of archives) {
   const local = `sha512-${createHash("sha512").update(readFileSync(archive)).digest("base64")}`
   const view = spawnSync("npm", ["view", spec, "dist.integrity", "--json", "--registry", REGISTRY], { encoding: "utf8" })
   if (view.status === 0) {
-    assert.equal(JSON.parse(view.stdout), local, `published ${spec} does not match the verified candidate`)
+    assert.equal(
+      JSON.parse(view.stdout),
+      local,
+      `published ${spec} does not match the verified candidate. A rebuild is not guaranteed to be byte-identical, so recover by ` +
+        "re-running only the failed jobs of the original run (artifacts are kept 30 days), not the whole workflow; see docs/rust-migration.md, \"Recovering a failed release\".",
+    )
     console.log(`${spec} is already published with the verified candidate.`)
     continue
   }
   assert.ok(view.stderr.includes("E404"), `could not determine whether ${spec} is published:\n${view.stderr}`)
-  execFileSync("npm", ["publish", archive, "--access", "public", "--provenance", "--registry", REGISTRY], { stdio: "inherit" })
+  const publish = spawnSync("npm", ["publish", archive, "--access", "public", "--provenance", "--registry", REGISTRY], { encoding: "utf8" })
+  process.stdout.write(publish.stdout)
+  process.stderr.write(publish.stderr)
+  if (publish.status !== 0) {
+    const auth = /ENEEDAUTH|E401|E403|E404|OIDC|trusted publish/i.test(publish.stderr)
+    console.error(`${spec}: npm publish failed.${auth ? `\nThis looks like an authentication/authorization failure. ${BOOTSTRAP_HINT}` : ""}`)
+    console.error("Packages published before this one stay published; re-running this job continues (idempotent by integrity).")
+    process.exit(1)
+  }
 }

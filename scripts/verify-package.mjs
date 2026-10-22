@@ -44,6 +44,7 @@ try {
   assert.deepEqual(listing(rootArchive).filter((file) => !file.endsWith("/")), [
     "package/LICENSE",
     "package/bin/effect-scan.js",
+    "package/bin/glibc.mjs",
     "package/build-info.json",
     "package/package.json",
   ])
@@ -60,6 +61,8 @@ try {
     assert.equal(platformManifest.version, manifest.version)
     assert.deepEqual(platformManifest.os, [platform.os])
     assert.deepEqual(platformManifest.cpu, [platform.cpu])
+    assert.deepEqual(platformManifest.libc, platform.libc ? [platform.libc] : undefined)
+    assert.deepEqual(platformManifest.effectScan, platform.minGlibc ? { minGlibc: platform.minGlibc } : undefined)
     assert.deepEqual(listing(archive).filter((file) => !file.endsWith("/")), [
       "package/LICENSE",
       "package/bin/effect-scan",
@@ -77,6 +80,21 @@ try {
     PLATFORMS.map((platform) => platform.key).sort(),
     "ci.yml matrix platforms differ from scripts/release/platforms.mjs",
   )
+  assert.deepEqual(
+    [...ci.matchAll(/^\s+-\s+platform:\s*(\S+)\s*\n\s+runner:\s*(\S+)\s*$/gm)].map((match) => `${match[1]}=${match[2]}`).sort(),
+    PLATFORMS.map((platform) => `${platform.key}=${platform.runner}`).sort(),
+    "ci.yml matrix runners differ from scripts/release/platforms.mjs",
+  )
+  if (PLATFORMS.some((platform) => platform.libc === "glibc")) {
+    assert.match(ci, /check-glibc\.mjs\s+"dist\/platforms\/\$\{\{ matrix\.platform \}\}\/effect-scan"\s+"\$\{\{ matrix\.platform \}\}"/, "ci.yml must run check-glibc.mjs on every Linux build")
+  }
+  // Releases publish before they are recorded, and nothing publishes outside a push to main.
+  assert.match(ci, /commit_release:\s*\n(?:.*\n)*?\s+needs:\s*\n(?:\s+- .*\n)*?\s+- publish\b/, "commit_release must run after publish")
+  assert.ok(!/pull_request_target/.test(ci), "ci.yml must not use pull_request_target")
+  assert.equal(ci.match(/id-token:\s*write/g)?.length, 1, "only the publish job may request an OIDC token")
+
+  // Release scripts and the shim: pure-logic self-test.
+  execFileSync(process.execPath, [join(root, "scripts/release/self-test.mjs")], { stdio: "inherit" })
 
   // Install the shim exactly as a consumer would; the platform packages come from the local archives.
   const consumer = join(temporary, "consumer")

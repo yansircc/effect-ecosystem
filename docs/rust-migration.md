@@ -385,8 +385,14 @@ includes `crates/`, `Cargo.*`, `packaging/`) and then asserts the binary's `--bu
 The shim resolves the platform package, runs the binary with the same argv and stdio, and returns its exit
 status. The repository `package.json` is private and is the single version source (CI-owned, bumped by
 `scripts/release/prepare.mjs` from the `Release-Bump:` trailer); `pack.mjs` generates the published manifests,
-all at that version. Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39; a musl/older-glibc
-target is a new platform entry, not a patch. Consumers still need `node` on `PATH` (the scanner runs the
+all at that version. Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39 (`minGlibc` in
+`platforms.mjs`, the one record). CI fails a Linux build whose `objdump -T` shows a higher `GLIBC_x.y`
+(`scripts/release/check-glibc.mjs`); pack.mjs copies `minGlibc` into the platform package
+(`effectScan.minGlibc`), and the shim refuses an older host with that number. A musl/older-glibc target is a new
+platform entry, not a patch. The shim spawns the binary (not `spawnSync`), relays SIGINT/SIGTERM/SIGHUP to it,
+re-raises the binary's fatal signal on itself, and otherwise returns its exit status; it names the actual cause
+for musl (no glibc), an x64 Node under Rosetta on Apple Silicon, a missing dynamic loader or wrong-architecture
+binary, instead of a generic "not installed". Consumers still need `node` on `PATH` (the scanner runs the
 project's own `tsc`).
 
 ### Skill
@@ -397,20 +403,83 @@ own rules and schemas), `build-info.json`, `runtime/effect-scan` (POSIX launcher
 SKILL.md exists and is executable, runs the entry when the host binary is present, and with
 `--require-all-platforms` demands all three.
 
+CI uploads the skill as `skill-<sha>` containing `skill-<sha>.tar.gz` (GitHub artifacts are zips and drop file
+modes; the tarball keeps `runtime/**/effect-scan` executable). Unpack with
+`tar -xzf skill-<sha>.tar.gz` (creates `skill/`); do not repack the extracted directory with a zip tool.
+
 ### CI and release
 
-`.github/workflows/ci.yml`: `identity` (release version, as before) -> `build` matrix (macos-14,
-ubuntu-24.04, ubuntu-24.04-arm; rustup stable, `make verify-offline`; `make verify-online` on linux-x64;
+`.github/workflows/ci.yml`: `identity` (release version) -> `build` matrix (macos-14, ubuntu-24.04,
+ubuntu-24.04-arm; rustup stable, `make verify-offline`; glibc check on Linux; `make verify-online` on linux-x64;
 uploads `dist/platforms`) -> `package` (collects the three binaries, `pack.mjs`, `verify-package.mjs --packages`,
-release build-info check, skill assembly, `publish.mjs --dry-run`, uploads) -> `commit_release` (unchanged
-bump/tag semantics) -> `publish` (`scripts/release/publish.mjs`: platform packages first, shim last, idempotent
-by integrity, `--provenance`) -> `verify-public`. Every job that builds reproduces the release patch
-(`prepare.mjs`) and must equal `identity`, so all platforms embed one build id.
+release build-info check, skill assembly, `publish.mjs --dry-run`, uploads) -> `publish`
+(`scripts/release/publish.mjs`: platform packages first, shim last, idempotent by integrity, `--provenance`,
+OIDC only) -> `commit_release` (`push-release.mjs`: release commit + tag) and `verify-public`. Pull requests run
+identity/build/package only; publishing needs `push` to `main` and is the only job with `id-token: write`
+(`verify-package.mjs` asserts both, and the absence of `pull_request_target`). All artifacts are kept 30 days.
+
+Release identity. A release is (source commit, version); the published tree is always the source commit plus a
+release patch that is a pure function of the version (`release-patch.mjs`: version fields of `package.json` and
+lock files). Every job checks out the source commit and re-applies the patch; the release commit on main only
+records the pair (`Release-Source:` trailer), so it is never the build input and `deriveBuildInfo` (source commit
+= checked-out commit) holds in every mode. `prepare.mjs` modes: `new` (no release commit for this source:
+version = bump of the latest released version on main) and `existing` (a release commit exists: its version is
+read back and the same patch re-applied, so a rebuild yields the same build id). A source that is not newer than
+the latest released source is refused.
+
+Bump rule: the greatest `Release-Bump:` (major > minor > patch; default patch) over every commit from the
+previous release's source to this source, not only the head commit, so multi-commit pushes and runs superseded in
+the concurrency queue keep their bumps. A squash body repeating or mixing values is not an error: the greatest
+wins and a conflict is logged. Release commits are not input.
+
+Publish before record. `publish` runs before `commit_release`: a failed publish leaves no tag and no release
+commit, so the next run computes the same release again. `commit_release` re-applies the patch to the current tip
+of `main` and pushes commit + tag atomically; if `main` moved during the build (push rejected) it re-fetches and
+retries with backoff (5 attempts), then fails saying the packages are already published and the job can simply
+be re-run (idempotent). Consequence: the tag's tree is the tip at record time plus the version patch; the exact
+built source is `Release-Source:`, which is authoritative.
+
+### First publish of a new package name
+
+Trusted publishing (OIDC) can only be configured for a package that already exists, so the first publish of
+each new name cannot be done by CI. One-time, per new name (`@yansircc/effect-scan-darwin-arm64`,
+`-linux-x64`, `-linux-arm64`; the shim `@yansircc/effect-scan` already exists):
+
+1. `node scripts/release/bootstrap-packages.mjs --out /tmp/effect-scan-bootstrap` writes `0.0.0` placeholder
+   packages (no files, `effectScanPlaceholder`) for names `npm view` reports missing, and prints the commands. It
+   publishes nothing.
+2. npmjs.com > Access Tokens: a granular token, 1-day expiry, read+write limited to the `@yansircc` scope.
+3. From each printed directory: `NODE_AUTH_TOKEN=<token> npm publish --access public --tag bootstrap` (the
+   `bootstrap` tag keeps `latest` free for the first real release; the token stays in the environment, never in a
+   file).
+4. Revoke the token. For each package on npmjs.com: Settings > Trusted Publisher > GitHub Actions, repository
+   `yansircc/effect-ecosystem`, workflow `ci.yml`, no environment.
+5. Optionally `npm deprecate '<name>@0.0.0' 'placeholder'`. Exact optional dependency versions mean `0.0.0` is
+   never resolved.
+
+`publish.mjs` checks every package name exists before uploading anything and, if one is missing, stops with this
+procedure (no half release); an authentication failure while publishing and a `verify-public` timeout print the
+same pointer.
+
+### Recovering a failed release
+
+| failure | state | recovery |
+|---|---|---|
+| build/package fails | nothing published, no tag | fix and push; the same version is computed again |
+| `publish` fails (auth, network) | some platform packages possibly published, no tag | re-run failed jobs of the same run: same artifact bytes, published versions are skipped by integrity |
+| `commit_release` fails | all packages published, no tag | re-run the job (idempotent; retries on a moved `main`) |
+| `verify-public` fails | published and recorded | re-run the job; propagation delay is retried for 5 minutes |
+| artifacts expired (> 30 days) with an incomplete publish | partial | re-run the whole workflow: `existing` mode rebuilds from the source commit with the same patch, but a Rust rebuild is not guaranteed byte-identical, so an already published package may fail the integrity comparison; then deprecate the partial version and release again with a `Release-Bump: minor` (or `major`) commit |
+
+Local verification of all of this needs no network: `node scripts/release/self-test.mjs` (also part of
+`verify-package.mjs`, hence `make verify-offline`) exercises bump resolution, new/existing/queued/stale identities
+and the record step with a rejected push in temporary git repositories, glibc parsing, and the shim's exit codes
+and signal relay. What it cannot prove: the workflow running on GitHub, OIDC publishing, and the bootstrap.
 
 Dry run, locally: `make npm-package && node scripts/verify-package.mjs`; with all platform binaries present
 (`PACK_FLAGS=` and binaries in `dist/platforms`), `node scripts/release/publish.mjs dist/npm --dry-run`
 (`npm publish --dry-run` per tarball; placeholders are refused; an already-published version is reported, not
-an error). Nothing in the repository publishes outside `publish.mjs`.
+an error; a missing package name is a warning). Nothing in the repository publishes outside `publish.mjs`.
 
 ### Migration notes for users
 

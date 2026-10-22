@@ -65,6 +65,7 @@ for (const platform of PLATFORMS) {
     os: [platform.os],
     cpu: [platform.cpu],
     ...(platform.libc ? { libc: [platform.libc] } : {}),
+    ...(platform.minGlibc ? { effectScan: { minGlibc: platform.minGlibc } } : {}),
     files: ["bin"],
     preferUnplugged: true,
   })
@@ -74,6 +75,7 @@ for (const platform of PLATFORMS) {
 const rootDir = join(stage, "root")
 mkdirSync(join(rootDir, "bin"), { recursive: true })
 copyFileSync(join(root, "packaging/npm/bin/effect-scan.js"), join(rootDir, "bin/effect-scan.js"))
+copyFileSync(join(root, "packaging/npm/bin/glibc.mjs"), join(rootDir, "bin/glibc.mjs"))
 chmodSync(join(rootDir, "bin/effect-scan.js"), 0o755)
 copyFileSync(join(root, "LICENSE"), join(rootDir, "LICENSE"))
 copyFileSync(buildInfoPath, join(rootDir, "build-info.json"))

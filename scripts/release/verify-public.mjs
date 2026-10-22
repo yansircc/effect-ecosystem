@@ -31,7 +31,11 @@ for (const file of readdirSync(dir).filter((name) => name.endsWith(".tgz"))) {
     if (view.status === 0) remote = JSON.parse(view.stdout)
     else await sleep(5000)
   }
-  assert.ok(remote, `${spec} did not become publicly visible`)
+  assert.ok(
+    remote,
+    `${spec} did not become publicly visible within 5 minutes. If this is the first release of a new package name, ` +
+      'it needs the one-time manual bootstrap (docs/rust-migration.md, "First publish of a new package name"); otherwise check the publish job.',
+  )
   assert.equal(remote, local, `public ${spec} does not match the verified candidate`)
   if (manifest.optionalDependencies) {
     rootSpec = spec
