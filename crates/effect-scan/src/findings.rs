@@ -11,7 +11,6 @@ pub struct RuleMeta {
     pub reference: Option<String>,
     pub facts: Vec<String>,
     pub scanner: Value,
-    pub facts: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -67,7 +66,6 @@ impl Registry {
                 reference: rule.get("references").and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_str).map(String::from),
                 facts: rule.get("facts").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default(),
                 scanner: rule.get("scanner").cloned().unwrap_or(Value::Null),
-                facts: rule.get("facts").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default(),
             });
         }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
