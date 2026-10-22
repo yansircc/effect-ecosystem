@@ -37,6 +37,15 @@ rules.json schema, `effect.requiredReferences` routing, gate-summary / scan-resu
 Known intentional differences:
 - `EFF900` schema-violation messages come from a different JSON-schema engine; count and wording of
   messages may differ, the rule id and file do not.
+  The fixture `manifest-rejects-singular-host-hard-cut` is pinned with `rustFindings` (Ajv `allErrors`
+  expands one `oneOf` violation into dozens of findings; the Rust engine reports one).
+- Package stage (`package/`): semver is a port of node-semver 7.x (`package/node_semver.rs`), not the
+  `semver` crate, whose Cargo grammar cannot read `||`, space-joined, x-range or hyphen ranges.
+  `scanState` JSON, runtime facts and EFF2xx/3xx/9xx findings (messages included) are verified
+  identical to the oracle over ~60 generated scenarios (catalogs, lockfiles, symlinks, workspaces,
+  peers, JSONC errors). Residual: an unparseable `package.json` is a scan abort in TypeScript but a
+  warning plus empty dependency set in Rust (a manifest load cannot fail a scan); `localeCompare`
+  ordering of candidate/binding keys uses `util::locale_compare` (code-point order for punctuation).
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
 
 ## Differential harness

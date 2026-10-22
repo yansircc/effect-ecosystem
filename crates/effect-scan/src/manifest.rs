@@ -1,6 +1,7 @@
 use crate::findings::{Finding, Registry};
 use crate::util::{default_test_globs, to_posix};
-use serde_json::Value;
+use crate::package::workspace::{self, WorkspaceContext};
+use serde_json::{Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -12,6 +13,32 @@ pub struct Package {
     pub path: String,
     pub root: PathBuf,
     pub shape: Vec<String>,
+    pub dependency_owner: String,
+    #[allow(dead_code)] // read by the projection stage (profile signals)
+    pub dependency_owner_reason: Option<String>,
+    /// Absolute directory whose `package.json` owns this package's dependencies.
+    pub dependency_root: PathBuf,
+    /// Posix path relative to the scan root.
+    pub wrangler_path: Option<String>,
+    pub package_json: Value,
+    /// `dependencies` + `devDependencies` + `peerDependencies` + `optionalDependencies`, merged in that order.
+    pub deps: Map<String, Value>,
+    pub dev_deps: Map<String, Value>,
+    pub relative_package_json: String,
+}
+
+/// An `{ owner, reason }`-annotated manifest entry keyed by `path` (hostTooling) or `glob` (generatedPaths).
+#[derive(Debug, Clone)]
+pub struct OwnedPattern {
+    pub pattern: String,
+    pub owner: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeDependencyBoundary {
+    pub package: String,
+    pub dependency: String,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +55,13 @@ pub struct Manifest {
     pub generated_globs: Vec<String>,
     pub host_tooling_paths: Vec<String>,
     pub test_globs: Vec<String>,
+    pub workspace: WorkspaceContext,
+    pub ai_provider_transport_paths: Vec<String>,
+    pub native_dependency_boundaries: Vec<NativeDependencyBoundary>,
+    pub host_tooling: Vec<OwnedPattern>,
+    pub generated_paths: Vec<OwnedPattern>,
+    #[allow(dead_code)] // read by the projection stage (profile signals)
+    pub wrangler_path: Option<String>,
 }
 
 pub struct LoadResult {
@@ -68,13 +102,15 @@ pub fn load(root: &Path, strict: bool, manifest_path: Option<&str>, registry: &R
             findings: errors.iter().map(|m| registry.finding("EFF900", &relative, 1, "", Some(m), None)).collect(),
         };
     }
-    let manifest = normalize(root, &raw);
+    let workspace = workspace::discover(root);
+    let mut warnings = Vec::new();
+    let manifest = normalize(root, &raw, workspace, &mut warnings);
     let findings = if strict && manifest.packages.iter().all(|p| p.shape.is_empty()) {
         vec![registry.finding("EFF903", &relative, 1, "", None, None)]
     } else {
         vec![]
     };
-    LoadResult { manifest: Some(manifest), warnings: vec![], findings }
+    LoadResult { manifest: Some(manifest), warnings, findings }
 }
 
 pub fn schema_value() -> Value {
@@ -101,16 +137,63 @@ fn path_items(value: Option<&Value>) -> Vec<&Value> {
     value.and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default()
 }
 
-fn normalize(root: &Path, raw: &Value) -> Manifest {
-    let package = |pkg: &Value| {
+fn dependency_map(package_json: &Value, fields: &[&str]) -> Map<String, Value> {
+    let mut out = Map::new();
+    for field in fields {
+        if let Some(entries) = package_json.get(*field).and_then(Value::as_object) {
+            for (name, range) in entries {
+                out.insert(name.clone(), range.clone());
+            }
+        }
+    }
+    out
+}
+
+fn owned(value: Option<&Value>, key: &str) -> Vec<OwnedPattern> {
+    path_items(value)
+        .iter()
+        .filter_map(|i| {
+            let text = |k: &str| i.get(k).and_then(Value::as_str).map(String::from);
+            Some(OwnedPattern { pattern: text(key)?, owner: text("owner").unwrap_or_default(), reason: text("reason").unwrap_or_default() })
+        })
+        .collect()
+}
+
+fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &mut Vec<String>) -> Manifest {
+    let mut package = |pkg: &Value| {
         let path = to_posix(pkg.get("path").and_then(Value::as_str).unwrap_or("."));
-        let path = path.trim_end_matches('/');
+        let path = path.strip_suffix('/').unwrap_or(&path);
         let path = if path.is_empty() { "." } else { path };
-        Package { path: path.to_string(), root: root.join(path), shape: strings(pkg.get("shape")) }
+        let dependency_owner = pkg.get("dependencyOwner").and_then(Value::as_str).unwrap_or("package-local").to_string();
+        let package_root = root.join(path);
+        let dependency_root = if dependency_owner == "workspace-root" { workspace.workspace_root.clone() } else { package_root.clone() };
+        let package_json_path = dependency_root.join("package.json");
+        let package_json = match fs::read_to_string(&package_json_path) {
+            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
+                // The TypeScript scanner aborts the whole scan here; a stage cannot fail the load, so surface it.
+                warnings.push(format!("{} is not valid JSON ({e}); treated as empty", package_json_path.display()));
+                Value::Object(Map::new())
+            }),
+            Err(_) => Value::Object(Map::new()),
+        };
+        let relative_package_json = if path == "." { "package.json".to_string() } else { format!("{path}/package.json") };
+        Package {
+            path: path.to_string(),
+            root: package_root,
+            shape: strings(pkg.get("shape")),
+            dependency_owner,
+            dependency_owner_reason: pkg.get("dependencyOwnerReason").and_then(Value::as_str).map(String::from),
+            dependency_root,
+            wrangler_path: pkg.get("wranglerPath").and_then(Value::as_str).filter(|w| !w.is_empty()).map(|w| to_posix(&if path == "." { w.to_string() } else { format!("{path}/{w}") })),
+            deps: dependency_map(&package_json, &["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]),
+            dev_deps: dependency_map(&package_json, &["devDependencies"]),
+            package_json,
+            relative_package_json,
+        }
     };
-    let packages = match raw.get("packages").and_then(Value::as_array) {
-        Some(list) => list.iter().map(package).collect(),
-        None => vec![package(&serde_json::json!({ "path": ".", "shape": raw.get("shape").cloned().unwrap_or(Value::Null) }))],
+    let packages: Vec<Package> = match raw.get("packages").and_then(Value::as_array) {
+        Some(list) => list.iter().map(&mut package).collect(),
+        None => vec![package(&serde_json::json!({ "path": ".", "shape": raw.get("shape").cloned().unwrap_or(Value::Null), "wranglerPath": raw.get("wranglerPath").cloned().unwrap_or(Value::Null) }))],
     };
     let paths = |key: &str| path_items(raw.get(key)).iter().map(|i| to_posix(i.get("path").and_then(Value::as_str).unwrap_or(""))).collect();
     Manifest {
@@ -123,6 +206,18 @@ fn normalize(root: &Path, raw: &Value) -> Manifest {
         generated_globs: path_items(raw.get("generatedPaths")).iter().filter_map(|i| i.get("glob").and_then(Value::as_str).map(String::from)).collect(),
         host_tooling_paths: path_items(raw.get("hostTooling")).iter().filter_map(|i| i.get("path").and_then(Value::as_str).map(String::from)).collect(),
         test_globs: raw.get("testGlobs").map(|v| strings(Some(v))).unwrap_or_else(default_test_globs),
+        workspace,
+        ai_provider_transport_paths: paths("aiProviderTransports"),
+        native_dependency_boundaries: path_items(raw.get("nativeDependencyBoundaries"))
+            .iter()
+            .map(|b| NativeDependencyBoundary {
+                package: b.get("package").and_then(Value::as_str).unwrap_or("").to_string(),
+                dependency: b.get("dependency").and_then(Value::as_str).unwrap_or("").to_string(),
+            })
+            .collect(),
+        host_tooling: owned(raw.get("hostTooling"), "path"),
+        generated_paths: owned(raw.get("generatedPaths"), "glob"),
+        wrangler_path: raw.get("wranglerPath").and_then(Value::as_str).filter(|w| !w.is_empty()).map(to_posix),
     }
 }
 
