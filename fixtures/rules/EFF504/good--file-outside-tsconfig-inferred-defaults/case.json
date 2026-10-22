@@ -1,0 +1,10 @@
+{
+  "description": "a source file outside every tsconfig is checked with tsgo inferred-project options (ESNext module, bundler resolution): import attributes are not an error",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

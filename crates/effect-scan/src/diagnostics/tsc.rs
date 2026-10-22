@@ -231,12 +231,13 @@ fn inferred_file_arguments(files: &[PathBuf]) -> Result<(Vec<&PathBuf>, Vec<&Pat
     Ok((listed, direct))
 }
 
-/// The inferred project: the scanned files with the compiler's default options. The file list goes
+/// The inferred project: the scanned files with the options of tsgo's inferred project (allowJs, react-jsx, ESNext
+/// module with bundler resolution, ESNext target, JSON modules, strictNullChecks/strictFunctionTypes). The file list goes
 /// through a response file (argv limits). The run is a verdict only if the compiler's program contains every
 /// requested file: option or file-name errors make `tsc` report diagnostics, exit non-zero and check nothing.
 fn run_inferred(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Result<Run, String> {
     let (listed, direct) = inferred_file_arguments(files)?;
-    let mut contents = String::from("--noEmit --pretty false --ignoreConfig --allowJs --jsx react-jsx --allowImportingTsExtensions --listFiles\n");
+    let mut contents = String::from("--noEmit --pretty false --ignoreConfig --allowJs --jsx react-jsx --allowImportingTsExtensions --module esnext --moduleResolution bundler --target esnext --resolveJsonModule --strictNullChecks --strictFunctionTypes --listFiles\n");
     for file in &listed {
         contents.push_str(&format!("\"{}\"\n", file.to_string_lossy()));
     }
