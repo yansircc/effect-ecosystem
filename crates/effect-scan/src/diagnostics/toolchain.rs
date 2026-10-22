@@ -209,8 +209,8 @@ mod tests {
     #[test]
     fn compiler_version_needs_major_and_marker() {
         let m = "+effect-tsgo.";
-        let patched = parse_compiler_version("Version 7.0.2+effect-tsgo.0.56.0\n", m).unwrap();
-        assert_eq!(patched, CompilerVersion { typescript_major: 7, provider_version: Some("0.56.0".into()) });
+        let patched = parse_compiler_version("Version 7.0.2+effect-tsgo.0.55.0\n", m).unwrap();
+        assert_eq!(patched, CompilerVersion { typescript_major: 7, provider_version: Some("0.55.0".into()) });
         let bare = parse_compiler_version("Version 7.0.2\n", m).unwrap();
         assert_eq!(bare.provider_version, None);
         assert!(parse_compiler_version("tsc: command not found", m).is_none());
@@ -218,10 +218,10 @@ mod tests {
 
     #[test]
     fn provider_line_is_caret_compatibility() {
-        assert_eq!(declared_version_line("^0.56.0"), Some((0, 56)));
+        assert_eq!(declared_version_line("^0.55.0"), Some((0, 55)));
         assert_eq!(declared_version_line("latest"), None);
         assert!(provider_matches_declared("0.56.3", (0, 56)));
-        assert!(!provider_matches_declared("0.56.0", (0, 45)));
+        assert!(!provider_matches_declared("0.55.0", (0, 45)));
         assert!(provider_matches_declared("1.9.0", (1, 2)));
         assert!(!provider_matches_declared("2.0.0", (1, 2)));
     }

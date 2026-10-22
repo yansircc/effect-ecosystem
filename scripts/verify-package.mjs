@@ -103,13 +103,18 @@ try {
     join(consumer, "package.json"),
     JSON.stringify({ private: true, dependencies: { [manifest.name]: `file:${rootArchive}` }, overrides }, null, 2),
   )
-  execFileSync("npm", ["install", "--prefix", consumer, "--no-audit", "--no-fund", "--prefer-offline"], {
-    stdio: "pipe",
+  const npmInstall = spawnSync("npm", ["install", "--prefix", consumer, "--no-audit", "--no-fund", "--prefer-offline", "--loglevel", "verbose"], {
+    encoding: "utf8",
     timeout: 120_000,
   })
+  assert.equal(npmInstall.status, 0, `npm install failed:\n${npmInstall.stdout}\n${npmInstall.stderr}`)
   const scope = join(consumer, "node_modules", ...manifest.name.split("/").slice(0, -1))
   const installed = readdirSync(scope).filter((entry) => entry.startsWith("effect-scan")).sort()
-  assert.deepEqual(installed, ["effect-scan", `effect-scan-${host.key}`], "npm must install only the host platform package")
+  assert.deepEqual(
+    installed,
+    ["effect-scan", `effect-scan-${host.key}`],
+    `npm must install only the host platform package (npm ${spawnSync("npm", ["--version"], { encoding: "utf8" }).stdout.trim()}, node ${process.version}, ${process.platform}/${process.arch}):\n${npmInstall.stdout}\n${npmInstall.stderr}`,
+  )
 
   const binary = join(consumer, "node_modules", ".bin", "effect-scan")
   assert.ok(existsSync(binary), "installed package did not expose effect-scan")

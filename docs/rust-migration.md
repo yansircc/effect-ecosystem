@@ -252,7 +252,7 @@ fixtures/suites.json                  suites that must have fixtures (`requiredS
 Invariants (`tools/fixtures/suites.ts` suite `fixture-coverage`, `tools/fixtures/case.ts`, `tools/fixtures/assert.ts`):
 
 - Every rule of `contracts/rules.json` has a canonical `good` and `bad`; both are `strict`, `exact`, compile on the
-  target toolchain (effect 4.0.5, `@effect/tsgo` 0.56.0, TypeScript 7.0.2). `good` expects nothing and exit 0.
+  target toolchain (effect 4.0.5, `@effect/tsgo` 0.55.0, TypeScript 7.0.2). `good` expects nothing and exit 0.
   `bad` expects exactly its rule and **pins the exact findings**: `expectFindingKeys` is a list of
   `file:line:ruleId:severity` compared as a multiset, so a wrong line, a missing second hit or a duplicate fails.
   A canonical `bad` without `expectFindingKeys` is a layout failure. Rule-bound `bad--` variants may assert less

@@ -10,7 +10,7 @@
 //   fixtures/scenarios/<name>/                          manifest / suppression / output / profile / toolchain / workspace ...
 //
 // Every directory is a real file tree plus `case.json` (the expectations). The run-time rewrites of the old
-// harness are applied once and written to disk as static files (effect 4.0.5, @effect/tsgo 0.56.0,
+// harness are applied once and written to disk as static files (effect 4.0.5, @effect/tsgo 0.55.0,
 // typescript 7.0.2: the values recorded in contracts/effect-capabilities.json; `run-fixtures` checks the pins).
 //
 // The tree that exists after this script ran was then hand-edited (sources made compilable, canonical

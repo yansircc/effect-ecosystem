@@ -11,6 +11,6 @@
   },
   "devDependencies": {
     "typescript": "7.0.2",
-    "@effect/tsgo": "0.56.0"
+    "@effect/tsgo": "0.55.0"
   }
 }

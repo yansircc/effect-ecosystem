@@ -343,7 +343,7 @@ Strict mode requires a project-local TypeScript of the supported major (7)
 whose `tsc --version` carries the `+effect-tsgo.` compiler marker, and a
 declared `typescript` range of that major. `contracts/effect-capabilities.json`
 `support.*.version` records the *verified* toolchain (7.0.2 patched by
-`@effect/tsgo@0.56.0`); the runtime matches by major + marker, not exact
+`@effect/tsgo@0.55.0`); the runtime matches by major + marker, not exact
 version.
 
 ### EFF902 missing-effect-diagnostics-provider
