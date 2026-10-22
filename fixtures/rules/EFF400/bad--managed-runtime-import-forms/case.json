@@ -1,0 +1,29 @@
+{
+  "description": "managed-runtime-import-forms: every import form that binds ManagedRuntime.make / Effect.run* is the same runner (named, aliased, root namespace, effect/<Module> namespace, effect/<Module> named, destructured, relative barrel)",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400",
+    "EFF403"
+  ],
+  "expectFindingKeys": [
+    "src/a-named.ts:2:EFF400:error",
+    "src/b-aliased-named.ts:2:EFF400:error",
+    "src/c-root-namespace.ts:1:EFF403:error",
+    "src/c-root-namespace.ts:2:EFF400:error",
+    "src/d-subpath-namespace.ts:4:EFF400:error",
+    "src/d-subpath-namespace.ts:5:EFF400:error",
+    "src/e-subpath-named.ts:3:EFF400:error",
+    "src/e-subpath-named.ts:4:EFF400:error",
+    "src/f-destructured.ts:4:EFF400:error",
+    "src/g-relative-barrel.ts:3:EFF400:error",
+    "src/g-relative-barrel.ts:4:EFF400:error",
+    "src/h-effect-subpath-forms.ts:3:EFF403:error",
+    "src/h-effect-subpath-forms.ts:4:EFF400:error",
+    "src/h-effect-subpath-forms.ts:5:EFF400:error",
+    "src/h-effect-subpath-forms.ts:6:EFF400:error"
+  ]
+}

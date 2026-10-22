@@ -211,7 +211,7 @@ impl Collector<'_, '_> {
             return None;
         }
         let member = effect_member(&path)?;
-        BOUNDARIES.iter().find(|(name, _, _)| *name == member).map(|(_, kind, options)| (*kind, *options))
+        BOUNDARIES.iter().find(|(name, _, _)| *name == member.as_str()).map(|(_, kind, options)| (*kind, *options))
     }
 
     fn register_boundary(&mut self, expr: &Expression, kind: Boundary) {

@@ -1,0 +1,11 @@
+{
+  "description": "host-callback-namespace-import-green: a host export reached through a namespace import is the same export as its named import",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

@@ -1,7 +1,7 @@
 //! The syntax model an execution contract is verified against: one oxc parse of the edge file with
 //! parent links (ownership, reachability), declaration lookup through scopes, and exported
 //! declarations. Import identity is not derived here: it comes from `facts::Resolver`.
-use crate::facts::{unwrap, Origin, OriginKind, Resolver};
+use crate::facts::{unwrap, ExportRef, Resolver};
 use oxc_ast::ast::*;
 use oxc_ast::AstKind;
 use oxc_semantic::{Scoping, Semantic};
@@ -243,21 +243,15 @@ impl<'a> Model<'a> {
 
     // ---- imports ---------------------------------------------------------------------------
 
-    /// `namedImportForExpression`: a verified, member-less reference to a named import.
-    pub fn named_import(&self, callee: &Expression) -> Option<Origin> {
-        let path = self.resolver.path_of(callee)?;
-        (path.binding_verified && path.members.is_empty() && path.origin.kind == OriginKind::Named).then_some(path.origin)
+    /// The export a verified reference names, whatever import form bound it (`facts::ExportRef`).
+    pub fn import_ref(&self, expr: &Expression) -> Option<ExportRef> {
+        let path = self.resolver.path_of(expr)?;
+        (path.binding_verified && !path.via_call).then(|| path.export_ref()).flatten()
     }
 
-    /// `namedImportPathForExpression`: `export.members...` of a verified named import.
-    pub fn named_import_path(&self, callee: &Expression) -> Option<(String, String)> {
-        let path = self.resolver.path_of(callee)?;
-        if !path.binding_verified || path.origin.kind != OriginKind::Named {
-            return None;
-        }
-        let mut export = vec![path.origin.export.clone()];
-        export.extend(path.members.iter().cloned());
-        Some((path.origin.module.clone(), export.join(".")))
+    /// `expr` references export `names` of `module` (named, aliased, namespace member, destructured, re-exported).
+    pub fn references_export(&self, expr: &Expression, module: &str, names: &[&str]) -> bool {
+        self.import_ref(expr).is_some_and(|export| export.is(module, names))
     }
 
     // ---- callables -------------------------------------------------------------------------

@@ -539,7 +539,13 @@ as an argument, aliased, or stored. `*Runtime.runMain` references outside
 executable edges are not EFF400 findings: their ownership is the `process-main`
 contract of EFF401. Runner identity follows import bindings, `const` aliases and
 relative re-exports (`export { x as y } from`, `export * as N from`); runners
-reached through dynamic `import()` namespaces are not visible.
+reached through dynamic `import()` namespaces are not visible. Identity does not
+depend on the import form: `import { ManagedRuntime } from "effect"`, an aliased
+named import, `import * as E from "effect"` (`E.ManagedRuntime.make`),
+`import * as ManagedRuntime from "effect/ManagedRuntime"`, `import { make } from
+"effect/ManagedRuntime"`, destructured aliases and relative barrels all name the
+same export (an Effect package's `<Module>` subpath is its barrel's `<Module>`
+namespace).
 
 ### EFF401 edge-execution-contract-mismatch
 
@@ -549,7 +555,7 @@ argument of a call or `new` (`p.pipe(NodeRuntime.runMain)`); assigning or
 exporting a runner is not execution. `process-main` requires exactly one exact
 imported runtime runner (`@effect/platform-node`, `-node-shared`, `-bun`,
 `-browser`) at module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
-named host import and callback position. `tanstack-server-fn` proves the exact
+host export (reached through a named, aliased or namespace import) and callback position. `tanstack-server-fn` proves the exact
 `@tanstack/react-start` `createServerFn(...).handler(callback)` builder chain.
 `tanstack-file-route` proves the exact `@tanstack/react-router`
 `createFileRoute(...)({ server: { handlers } })` structure and direct HTTP

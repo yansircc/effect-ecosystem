@@ -235,7 +235,7 @@ impl<'a> Edge<'a> {
                 .model
                 .calls
                 .iter()
-                .filter(|call| self.model.named_import(&call.callee).is_some_and(|o| o.module == module && o.export == export))
+                .filter(|call| self.model.references_export(&call.callee, module, &[export]))
                 .filter_map(|call| self.model.callback_argument(call.arguments.get(index).and_then(Argument::as_expression)))
                 .map(|f| Self::fn_owner(label.clone(), f))
                 .collect();
@@ -251,7 +251,7 @@ impl<'a> Edge<'a> {
 
     fn is_server_fn_builder(&self, input: &'a Expression<'a>) -> bool {
         let Expression::CallExpression(call) = unwrap(input) else { return false };
-        if self.model.named_import(&call.callee).is_some_and(|o| o.module == "@tanstack/react-start" && o.export == "createServerFn") {
+        if self.model.references_export(&call.callee, "@tanstack/react-start", &["createServerFn"]) {
             return true;
         }
         match unwrap(&call.callee) {
@@ -283,7 +283,7 @@ impl<'a> Edge<'a> {
             .iter()
             .filter(|call| {
                 matches!(unwrap(&call.callee), Expression::CallExpression(inner)
-                    if self.model.named_import(&inner.callee).is_some_and(|o| o.module == "@tanstack/react-router" && o.export == "createFileRoute"))
+                    if self.model.references_export(&inner.callee, "@tanstack/react-router", &["createFileRoute"]))
             })
             .flat_map(|call| self.file_route_handler_callbacks(call.arguments.first().and_then(Argument::as_expression)))
             .collect();
@@ -576,12 +576,7 @@ impl<'a> Edge<'a> {
     }
 
     fn is_sentry_with_sentry(&self, callee: &Expression) -> bool {
-        use crate::facts::OriginKind;
-        let Some(path) = self.model.resolver.path_of(callee) else { return false };
-        path.binding_verified
-            && path.origin.module == "@sentry/cloudflare"
-            && ((path.origin.kind == OriginKind::Named && path.origin.export == "withSentry" && path.members.is_empty())
-                || (path.origin.kind == OriginKind::Namespace && path.members.len() == 1 && path.members[0] == "withSentry"))
+        self.model.references_export(callee, "@sentry/cloudflare", &["withSentry"])
     }
 
     fn object_callable_member(&self, object: &'a ObjectExpression<'a>, name: &str) -> Option<FnRef<'a>> {
@@ -621,10 +616,7 @@ impl<'a> Edge<'a> {
     }
 
     fn extends_imported_class(&self, class: &'a Class<'a>, module: &str, export: &str) -> bool {
-        use crate::facts::OriginKind;
-        let Some(heritage) = &class.heritage else { return false };
-        let Expression::Identifier(ident) = unwrap(&heritage.expression) else { return false };
-        self.model.resolver.import_of(ident).is_some_and(|o| o.module == module && o.export == export && o.kind == OriginKind::Named)
+        class.heritage.as_ref().is_some_and(|heritage| self.model.references_export(&heritage.expression, module, &[export]))
     }
 
     fn handler_map(&self, execution: &Value) -> Outcome {
@@ -664,7 +656,7 @@ impl<'a> Edge<'a> {
         let (module, export, property) = (str_of(host, "module"), str_of(host, "export"), str_of(host, "property"));
         let index = host.get("optionsArgument").and_then(Value::as_u64).unwrap_or(0) as usize;
         let mut roots = Vec::new();
-        for call in self.model.calls.iter().filter(|c| self.model.named_import(&c.callee).is_some_and(|o| o.module == module && o.export == export)) {
+        for call in self.model.calls.iter().filter(|c| self.model.references_export(&c.callee, module, &[export])) {
             let Some(Expression::ObjectExpression(options)) = call.arguments.get(index).and_then(Argument::as_expression).map(unwrap) else { continue };
             for p in &options.properties {
                 let ObjectPropertyKind::ObjectProperty(p) = p else { continue };
@@ -689,7 +681,7 @@ impl<'a> Edge<'a> {
             .model
             .calls
             .iter()
-            .filter(|call| self.model.named_import_path(&call.callee).is_some_and(|(module, export)| module == "@effect/vitest" && export == "it.effect"))
+            .filter(|call| self.model.references_export(&call.callee, "@effect/vitest", &["it", "effect"]))
             .filter_map(|call| self.model.callback_argument(call.arguments.get(1).and_then(Argument::as_expression)))
             .collect();
         if roots.is_empty() {

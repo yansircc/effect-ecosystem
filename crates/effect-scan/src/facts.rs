@@ -130,9 +130,9 @@ impl Contract {
     /// Whether `export * from "<module>"` forwards `<name>` as a runner surface of the contract: the
     /// only star re-exports the linker is allowed to resolve.
     pub fn is_runner_surface(&self, module: &str, name: &str) -> bool {
-        (module == "effect" && matches!(name, "Effect" | "ManagedRuntime"))
-            || module == "effect/Effect"
-            || self.runtimes.iter().any(|runtime| (runtime_package(module, runtime) && name == runtime) || (runtime_submodule(module, runtime) && name == "runMain"))
+        let export = ExportRef::new(module, &[name]);
+        let first = export.path.first().map(String::as_str);
+        (export.module == "effect" && matches!(first, Some("Effect" | "ManagedRuntime"))) || self.runtimes.iter().any(|runtime| names_runtime(&export, runtime))
     }
 
     pub fn with_platform_constructors(mut self, names: impl IntoIterator<Item = String>) -> Self {
@@ -398,21 +398,85 @@ fn binding_property_name(property: &BindingProperty) -> Option<String> {
     }
 }
 
-/// The `Effect` module member a path names (`Effect.promise`, `import { promise } from "effect/Effect"`),
-/// proven by an import binding. Unresolved roots are not Effect: callers that accept unproven
+/// The export a reference names, independent of the import form that bound it. Every form that binds
+/// the same export yields the same value, so identity rules compare `ExportRef`s and never enumerate
+/// import forms:
+///
+/// ```text
+/// import { ManagedRuntime } from "effect"                    ManagedRuntime.make     ("effect", [ManagedRuntime, make])
+/// import { ManagedRuntime as M } from "effect"               M.make                  same
+/// import * as E from "effect"                                E.ManagedRuntime.make   same
+/// import * as ManagedRuntime from "effect/ManagedRuntime"    ManagedRuntime.make     same
+/// import { make } from "effect/ManagedRuntime"               make                    same
+/// const { make } = ManagedRuntime  (any of the above)        make                    same
+/// ```
+///
+/// Project re-exports are already followed by the resolver (`exports::Link`), so a barrel import
+/// yields the origin it forwards to. A default import names the export `default` (`import X from m`
+/// is `import { default as X } from m`); Effect packages are ESM without a default export.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportRef {
+    pub module: String,
+    pub path: Vec<String>,
+}
+
+impl ExportRef {
+    /// `names` exported by `module`, in canonical form (see `effect_barrel`).
+    pub fn new(module: &str, names: &[&str]) -> Self {
+        Self::canonical(module.to_string(), names.iter().map(|n| n.to_string()).collect())
+    }
+
+    fn canonical(mut module: String, mut path: Vec<String>) -> Self {
+        while let Some((barrel, namespace)) = effect_barrel(&module) {
+            path.insert(0, namespace);
+            module = barrel;
+        }
+        Self { module, path }
+    }
+
+    /// `module` is `module` and the path is exactly `names`.
+    pub fn is(&self, module: &str, names: &[&str]) -> bool {
+        *self == ExportRef::new(module, names)
+    }
+}
+
+/// Effect-ecosystem packages (`effect`, `@effect/*`) publish every PascalCase module `<barrel>/<Module>`
+/// also as the namespace `<Module>` of its barrel (`effect/ManagedRuntime` is `ManagedRuntime` of
+/// `effect`, `@effect/platform-node/NodeRuntime` is `NodeRuntime` of `@effect/platform-node`,
+/// `effect/unstable/http/HttpClient` is `HttpClient` of `effect/unstable/http`). The module subpath is
+/// therefore folded into its barrel. Lowercase subpaths (`effect/unstable/http`, `@effect/vitest/utils`)
+/// are barrels or plain modules and are not folded; other packages keep their specifier verbatim.
+fn effect_barrel(module: &str) -> Option<(String, String)> {
+    if !(module.starts_with("effect/") || module.starts_with("@effect/")) {
+        return None;
+    }
+    let (barrel, last) = module.rsplit_once('/')?;
+    let is_module = last.chars().next().is_some_and(|c| c.is_ascii_uppercase());
+    (is_module && barrel != "@effect").then(|| (barrel.to_string(), last.to_string()))
+}
+
+impl Path {
+    /// The export this path names, for an import-rooted path (`None` for unresolved roots).
+    pub fn export_ref(&self) -> Option<ExportRef> {
+        let mut path = match self.origin.kind {
+            OriginKind::Named => vec![self.origin.export.clone()],
+            OriginKind::Default => vec!["default".to_string()],
+            OriginKind::Namespace => vec![],
+            OriginKind::Unresolved => return None,
+        };
+        path.extend(self.members.iter().cloned());
+        Some(ExportRef::canonical(self.origin.module.clone(), path))
+    }
+}
+
+/// The `Effect` module member a path names (`Effect.promise`, `import { promise } from "effect/Effect"`,
+/// ...), proven by an import binding. Unresolved roots are not Effect: callers that accept unproven
 /// identifiers (runner references) handle `OriginKind::Unresolved` themselves.
-pub fn effect_member(path: &Path) -> Option<&str> {
-    let Path { origin, members, .. } = path;
-    if origin.module == "effect" && origin.kind == OriginKind::Named && origin.export == "Effect" && members.len() == 1 {
-        Some(&members[0])
-    } else if origin.module == "effect" && origin.kind == OriginKind::Namespace && members.len() == 2 && members[0] == "Effect" {
-        Some(&members[1])
-    } else if origin.module == "effect/Effect" && origin.kind == OriginKind::Namespace && members.len() == 1 {
-        Some(&members[0])
-    } else if (origin.module == "effect" || origin.module == "effect/Effect") && origin.kind == OriginKind::Named && members.is_empty() {
-        Some(&origin.export)
-    } else {
-        None
+pub fn effect_member(path: &Path) -> Option<String> {
+    let export = path.export_ref()?;
+    match export.path.as_slice() {
+        [module, member] if export.module == "effect" && module == "Effect" => Some(member.clone()),
+        _ => None,
     }
 }
 
@@ -424,12 +488,9 @@ fn runtime_packages(runtime: &str) -> [String; 2] {
     [format!("@effect/platform-{base}"), format!("@effect/platform-{base}-shared")]
 }
 
-fn runtime_package(module: &str, runtime: &str) -> bool {
-    runtime_packages(runtime).iter().any(|p| p == module)
-}
-
-fn runtime_submodule(module: &str, runtime: &str) -> bool {
-    runtime_packages(runtime).iter().any(|p| module.strip_prefix(p.as_str()).and_then(|rest| rest.strip_prefix('/')) == Some(runtime))
+/// `export.path` starts with `runtime` exported by one of its platform packages.
+fn names_runtime(export: &ExportRef, runtime: &str) -> bool {
+    export.path.first().is_some_and(|m| m == runtime) && runtime_packages(runtime).iter().any(|p| *p == export.module)
 }
 
 /// The runner a path names, if any. A path that is the *result* of a call (`Path::via_call`) is not a
@@ -437,10 +498,11 @@ fn runtime_submodule(module: &str, runtime: &str) -> bool {
 /// `ManagedRuntime.make(...)` result, which are that instance's runners.
 fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, bool)> {
     let Path { origin, members, binding_verified, via_call } = path;
+    let export = path.export_ref();
     if !via_call {
         // Effect.run*
         let member: Option<String> = if let Some(m) = effect_member(path) {
-            Some(m.to_string())
+            Some(m)
         } else if origin.kind == OriginKind::Unresolved {
             Some(if members.is_empty() { origin.root.clone() } else { members.last().cloned().unwrap() })
         } else {
@@ -453,11 +515,7 @@ fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, boo
         }
         // *Runtime.runMain
         for runtime in &contract.runtimes {
-            let hit = (runtime_package(&origin.module, runtime) && origin.kind == OriginKind::Named && origin.export == *runtime && members.len() == 1 && members[0] == "runMain")
-                || (runtime_package(&origin.module, runtime) && origin.kind == OriginKind::Namespace && members.len() == 2 && members[0] == *runtime && members[1] == "runMain")
-                || (runtime_submodule(&origin.module, runtime) && origin.kind == OriginKind::Namespace && members.len() == 1 && members[0] == "runMain")
-                || (runtime_submodule(&origin.module, runtime) && origin.kind == OriginKind::Named && origin.export == "runMain" && members.is_empty());
-            if hit {
+            if export.as_ref().is_some_and(|e| names_runtime(e, runtime) && e.path.len() == 2 && e.path[1] == "runMain") {
                 return Some((RunnerKind::RuntimeMain, format!("{runtime}.runMain"), *binding_verified));
             }
             if origin.kind == OriginKind::Unresolved && origin.root == *runtime && members.len() == 1 && members[0] == "runMain" {
@@ -466,20 +524,14 @@ fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, boo
         }
     }
     // ManagedRuntime: the constructor call is a runner reference; so is each runner member of its result.
-    if origin.module == "effect" {
-        let is_managed = (origin.kind == OriginKind::Named && origin.export == "ManagedRuntime")
-            || (origin.kind == OriginKind::Namespace && members.first().is_some_and(|m| m == "ManagedRuntime"));
-        if is_managed {
-            let offset = if origin.kind == OriginKind::Namespace { 1 } else { 0 };
-            if !via_call && members.len() == offset + 1 && members[offset] == "make" {
-                return Some((RunnerKind::ManagedRun, "ManagedRuntime.make".into(), *binding_verified));
-            }
-            if *via_call && members.len() == offset + 2 && members[offset] == "make" && contract.managed_runner_members.contains(&members[offset + 1]) {
-                return Some((RunnerKind::ManagedRun, format!("ManagedRuntime.{}", members[offset + 1]), *binding_verified));
-            }
+    let export = export.filter(|e| e.module == "effect")?;
+    match export.path.as_slice() {
+        [m, make] if m == "ManagedRuntime" && make == "make" && !via_call => Some((RunnerKind::ManagedRun, "ManagedRuntime.make".into(), *binding_verified)),
+        [m, make, runner] if m == "ManagedRuntime" && make == "make" && *via_call && contract.managed_runner_members.contains(runner) => {
+            Some((RunnerKind::ManagedRun, format!("ManagedRuntime.{runner}"), *binding_verified))
         }
+        _ => None,
     }
-    None
 }
 
 /// Identity of a reference expression: its span (a member chain and its root share a start, not an end).
@@ -953,4 +1005,49 @@ fn implementation_exports(program: &Program) -> HashSet<String> {
         }
     }
     exported
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn path(module: &str, kind: OriginKind, export: &str, members: &[&str]) -> Path {
+        Path {
+            origin: Origin { module: module.into(), export: export.into(), kind, root: String::new() },
+            members: members.iter().map(|m| m.to_string()).collect(),
+            binding_verified: true,
+            via_call: false,
+        }
+    }
+
+    #[test]
+    fn every_import_form_of_one_export_has_one_export_ref() {
+        let make = ExportRef::new("effect", &["ManagedRuntime", "make"]);
+        let forms = [
+            path("effect", OriginKind::Named, "ManagedRuntime", &["make"]),
+            path("effect", OriginKind::Namespace, "*", &["ManagedRuntime", "make"]),
+            path("effect/ManagedRuntime", OriginKind::Namespace, "*", &["make"]),
+            path("effect/ManagedRuntime", OriginKind::Named, "make", &[]),
+        ];
+        for form in &forms {
+            assert_eq!(form.export_ref().as_ref(), Some(&make), "{form:?}");
+        }
+        assert_eq!(ExportRef::new("effect/ManagedRuntime", &["make"]), make);
+        assert_eq!(
+            path("@effect/platform-node/NodeRuntime", OriginKind::Named, "runMain", &[]).export_ref(),
+            Some(ExportRef::new("@effect/platform-node", &["NodeRuntime", "runMain"]))
+        );
+        assert_eq!(
+            path("effect/unstable/http/HttpClient", OriginKind::Namespace, "*", &["get"]).export_ref(),
+            Some(ExportRef { module: "effect/unstable/http".into(), path: vec!["HttpClient".into(), "get".into()] })
+        );
+    }
+
+    #[test]
+    fn only_effect_packages_fold_module_subpaths() {
+        assert_eq!(ExportRef::new("vite-plus/test", &["it"]), ExportRef { module: "vite-plus/test".into(), path: vec!["it".into()] });
+        assert_eq!(ExportRef::new("@effect/vitest", &["it"]), ExportRef { module: "@effect/vitest".into(), path: vec!["it".into()] });
+        assert_eq!(ExportRef::new("@other/pkg/Module", &["x"]).module, "@other/pkg/Module");
+        assert_eq!(path("x", OriginKind::Unresolved, "", &[]).export_ref(), None);
+    }
 }
