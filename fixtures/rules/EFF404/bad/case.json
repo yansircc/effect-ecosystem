@@ -8,5 +8,8 @@
   "expectRules": [
     "EFF404"
   ],
+  "expectFindingKeys": [
+    "src/index.ts:1:EFF404:error"
+  ],
   "exact": true
 }

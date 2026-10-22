@@ -13,7 +13,7 @@
     "EFF503"
   ],
   "allowCompileErrors": [
-    "TS2322"
+    "src/lsp.ts:TS2322"
   ],
   "allowCompileErrorsReason": "the Effect language service reports EFF501-503 on the same assignments that fail as TS2322; the compile error is the diagnostic under test"
 }

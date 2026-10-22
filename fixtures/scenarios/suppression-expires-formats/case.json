@@ -1,0 +1,24 @@
+{
+  "description": "eff-ignore expires is compared as an instant: ISO date, date-time with zone and milliseconds, and JS date forms; unparseable values are findings",
+  "suites": [
+    "suppression-drift"
+  ],
+  "failOnSuppressionDrift": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:12:EFF001:error",
+    "src/index.ts:13:EFF001:error",
+    "src/index.ts:14:EFF001:error",
+    "src/index.ts:15:EFF001:error",
+    "src/index.ts:16:EFF001:error",
+    "src/index.ts:1:EFF001:error",
+    "src/index.ts:2:EFF001:error",
+    "src/index.ts:3:EFF001:error",
+    "src/index.ts:4:EFF001:error",
+    "src/index.ts:5:EFF001:error",
+    "src/index.ts:6:EFF001:error"
+  ]
+}

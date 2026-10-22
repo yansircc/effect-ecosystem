@@ -13,21 +13,87 @@ pub enum OutputMode {
     RawJson,
 }
 
-/// `optionalValue`: the value after `name`, absent when the flag is, an error when it has no value.
-pub fn optional_value(args: &[String], name: &str) -> Result<Option<String>, String> {
-    let Some(index) = args.iter().position(|a| a == name) else { return Ok(None) };
-    match args.get(index + 1) {
-        Some(v) if !v.is_empty() && !v.starts_with("--") => Ok(Some(v.clone())),
-        _ => Err(format!("{name} requires a value")),
+pub const USAGE: &str = "\
+usage: effect-scan [root] [flags]
+
+  root                           directory to scan (default: current directory)
+
+flags:
+  --strict                       compiler-backed pass (requires a manifest)
+  --manifest <file>              manifest path (default: <root>/effect-manifest.json)
+  --output <mode>                human | gate-json | raw-json (default: human on a TTY, else gate-json)
+  --evidence <dir>               write the evidence bundle to <dir>
+  --fail-on-suppression-drift    report expired, reason-less and orphan eff-ignore comments
+  --profile                      include signals and profile in the raw result
+  --timings                      include stage timings in the raw result
+  --list-implemented-rules       print the rule ids this build computes and exit
+  --build-info                   print the embedded build provenance and exit
+  --rules <file>                 TEST ONLY: replace the embedded rule contract; recorded in warnings
+  -h, --help                     print this text and exit 0
+
+exit codes:
+  0   scan passed (no error findings)
+  1   scan produced error findings
+  2   scanner failure (unreadable root, invalid rule contract or manifest, internal panic)
+  64  usage error (unknown flag, missing or repeated flag value, extra argument)
+";
+
+pub const VALUE_FLAGS: [&str; 4] = ["--evidence", "--manifest", "--output", "--rules"];
+pub const BOOL_FLAGS: [&str; 6] = ["--strict", "--fail-on-suppression-drift", "--profile", "--timings", "--list-implemented-rules", "--build-info"];
+
+/// The command line as data: one pass, so every token is a known flag, a flag value or the root.
+#[derive(Debug, Default)]
+pub struct ParsedArgs {
+    pub help: bool,
+    pub flags: Vec<String>,
+    pub values: Vec<(String, String)>,
+    pub positional: Vec<String>,
+}
+
+impl ParsedArgs {
+    pub fn flag(&self, name: &str) -> bool {
+        self.flags.iter().any(|f| f == name)
+    }
+
+    pub fn value(&self, name: &str) -> Option<String> {
+        self.values.iter().find(|(n, _)| n == name).map(|(_, v)| v.clone())
     }
 }
 
-/// `resolveOutputMode`: explicit `--output`, else human on a TTY and gate-json otherwise.
-pub fn resolve_output_mode(args: &[String], stdout_is_tty: bool) -> Result<OutputMode, String> {
-    if args.iter().any(|a| a == "--json") {
-        return Err("--json was removed; use --output gate-json or --output raw-json".into());
+/// Unknown flags, repeated value flags, valueless value flags and extra positionals are usage errors.
+pub fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
+    let mut parsed = ParsedArgs::default();
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "-h" || arg == "--help" {
+            parsed.help = true;
+        } else if VALUE_FLAGS.contains(&arg.as_str()) {
+            if parsed.values.iter().any(|(n, _)| n == arg) {
+                return Err(format!("{arg} given more than once"));
+            }
+            match iter.next() {
+                Some(v) if !v.is_empty() && !v.starts_with('-') => parsed.values.push((arg.clone(), v.clone())),
+                _ => return Err(format!("{arg} requires a value")),
+            }
+        } else if BOOL_FLAGS.contains(&arg.as_str()) {
+            if !parsed.flag(arg) {
+                parsed.flags.push(arg.clone());
+            }
+        } else if arg.starts_with('-') && arg != "-" {
+            return Err(format!("unknown flag {arg}; see --help"));
+        } else {
+            parsed.positional.push(arg.clone());
+        }
     }
-    match optional_value(args, "--output")?.as_deref() {
+    if parsed.positional.len() > 1 {
+        return Err(format!("expected at most one root, got {}", parsed.positional.len()));
+    }
+    Ok(parsed)
+}
+
+/// `resolveOutputMode`: explicit `--output`, else human on a TTY and gate-json otherwise.
+pub fn resolve_output_mode(output: Option<&str>, stdout_is_tty: bool) -> Result<OutputMode, String> {
+    match output {
         None => Ok(if stdout_is_tty { OutputMode::Human } else { OutputMode::GateJson }),
         Some("human") => Ok(OutputMode::Human),
         Some("gate-json") => Ok(OutputMode::GateJson),
@@ -119,8 +185,18 @@ mod tests {
 
     #[test]
     fn default_output_is_human_on_a_tty_and_gate_json_otherwise() {
-        assert!(matches!(resolve_output_mode(&args(&[]), true), Ok(OutputMode::Human)));
-        assert!(matches!(resolve_output_mode(&args(&[]), false), Ok(OutputMode::GateJson)));
-        assert!(matches!(resolve_output_mode(&args(&["--output", "raw-json"]), true), Ok(OutputMode::RawJson)));
+        assert!(matches!(resolve_output_mode(None, true), Ok(OutputMode::Human)));
+        assert!(matches!(resolve_output_mode(None, false), Ok(OutputMode::GateJson)));
+        assert!(matches!(resolve_output_mode(Some("raw-json"), true), Ok(OutputMode::RawJson)));
+    }
+
+    #[test]
+    fn unknown_repeated_and_valueless_flags_are_usage_errors() {
+        assert!(parse_args(&args(&["--stirct"])).is_err());
+        assert!(parse_args(&args(&["--output", "raw-json", "--output", "human"])).is_err());
+        assert!(parse_args(&args(&["--manifest"])).is_err());
+        assert!(parse_args(&args(&["a", "b"])).is_err());
+        let ok = parse_args(&args(&["dir", "--strict", "--output", "raw-json", "-h"])).unwrap();
+        assert!(ok.help && ok.flag("--strict") && ok.value("--output").as_deref() == Some("raw-json") && ok.positional == ["dir"]);
     }
 }

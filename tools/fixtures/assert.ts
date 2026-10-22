@@ -4,7 +4,7 @@ import { resolve } from "node:path"
 import { compileContractValidators } from "../lib/contract-validation.js"
 import { supportedToolchain } from "../lib/effect-capabilities.js"
 import { sha256, stableJson } from "../lib/stable-json.js"
-import type { Case, ExtraRun, Fixture } from "./case.js"
+import { parseAllowance, type Case, type ExtraRun, type Fixture } from "./case.js"
 import { caseFlags, materialize, readJson, runBin, scan, type RunnerEnv, type Run, type Tree } from "./scan.js"
 
 type Finding = { file: string; line: number; lineText?: string; ruleId: string; severity: string; message: string }
@@ -22,8 +22,9 @@ const contracts = () => (validators ??= compileContractValidators())
  * Runs one fixture through the scanner and checks every expectation of its `case.json`.
  *
  * Invariants asserted for every fixture, besides the declared expectations:
- *   - exit code: derived from the findings that remain after `allowCompileErrors` (the binary's own exit code
- *     counts the allowed compile errors);
+ *   - exit code: the process's real exit code is 1 iff the scan has an error finding (allowed compile errors
+ *     included, they are findings of the binary); the verdict `expectExit` is checked on the findings that remain
+ *     after `allowCompileErrors`. Without allowances both are the same number;
  *   - compile gate: a strict fixture compiles on the target toolchain. An EFF504 finding is a failure unless the
  *     fixture expects EFF504 or lists its TS code in `allowCompileErrors`; an allowance that matches nothing is stale;
  *   - `--output gate-json --evidence` writes the same bytes to stdout and `gate-summary.json`, exits like the raw
@@ -46,15 +47,15 @@ export async function runFixture(env: RunnerEnv, fixture: Fixture, options: { ex
       return failures
     }
 
-    const allowed = new Set(testCase.allowCompileErrors ?? [])
-    const compileCode = (finding: Finding) => finding.lineText?.match(/^(TS\d+):/)?.[1]
     const all: Finding[] = raw.json.findings
-    const findings = all.filter((finding) => !(finding.ruleId === "EFF504" && allowed.has(compileCode(finding))))
+    const findings = all.filter((finding) => !isAllowedCompileError(testCase, finding))
     // A non-strict fixture's allowances are checked against its compile probe.
     if (testCase.strict) staleAllowances(testCase, all, fail)
 
-    const exit = raw.status !== 0 && raw.status !== 1 ? raw.status : findings.some((finding) => finding.severity === "error") ? 1 : 0
-    if (exit !== testCase.expectExit) fail(`expected exit ${testCase.expectExit}, got ${exit}`)
+    const realExit = all.some((finding) => finding.severity === "error") ? 1 : 0
+    if (raw.status !== realExit) fail(`process exit ${raw.status}, but the scan has ${realExit === 1 ? "error findings" : "no error findings"}`)
+    const verdict = findings.some((finding) => finding.severity === "error") ? 1 : 0
+    if (verdict !== testCase.expectExit) fail(`expected exit ${testCase.expectExit}, got ${verdict}`)
 
     const actualRules = [...new Set(findings.map((finding) => finding.ruleId))].sort()
     const expectedRules = [...(testCase.expectRules ?? [])].sort()
@@ -178,7 +179,7 @@ async function compileProbe(env: RunnerEnv, tree: Tree, fixture: Fixture, fail: 
   }
   staleAllowances(testCase, findings, fail)
   const compileErrors = findings.filter((finding) => finding.ruleId === "EFF504")
-    .filter((finding) => !(testCase.allowCompileErrors ?? []).includes(finding.lineText?.match(/^(TS\d+):/)?.[1] ?? ""))
+    .filter((finding) => !isAllowedCompileError(testCase, finding))
   if (compileErrors.length > 0) {
     fail(`does not compile on the target toolchain (EFF504): ${compileErrors.map((finding) => `${finding.file}:${finding.line} ${finding.lineText}`).join(" | ")}`)
   }
@@ -197,10 +198,24 @@ const PROBE_TSCONFIG = {
   exclude: ["node_modules"],
 }
 
+const compileCode = (finding: Finding) => finding.lineText?.match(/^(TS\d+):/)?.[1]
+
+/** An EFF504 finding is allowed only by an allowance for its own file and TS code. */
+function isAllowedCompileError(testCase: Case, finding: Finding): boolean {
+  if (finding.ruleId !== "EFF504") return false
+  return (testCase.allowCompileErrors ?? []).some((allowance) => {
+    const parsed = parseAllowance(allowance)
+    return parsed !== null && parsed.file === finding.file && parsed.code === compileCode(finding)
+  })
+}
+
 /** An allowance that matches no compile error is stale: allowances are exact, never a standing waiver. */
 function staleAllowances(testCase: Case, findings: Finding[], fail: (message: string) => void) {
-  const seen = new Set(findings.filter((finding) => finding.ruleId === "EFF504").map((finding) => finding.lineText?.match(/^(TS\d+):/)?.[1]))
-  for (const code of testCase.allowCompileErrors ?? []) if (!seen.has(code)) fail(`stale allowCompileErrors ${code}: the fixture no longer produces it`)
+  const seen = new Set(findings.filter((finding) => finding.ruleId === "EFF504").map((finding) => `${finding.file}:${compileCode(finding)}`))
+  for (const allowance of testCase.allowCompileErrors ?? []) {
+    const parsed = parseAllowance(allowance)
+    if (parsed && !seen.has(`${parsed.file}:${parsed.code}`)) fail(`stale allowCompileErrors ${parsed.file}:${parsed.code}: the fixture no longer produces it`)
+  }
 }
 
 const SOURCE_EXTENSION = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/

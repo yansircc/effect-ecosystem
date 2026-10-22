@@ -23,6 +23,8 @@ pub struct Options {
     pub evidence_dir: Option<String>,
     /// Build the gate summary (gate-json and human output; implies profile and signals).
     pub gate_summary: bool,
+    /// `--rules <file>` (test only): the rule contract was replaced; recorded in `warnings`.
+    pub rules_override: Option<String>,
 }
 
 pub struct FileRoles {
@@ -81,6 +83,10 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let loaded = manifest::load(root, options.strict, options.manifest_path.as_deref(), registry);
     timings.mark("manifest");
     let mut findings = loaded.findings;
+    let mut warnings = loaded.warnings;
+    if let Some(path) = &options.rules_override {
+        warnings.insert(0, format!("rule contract replaced by --rules {path} (test-only override); results are not comparable with the embedded contract"));
+    }
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
@@ -122,8 +128,8 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         "notProvenFacts".into(),
         Value::Array(not_proven_facts.iter().map(|f| json!({ "id": format!("{}:{}:{}", f.rule_id, f.file, f.line), "reason": f.reason })).collect()),
     );
-    crate::projection::build(&ctx, &findings, &loaded.warnings, &mut extras, &mut timings)?;
-    Ok(ScanResult { findings, warnings: loaded.warnings, extras })
+    crate::projection::build(&ctx, &findings, &warnings, &mut extras, &mut timings)?;
+    Ok(ScanResult { findings, warnings, extras })
 }
 
 fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
@@ -203,7 +209,7 @@ fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> 
         if !IMPLEMENTED_KINDS.contains(&kind) {
             continue;
         }
-        let matcher = (kind == "source-import").then(|| ImportMatcher::from_scanner(&rule.scanner).unwrap_or_else(|e| panic!("{}: {e}", rule.id)));
+        let matcher = (kind == "source-import").then(|| ImportMatcher::from_scanner(&rule.scanner).expect("Registry::from_json validated the scanner"));
         let selector = rule.scanner.get("selector").and_then(Value::as_str).unwrap_or("");
         for file in files {
             if skip_file(file, &rule.scanner) {
@@ -211,7 +217,7 @@ fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> 
             }
             let mut lines: Vec<u32> = match &matcher {
                 Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| i.line).collect(),
-                None => file.facts.selector(selector).unwrap_or_else(|| panic!("unsupported source-ast selector: {selector}")).clone(),
+                None => file.facts.selector(selector).expect("Registry::from_json validated the selector").clone(),
             };
             lines.sort_unstable();
             lines.dedup();
@@ -285,6 +291,7 @@ fn apply_suppressions(findings: Vec<Finding>, manifest: Option<&Manifest>, regis
 fn suppression_drift(files: &[SourceFile], manifest: Option<&Manifest>, raw: &[Finding], registry: &Registry) -> Vec<Finding> {
     let _ = manifest;
     let active: std::collections::HashSet<String> = raw.iter().map(|f| format!("{}:{}:{}", f.file, f.line, f.rule_id)).collect();
+    let now = crate::expires::now_ms();
     let mut out = Vec::new();
     for file in files {
         for (index, text) in file.lines.iter().enumerate() {
@@ -296,9 +303,10 @@ fn suppression_drift(files: &[SourceFile], manifest: Option<&Manifest>, raw: &[F
                 out.push(mk(format!("eff-ignore {} requires reason=\"...\"", s.rule_id)));
             }
             if let Some(expires) = &s.expires {
-                // Date parsing for `expires` is ported with the strict pipeline; ISO dates compare lexically.
-                if expires.as_str() < today().as_str() {
-                    out.push(mk(format!("eff-ignore {} expired at {}", s.rule_id, expires)));
+                match crate::expires::parse_expires(expires) {
+                    Some(at) if at < now => out.push(mk(format!("eff-ignore {} expired at {}", s.rule_id, expires))),
+                    Some(_) => {}
+                    None => out.push(mk(format!("eff-ignore expires is not a valid date: {expires}"))),
                 }
             }
             if !active.contains(&format!("{}:{}:{}", file.relative, line, s.rule_id)) {
@@ -307,22 +315,6 @@ fn suppression_drift(files: &[SourceFile], manifest: Option<&Manifest>, raw: &[F
         }
     }
     out
-}
-
-fn today() -> String {
-    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
-    let days = secs / 86_400;
-    // civil-from-days (Howard Hinnant)
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    format!("{:04}-{:02}-{:02}", if m <= 2 { y + 1 } else { y }, m, d)
 }
 
 pub fn summarize(findings: &[Finding]) -> Value {

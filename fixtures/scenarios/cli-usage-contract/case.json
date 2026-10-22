@@ -1,0 +1,136 @@
+{
+  "description": "CLI contract: unknown or repeated flags are usage errors (64), --help is 0, an invalid rule contract is exit 2 with a message, --rules is recorded in warnings",
+  "suites": [
+    "cli-output"
+  ],
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": [],
+  "extraRuns": [
+    {
+      "args": [
+        "--stirct"
+      ],
+      "expectExit": 64,
+      "expectStderrIncludes": [
+        "unknown flag --stirct"
+      ]
+    },
+    {
+      "args": [
+        "--help"
+      ],
+      "expectExit": 0,
+      "expectStdoutIncludes": [
+        "usage: effect-scan",
+        "--fail-on-suppression-drift",
+        "--rules <file>",
+        "TEST ONLY",
+        "exit codes:",
+        "64  usage error"
+      ]
+    },
+    {
+      "args": [
+        "-h"
+      ],
+      "expectExit": 0,
+      "expectStdoutIncludes": [
+        "usage: effect-scan"
+      ]
+    },
+    {
+      "args": [
+        "--output",
+        "raw-json",
+        "--output",
+        "human"
+      ],
+      "expectExit": 64,
+      "expectStderrIncludes": [
+        "--output given more than once"
+      ]
+    },
+    {
+      "args": [
+        "--manifest"
+      ],
+      "expectExit": 64,
+      "expectStderrIncludes": [
+        "--manifest requires a value"
+      ]
+    },
+    {
+      "args": [
+        "extra-root"
+      ],
+      "expectExit": 64,
+      "expectStderrIncludes": [
+        "at most one root"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/empty.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "invalid rule contract",
+        "empty rules array"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/legacy-kind.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "unsupported kind line-regex"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/missing-packages.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "needs packages or packagePrefixes"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/unknown-selector.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "unknown selector no-such-selector"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/does-not-exist.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "cannot read"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/valid.json",
+        "--output",
+        "raw-json"
+      ],
+      "expectExit": 0,
+      "expectStdoutIncludes": [
+        "test-only override"
+      ]
+    }
+  ]
+}

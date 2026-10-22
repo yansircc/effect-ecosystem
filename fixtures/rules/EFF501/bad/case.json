@@ -8,9 +8,12 @@
   "expectRules": [
     "EFF501"
   ],
+  "expectFindingKeys": [
+    "src/index.ts:4:EFF501:error"
+  ],
   "exact": true,
   "allowCompileErrors": [
-    "TS2322"
+    "src/index.ts:TS2322"
   ],
   "allowCompileErrorsReason": "the Effect language service reports this rule on an assignment that is also a TS2322 compile error; the compile error is the diagnostic under test"
 }

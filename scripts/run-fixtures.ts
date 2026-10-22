@@ -14,6 +14,20 @@ import { INTERNAL_SUITES, SUITE_RUNNERS } from "../tools/fixtures/suites.js"
 import type { RunnerEnv } from "../tools/fixtures/scan.js"
 
 const args = process.argv.slice(2)
+const VALUE_FLAGS = ["--bin", "--fixtures", "--root", "--suite", "--filter", "--jobs"]
+const BOOL_FLAGS = ["--exact", "--list", "--fix-pins"]
+const usageError = (message: string): never => {
+  console.error(`[fixtures] ${message}`)
+  process.exit(64)
+}
+// Every token is a known flag or a flag's value: a mistyped flag must not silently run a different selection.
+for (let i = 0; i < args.length; i++) {
+  if (VALUE_FLAGS.includes(args[i])) {
+    if (args.indexOf(args[i]) !== i) usageError(`${args[i]} given more than once`)
+    if (args[i + 1] === undefined || args[i + 1].startsWith("--")) usageError(`${args[i]} requires a value`)
+    i++
+  } else if (!BOOL_FLAGS.includes(args[i])) usageError(`unknown argument ${args[i]}`)
+}
 const valueAfter = (flag: string) => {
   const index = args.indexOf(flag)
   return index === -1 ? undefined : args[index + 1]
@@ -26,7 +40,9 @@ const env: RunnerEnv = {
 }
 const suite = valueAfter("--suite")
 const filter = valueAfter("--filter")
-const jobs = Number(valueAfter("--jobs") ?? Math.max(2, Math.min(8, availableParallelism())))
+const jobsText = valueAfter("--jobs")
+const jobs = jobsText === undefined ? Math.max(2, Math.min(8, availableParallelism())) : Number(jobsText)
+if (!Number.isInteger(jobs) || jobs < 1) usageError(`--jobs must be a positive integer, got ${jobsText}`)
 
 if (!existsSync(env.bin)) {
   console.error(`[fixtures] scanner binary not found: ${env.bin} (cargo build --release -p effect-scan)`)
@@ -42,6 +58,9 @@ const selected = fixtures.filter((fixture) =>
   !fixture.case.suite
   && (!suite || fixture.case.suites.includes(suite))
   && (!filter || fixture.id.includes(filter)))
+// A selection that matches no fixture would pass vacuously.
+if (filter !== undefined && selected.length === 0) usageError(`--filter ${JSON.stringify(filter)} matches no fixture`)
+if (suite !== undefined && selected.length === 0 && !(INTERNAL_SUITES as readonly string[]).includes(suite)) usageError(`--suite ${suite} selects no fixture`)
 if (args.includes("--list")) {
   for (const fixture of selected) console.log(fixture.id)
   process.exit(0)

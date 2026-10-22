@@ -8,5 +8,8 @@
   "expectRules": [
     "EFF031"
   ],
+  "expectFindingKeys": [
+    "src/index.ts:1:EFF031:warning"
+  ],
   "exact": true
 }

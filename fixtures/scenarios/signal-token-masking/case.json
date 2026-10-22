@@ -10,8 +10,7 @@
   "expectRules": [],
   "expectSignalCount": 3,
   "allowCompileErrors": [
-    "TS1202",
-    "TS2664"
+    "src/misc.ts:TS1202"
   ],
-  "allowCompileErrorsReason": "adversarial token fixture: it uses `import x = require()` and a module augmentation of a module that does not exist so that the text `HttpApiGroup` inside syntax that is not a token source must not count; the syntax is the subject, not its validity"
+  "allowCompileErrorsReason": "adversarial token fixture: `import x = require()` is the syntax under test (the text `HttpApiGroup` inside syntax that is not a token source must not count) and is invalid when targeting ES modules; the syntax is the subject, not its validity"
 }
