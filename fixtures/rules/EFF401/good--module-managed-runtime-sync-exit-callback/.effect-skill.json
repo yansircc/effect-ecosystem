@@ -1,0 +1,20 @@
+{
+  "shape": [
+    "node"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@fixture",
+      "reason": "entry",
+      "execution": {
+        "lifecycle": "module-singleton",
+        "runners": [
+          "ManagedRuntime.make",
+          "ManagedRuntime.runSyncExit",
+          "ManagedRuntime.runCallback"
+        ]
+      }
+    }
+  ]
+}

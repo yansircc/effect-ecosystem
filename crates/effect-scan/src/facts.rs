@@ -5,10 +5,11 @@
 //! runner, whether it is called (`Effect.runPromise(p)`) or passed as a value
 //! (`p.pipe(NodeRuntime.runMain)`, `items.map(Effect.runPromise)`). Rules consume these facts and
 //! never re-derive runner identity.
+use crate::exports::Link;
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
 use oxc_semantic::Scoping;
-use oxc_span::{GetSpan, Span};
+use oxc_span::GetSpan;
 use oxc_syntax::scope::ScopeFlags;
 use oxc_syntax::symbol::SymbolId;
 use std::collections::{HashMap, HashSet};
@@ -48,6 +49,19 @@ pub enum RunnerKind {
     RuntimeMain,
 }
 
+/// Where a runner reference sits. A *run point* is a reference that is applied: the callee of a call
+/// (`Effect.runPromise(p)`) or an argument of a call or `new` (`p.pipe(NodeRuntime.runMain)`,
+/// `items.map(Effect.runPromise)`). Everything else only names the runner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunSite {
+    /// Callee, or argument of a call/`new`: the runner is executed or handed to something that does.
+    Applied,
+    /// The whole initializer of `const alias = <runner>`: the alias's uses are references of their own.
+    AliasInit,
+    /// Any other position (assignment, export, return value, array element, bare expression).
+    Value,
+}
+
 #[derive(Debug, Clone)]
 pub struct RunnerRef {
     pub kind: RunnerKind,
@@ -56,9 +70,15 @@ pub struct RunnerRef {
     pub offset: u32,
     /// Inside a function/arrow body (as opposed to module scope).
     pub nested: bool,
-    /// The whole initializer of `const alias = <runner>` whose alias is referenced in this module:
-    /// the identity is then counted at the alias's uses, which are runner references of their own.
-    pub alias_binding_used: bool,
+    pub site: RunSite,
+}
+
+impl RunnerRef {
+    /// Execution of the runner: what lifecycle contracts (EFF401) count. EFF400 confines the
+    /// capability itself, so it consumes every reference regardless of `site`.
+    pub fn is_run_point(&self) -> bool {
+        self.site == RunSite::Applied
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -72,29 +92,46 @@ pub struct ModuleFacts {
     pub effect_namespace_imports: Vec<u32>,
     /// CommonJS `require()` calls and module-scope dynamic `import()` offsets.
     pub dynamic_loads: Vec<u32>,
+    /// Re-export forwarding of this module (see `exports`).
+    pub exports: crate::exports::ExportTable,
 }
 
-const RUNTIMES: [(&str, &str); 3] = [
-    ("NodeRuntime", "@effect/platform-node"),
-    ("BunRuntime", "@effect/platform-bun"),
-    ("BrowserRuntime", "@effect/platform-browser"),
-];
-const MANAGED_RUNTIME_RUNNERS: [&str; 5] = ["runPromise", "runPromiseExit", "runFork", "runSync", "dispose"];
-
 pub struct Contract {
+    /// `Effect.<member>` runners.
     pub effect_runner_members: HashSet<String>,
+    /// `ManagedRuntime.<member>` runners of a runtime instance (`ManagedRuntime.make` itself excluded).
+    pub managed_runner_members: HashSet<String>,
+    /// Process runtimes whose `runMain` owns a process (`NodeRuntime`, `BunRuntime`, ...).
+    pub runtimes: Vec<String>,
     /// Platform constructor names (rules.json EFF402 `scanner.constructors`): one fact, one location.
     pub platform_constructors: HashSet<String>,
 }
 
 impl Contract {
-    /// The runner list is the manifest schema's `effectRunner` enum: one fact, one location.
+    /// The runner vocabulary is the manifest schema's `effectRunner` and process-main `runner` enums:
+    /// one fact, one location.
     pub fn from_manifest_schema(schema: &serde_json::Value) -> Self {
-        let members = schema["$defs"]["effectRunner"]["enum"]
-            .as_array()
-            .map(|a| a.iter().filter_map(|v| v.as_str()).filter_map(|r| r.strip_prefix("Effect.")).map(String::from).collect())
-            .unwrap_or_default();
-        Self { effect_runner_members: members, platform_constructors: HashSet::new() }
+        let strings = |value: &serde_json::Value| -> Vec<String> {
+            value.as_array().map(|a| a.iter().filter_map(|v| v.as_str()).map(String::from).collect()).unwrap_or_default()
+        };
+        let runners = strings(&schema["$defs"]["effectRunner"]["enum"]);
+        let members_of = |prefix: &str| -> HashSet<String> { runners.iter().filter_map(|r| r.strip_prefix(prefix)).map(String::from).collect() };
+        let mut managed = members_of("ManagedRuntime.");
+        managed.remove("make");
+        let runtimes = strings(&schema["$defs"]["processMainExecution"]["properties"]["runner"]["enum"])
+            .iter()
+            .filter_map(|r| r.strip_suffix(".runMain"))
+            .map(String::from)
+            .collect();
+        Self { effect_runner_members: members_of("Effect."), managed_runner_members: managed, runtimes, platform_constructors: HashSet::new() }
+    }
+
+    /// Whether `export * from "<module>"` forwards `<name>` as a runner surface of the contract: the
+    /// only star re-exports the linker is allowed to resolve.
+    pub fn is_runner_surface(&self, module: &str, name: &str) -> bool {
+        (module == "effect" && matches!(name, "Effect" | "ManagedRuntime"))
+            || module == "effect/Effect"
+            || self.runtimes.iter().any(|runtime| (runtime_package(module, runtime) && name == runtime) || (runtime_submodule(module, runtime) && name == "runMain"))
     }
 
     pub fn with_platform_constructors(mut self, names: impl IntoIterator<Item = String>) -> Self {
@@ -105,10 +142,10 @@ impl Contract {
 
 /// Import bindings and `const` aliases of one module, resolved on oxc scopes. Built once per file and
 /// shared by every rule family that needs symbol identity (`collect`, `rules::collect`).
-pub fn build_resolver<'s>(program: &Program, scoping: &'s Scoping) -> Resolver<'s> {
-    let mut pre = Prepass { imports: HashMap::new() };
+pub fn build_resolver<'s>(program: &Program, scoping: &'s Scoping, link: Option<Link<'s>>) -> Resolver<'s> {
+    let mut pre = Prepass { imports: HashMap::new(), link: link.as_ref() };
     pre.visit_program(program);
-    let mut resolver = Resolver { scoping, imports: pre.imports, aliases: HashMap::new() };
+    let mut resolver = Resolver { scoping, imports: pre.imports, aliases: HashMap::new(), link };
     // Fixpoint over `const x = <runner path>` declarations: aliases of aliases resolve on later passes.
     loop {
         let mut pass = Deriver { resolver: &mut resolver, changed: false };
@@ -127,7 +164,8 @@ pub fn collect(program: &Program, resolver: &Resolver, contract: &Contract) -> M
         contract,
         facts: ModuleFacts::default(),
         function_depth: 0,
-        used_alias_inits: Vec::new(),
+        applied: HashSet::new(),
+        alias_inits: HashSet::new(),
     };
     collector.visit_program(program);
     let mut facts = collector.facts;
@@ -141,15 +179,16 @@ pub fn collect(program: &Program, resolver: &Resolver, contract: &Contract) -> M
     facts
 }
 
-struct Prepass {
+struct Prepass<'l, 's> {
     imports: HashMap<SymbolId, Origin>,
+    link: Option<&'l Link<'s>>,
 }
 
 fn js(value: oxc_str::JSStr<'_>) -> String {
     value.display().to_string()
 }
 
-fn module_export_name(name: &ModuleExportName) -> String {
+pub fn module_export_name(name: &ModuleExportName) -> String {
     match name {
         ModuleExportName::IdentifierName(n) => n.name.to_string(),
         ModuleExportName::IdentifierReference(n) => n.name.to_string(),
@@ -157,7 +196,7 @@ fn module_export_name(name: &ModuleExportName) -> String {
     }
 }
 
-impl<'a> Visit<'a> for Prepass {
+impl<'a> Visit<'a> for Prepass<'_, '_> {
     fn visit_import_declaration(&mut self, decl: &ImportDeclaration<'a>) {
         if decl.import_kind.is_type() {
             return;
@@ -176,7 +215,9 @@ impl<'a> Visit<'a> for Prepass {
                 }
             };
             if let Some(symbol) = binding.symbol_id.get() {
-                self.imports.insert(symbol, Origin { module: module.clone(), export, kind, root: String::new() });
+                let origin = Origin { module: module.clone(), export, kind, root: String::new() };
+                let origin = self.link.and_then(|link| link.origin(&origin)).unwrap_or(origin);
+                self.imports.insert(symbol, origin);
             }
         }
     }
@@ -187,6 +228,7 @@ pub struct Resolver<'s> {
     scoping: &'s Scoping,
     imports: HashMap<SymbolId, Origin>,
     aliases: HashMap<SymbolId, Path>,
+    link: Option<Link<'s>>,
 }
 
 pub fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
@@ -204,7 +246,19 @@ pub fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
 
 impl<'s> Resolver<'s> {
     pub fn build(program: &Program, scoping: &'s Scoping) -> Self {
-        build_resolver(program, scoping)
+        build_resolver(program, scoping, None)
+    }
+
+    /// `path` extended by one member. A member of a project module's namespace import is that
+    /// module's export: it takes the origin the export forwards to, when it forwards anywhere.
+    fn extend(&self, mut path: Path, name: String) -> Path {
+        path.members.push(name);
+        if path.origin.kind == OriginKind::Namespace && path.members.len() == 1 {
+            if let Some(origin) = self.link.as_ref().and_then(|link| link.origin(&Origin { kind: OriginKind::Named, export: path.members[0].clone(), ..path.origin.clone() })) {
+                return Path { origin, members: vec![], ..path };
+            }
+        }
+        path
     }
 
     pub fn scoping(&self) -> &'s Scoping {
@@ -218,11 +272,6 @@ impl<'s> Resolver<'s> {
     pub fn symbol_of(&self, ident: &IdentifierReference) -> Option<SymbolId> {
         let id = ident.reference_id.get()?;
         self.scoping.get_reference(id).symbol_id()
-    }
-
-    /// Number of resolved references to a symbol (its uses).
-    pub fn reference_count(&self, symbol: SymbolId) -> usize {
-        self.scoping.get_resolved_reference_ids(symbol).len()
     }
 
     /// The import binding an identifier reference resolves to, if any.
@@ -276,9 +325,7 @@ impl<'s> Resolver<'s> {
             }
             MemberExpression::PrivateFieldExpression(_) => return None,
         };
-        let mut parent = self.path_of(object)?;
-        parent.members.push(name);
-        Some(parent)
+        Some(self.extend(self.path_of(object)?, name))
     }
 
     fn derive_declarator(&mut self, decl: &VariableDeclarator, is_const: bool) -> bool {
@@ -306,8 +353,7 @@ impl<'s> Resolver<'s> {
                 let mut changed = false;
                 for property in &object.properties {
                     let Some(member) = binding_property_name(property) else { continue };
-                    let mut next = path.clone();
-                    next.members.push(member);
+                    let next = self.extend(path.clone(), member);
                     changed = self.bind_pattern(&property.value, next) || changed;
                 }
                 changed
@@ -369,50 +415,81 @@ pub fn effect_member(path: &Path) -> Option<&str> {
     }
 }
 
+/// `@effect/platform-<x>` and its `-shared` implementation package export the same `<X>Runtime`
+/// (`NodeRuntime` lives in both `@effect/platform-node` and `@effect/platform-node-shared`); the
+/// package name is derived from the runtime name, not listed.
+fn runtime_packages(runtime: &str) -> [String; 2] {
+    let base = runtime.strip_suffix("Runtime").unwrap_or(runtime).to_lowercase();
+    [format!("@effect/platform-{base}"), format!("@effect/platform-{base}-shared")]
+}
+
+fn runtime_package(module: &str, runtime: &str) -> bool {
+    runtime_packages(runtime).iter().any(|p| p == module)
+}
+
+fn runtime_submodule(module: &str, runtime: &str) -> bool {
+    runtime_packages(runtime).iter().any(|p| module.strip_prefix(p.as_str()).and_then(|rest| rest.strip_prefix('/')) == Some(runtime))
+}
+
+/// The runner a path names, if any. A path that is the *result* of a call (`Path::via_call`) is not a
+/// runner (`const p = Effect.runPromise(x)` makes `p` a promise), except for members of a
+/// `ManagedRuntime.make(...)` result, which are that instance's runners.
 fn classify(path: &Path, contract: &Contract) -> Option<(RunnerKind, String, bool)> {
-    let Path { origin, members, binding_verified, .. } = path;
-    // Effect.run*
-    let member: Option<String> = if let Some(m) = effect_member(path) {
-        Some(m.to_string())
-    } else if origin.kind == OriginKind::Unresolved {
-        Some(if members.is_empty() { origin.root.clone() } else { members.last().cloned().unwrap() })
-    } else {
-        None
-    };
-    if let Some(m) = member {
-        if contract.effect_runner_members.contains(&m) {
-            return Some((RunnerKind::EffectRun, format!("Effect.{m}"), *binding_verified));
+    let Path { origin, members, binding_verified, via_call } = path;
+    if !via_call {
+        // Effect.run*
+        let member: Option<String> = if let Some(m) = effect_member(path) {
+            Some(m.to_string())
+        } else if origin.kind == OriginKind::Unresolved {
+            Some(if members.is_empty() { origin.root.clone() } else { members.last().cloned().unwrap() })
+        } else {
+            None
+        };
+        if let Some(m) = member {
+            if contract.effect_runner_members.contains(&m) {
+                return Some((RunnerKind::EffectRun, format!("Effect.{m}"), *binding_verified));
+            }
+        }
+        // *Runtime.runMain
+        for runtime in &contract.runtimes {
+            let hit = (runtime_package(&origin.module, runtime) && origin.kind == OriginKind::Named && origin.export == *runtime && members.len() == 1 && members[0] == "runMain")
+                || (runtime_package(&origin.module, runtime) && origin.kind == OriginKind::Namespace && members.len() == 2 && members[0] == *runtime && members[1] == "runMain")
+                || (runtime_submodule(&origin.module, runtime) && origin.kind == OriginKind::Namespace && members.len() == 1 && members[0] == "runMain")
+                || (runtime_submodule(&origin.module, runtime) && origin.kind == OriginKind::Named && origin.export == "runMain" && members.is_empty());
+            if hit {
+                return Some((RunnerKind::RuntimeMain, format!("{runtime}.runMain"), *binding_verified));
+            }
+            if origin.kind == OriginKind::Unresolved && origin.root == *runtime && members.len() == 1 && members[0] == "runMain" {
+                return Some((RunnerKind::RuntimeMain, format!("{runtime}.runMain"), false));
+            }
         }
     }
-    // ManagedRuntime
+    // ManagedRuntime: the constructor call is a runner reference; so is each runner member of its result.
     if origin.module == "effect" {
         let is_managed = (origin.kind == OriginKind::Named && origin.export == "ManagedRuntime")
             || (origin.kind == OriginKind::Namespace && members.first().is_some_and(|m| m == "ManagedRuntime"));
         if is_managed {
             let offset = if origin.kind == OriginKind::Namespace { 1 } else { 0 };
-            if members.len() == offset + 1 && members[offset] == "make" {
+            if !via_call && members.len() == offset + 1 && members[offset] == "make" {
                 return Some((RunnerKind::ManagedRun, "ManagedRuntime.make".into(), *binding_verified));
             }
-            if members.len() == offset + 2 && members[offset] == "make" && MANAGED_RUNTIME_RUNNERS.contains(&members[offset + 1].as_str()) {
+            if *via_call && members.len() == offset + 2 && members[offset] == "make" && contract.managed_runner_members.contains(&members[offset + 1]) {
                 return Some((RunnerKind::ManagedRun, format!("ManagedRuntime.{}", members[offset + 1]), *binding_verified));
             }
         }
     }
-    // *Runtime.runMain
-    for (runtime, module) in RUNTIMES {
-        let submodule = format!("{module}/{runtime}");
-        let hit = (origin.module == module && origin.kind == OriginKind::Named && origin.export == runtime && members.len() == 1 && members[0] == "runMain")
-            || (origin.module == module && origin.kind == OriginKind::Namespace && members.len() == 2 && members[0] == runtime && members[1] == "runMain")
-            || (origin.module == submodule && origin.kind == OriginKind::Namespace && members.len() == 1 && members[0] == "runMain")
-            || (origin.module == submodule && origin.kind == OriginKind::Named && origin.export == "runMain" && members.is_empty());
-        if hit {
-            return Some((RunnerKind::RuntimeMain, format!("{runtime}.runMain"), *binding_verified));
-        }
-        if origin.kind == OriginKind::Unresolved && origin.root == runtime && members.len() == 1 && members[0] == "runMain" {
-            return Some((RunnerKind::RuntimeMain, format!("{runtime}.runMain"), false));
-        }
-    }
     None
+}
+
+/// Identity of a reference expression: its span (a member chain and its root share a start, not an end).
+type ExprKey = (u32, u32);
+
+fn expr_key(expr: &Expression) -> ExprKey {
+    let span = match unwrap(expr) {
+        Expression::ChainExpression(chain) => chain.expression.span(),
+        other => other.span(),
+    };
+    (span.start, span.end)
 }
 
 struct Collector<'r, 's> {
@@ -420,16 +497,39 @@ struct Collector<'r, 's> {
     contract: &'r Contract,
     facts: ModuleFacts,
     function_depth: u32,
-    /// Spans of `const alias = <expr>` initializers whose alias has uses.
-    used_alias_inits: Vec<Span>,
+    /// References in applied position: callee of a call, or argument of a call/`new`.
+    applied: HashSet<ExprKey>,
+    /// Initializers of `const alias = <expr>` declarators.
+    alias_inits: HashSet<ExprKey>,
+}
+
+impl Collector<'_, '_> {
+    fn record(&mut self, path: &Path, key: ExprKey, offset: u32) -> bool {
+        let Some((kind, runner, binding_verified)) = classify(path, self.contract) else { return false };
+        let site = if self.applied.contains(&key) {
+            RunSite::Applied
+        } else if self.alias_inits.contains(&key) {
+            RunSite::AliasInit
+        } else {
+            RunSite::Value
+        };
+        self.facts.runner_refs.push(RunnerRef { kind, runner, binding_verified, offset, nested: self.function_depth > 0, site });
+        true
+    }
+
+    fn mark_arguments(&mut self, arguments: &oxc_allocator::Vec<Argument>) {
+        for argument in arguments {
+            if let Some(expr) = argument.as_expression() {
+                self.applied.insert(expr_key(expr));
+            }
+        }
+    }
 }
 
 impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_variable_declarator(&mut self, decl: &VariableDeclarator<'a>) {
-        if let (BindingPattern::BindingIdentifier(id), Some(init)) = (&decl.id, &decl.init) {
-            if id.symbol_id.get().is_some_and(|symbol| self.resolver.reference_count(symbol) > 0) {
-                self.used_alias_inits.push(unwrap(init).span());
-            }
+        if let (BindingPattern::BindingIdentifier(_), Some(init)) = (&decl.id, &decl.init) {
+            self.alias_inits.insert(expr_key(init));
         }
         walk::walk_variable_declarator(self, decl);
     }
@@ -447,6 +547,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     }
 
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        self.applied.insert(expr_key(&call.callee));
+        self.mark_arguments(&call.arguments);
         if let Expression::Identifier(ident) = &call.callee {
             // The CommonJS global only: a locally bound `require` is not a module load.
             if ident.name == "require" && self.resolver.symbol_of(ident).is_none() {
@@ -454,6 +556,11 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
             }
         }
         walk::walk_call_expression(self, call);
+    }
+
+    fn visit_new_expression(&mut self, expr: &NewExpression<'a>) {
+        self.mark_arguments(&expr.arguments);
+        walk::walk_new_expression(self, expr);
     }
 
     fn visit_import_expression(&mut self, expr: &ImportExpression<'a>) {
@@ -475,34 +582,16 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     }
 
     fn visit_identifier_reference(&mut self, ident: &IdentifierReference<'a>) {
-        let expr_span = ident.span;
         if let Some(path) = self.resolver.identifier_path(ident) {
-            if let Some((kind, runner, binding_verified)) = classify(&path, self.contract) {
-                self.facts.runner_refs.push(RunnerRef {
-                    kind,
-                    runner,
-                    binding_verified,
-                    offset: expr_span.start,
-                    nested: self.function_depth > 0,
-                    alias_binding_used: self.used_alias_inits.contains(&expr_span),
-                });
-            }
+            self.record(&path, (ident.span.start, ident.span.end), ident.span.start);
         }
     }
 
     fn visit_member_expression(&mut self, member: &MemberExpression<'a>) {
         let span = member.span();
         if let Some(path) = self.resolver.member_path(member) {
-            if let Some((kind, runner, binding_verified)) = classify(&path, self.contract) {
-                self.facts.runner_refs.push(RunnerRef {
-                    kind,
-                    runner,
-                    binding_verified,
-                    offset: span.start,
-                    nested: self.function_depth > 0,
-                    alias_binding_used: self.used_alias_inits.contains(&span),
-                });
-                // The chain is one reference; its sub-paths are not runner references of their own.
+            // The chain is one reference; its sub-paths are not runner references of their own.
+            if self.record(&path, (span.start, span.end), span.start) {
                 return;
             }
         }

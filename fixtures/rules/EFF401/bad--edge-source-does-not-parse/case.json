@@ -1,0 +1,20 @@
+{
+  "description": "edge-source-does-not-parse",
+  "suites": [
+    "edge-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401",
+    "EFF504"
+  ],
+  "expectFindingKeys": [
+    "src/main.ts:4:EFF401:error",
+    "src/main.ts:4:EFF504:error"
+  ],
+  "allowCompileErrors": [
+    "TS1005"
+  ],
+  "allowCompileErrorsReason": "the fixture is a deliberate syntax error: the scanner must report the file itself"
+}

@@ -1,0 +1,15 @@
+{
+  "description": "process-main-runner-alias-exported-not-run",
+  "suites": [
+    "runner-facts",
+    "edge-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "expectFindingKeys": [
+    "src/main.ts:1:EFF401:error"
+  ]
+}

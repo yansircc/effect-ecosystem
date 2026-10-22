@@ -38,16 +38,19 @@ struct Owner {
     node: OwnerNode,
 }
 
-/// Verifies one edge file against its execution contract. `text` is the file's source, the same
-/// text the file's facts were computed from.
-pub fn verify_execution(root: &Path, file: &SourceFile, text: &str, package: Option<&Package>, execution: &Value) -> Outcome {
+/// Verifies one edge file against its execution contract. The structural model is built from
+/// `file.text`, the one text the file's facts (runner references, offsets, lines) come from.
+pub fn verify_execution(root: &Path, file: &SourceFile, package: Option<&Package>, execution: &Value) -> Outcome {
+    if let Some(failure) = &file.facts.parse_failure {
+        let line_text = file.lines.get(failure.line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+        return Err(Mismatch { line: failure.line, line_text, reason: format!("edge source does not parse, its lifecycle cannot be proven: {}", failure.message) });
+    }
     let allocator = Allocator::default();
-    let source_type = SourceType::from_path(&file.relative).unwrap_or_else(|_| SourceType::ts());
-    let parsed = Parser::new(&allocator, text, source_type).parse();
+    let parsed = crate::source::parse(&allocator, &file.relative, &file.text);
     let semantic = SemanticBuilder::new().with_build_nodes(true).build(&parsed.program).semantic;
     let model = Model::new(&parsed.program, &semantic);
-    let mut runs: Vec<&RunnerRef> = file.facts.module.runner_refs.iter().filter(|r| r.kind != RunnerKind::RuntimeMain && !r.alias_binding_used).collect();
-    let mut main_runs: Vec<&RunnerRef> = file.facts.module.runner_refs.iter().filter(|r| r.kind == RunnerKind::RuntimeMain && !r.alias_binding_used).collect();
+    let mut runs: Vec<&RunnerRef> = file.facts.module.runner_refs.iter().filter(|r| r.kind != RunnerKind::RuntimeMain && r.is_run_point()).collect();
+    let mut main_runs: Vec<&RunnerRef> = file.facts.module.runner_refs.iter().filter(|r| r.kind == RunnerKind::RuntimeMain && r.is_run_point()).collect();
     runs.sort_by_key(|r| r.offset);
     main_runs.sort_by_key(|r| r.offset);
     let edge = Edge { model: &model, file, root, abs: normalize(&root.join(&file.relative)), package, runs, main_runs };

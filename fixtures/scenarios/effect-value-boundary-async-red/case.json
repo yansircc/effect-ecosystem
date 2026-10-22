@@ -1,0 +1,20 @@
+{
+  "description": "effect-value-boundary-async-red",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001",
+    "EFF003",
+    "EFF004"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:4:EFF003:error",
+    "src/a.ts:5:EFF004:error",
+    "src/a.ts:6:EFF001:error",
+    "src/a.ts:8:EFF003:error",
+    "src/a.ts:10:EFF003:error"
+  ]
+}

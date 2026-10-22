@@ -10,8 +10,12 @@
 //! Effect boundary callbacks: a function that is the direct argument of `Effect.promise|tryPromise|
 //! try|sync`, or the `try` property of the options object passed to `Effect.tryPromise|try` — with the
 //! callee proven by an `effect` import binding — is where Promise-world code is *supposed* to live.
-//! `async` there is not reported (EFF002/003), and `await`/`try` whose nearest enclosing function is
-//! such a callback are not reported (EFF004/001). Functions nested deeper are not exempt.
+//! What each boundary admits follows from what it expects the callback to return (`Boundary`):
+//! `promise`/`tryPromise` callbacks return a Promise, so `async`, `await` and `try` are all exempt
+//! (EFF002/003/004/001); `sync`/`try` callbacks return a value, so only `try` is exempt, and only in
+//! a callback that is not `async` (an async callback there returns a dangling Promise: a bug, still
+//! reported with its `await`s and `try`s). The exemption belongs to the nearest enclosing function
+//! only; functions nested deeper are not exempt.
 use crate::facts::{effect_member, unwrap, OriginKind, Path, Resolver};
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
@@ -19,7 +23,7 @@ use oxc_span::GetSpan;
 use oxc_syntax::scope::ScopeFlags;
 use oxc_syntax::symbol::SymbolId;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// The selector vocabulary of `contracts/rules.json` (`scanner.selector`), one fact one location.
 pub const SELECTORS: [&str; 12] = [
@@ -43,15 +47,63 @@ pub type Hits = BTreeMap<&'static str, Vec<u32>>;
 const GLOBAL_OBJECTS: [&str; 4] = ["globalThis", "window", "self", "global"];
 const PROMISE_COMBINATORS: [&str; 4] = ["all", "allSettled", "race", "any"];
 const ENV_ROOTS: [&str; 3] = ["process", "Bun", "import.meta"];
-const BOUNDARY_MEMBERS: [&str; 4] = ["promise", "tryPromise", "try", "sync"];
-const BOUNDARY_OPTION_MEMBERS: [&str; 2] = ["tryPromise", "try"];
+
+/// What an `Effect` boundary constructor expects its callback to return.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Boundary {
+    /// A Promise: the callback is Promise-world code (`Effect.promise`, `Effect.tryPromise`).
+    Promise,
+    /// A plain value (`Effect.sync`, `Effect.try`): synchronous code that may throw.
+    Value,
+}
+
+/// `(Effect member, callback kind, takes an options object whose `try` property is the callback)`.
+const BOUNDARIES: [(&str, Boundary, bool); 4] = [
+    ("promise", Boundary::Promise, false),
+    ("tryPromise", Boundary::Promise, true),
+    ("try", Boundary::Value, true),
+    ("sync", Boundary::Value, false),
+];
+
+impl Boundary {
+    fn admits_async(self) -> bool {
+        self == Boundary::Promise
+    }
+
+    /// `try` is admitted in Promise callbacks and in non-async value callbacks.
+    fn admits_try(self, is_async: bool) -> bool {
+        self == Boundary::Promise || !is_async
+    }
+}
+
+/// The exemptions of one enclosing function (none for an ordinary function).
+#[derive(Clone, Copy)]
+struct Frame {
+    boundary: Option<Boundary>,
+    is_async: bool,
+}
+
+/// Modules whose named exports are the global timer functions (`node:timers` and
+/// `node:timers/promises` export the same `setTimeout`/`setInterval` names the globals have).
+const TIMER_MODULES: [&str; 4] = ["timers", "node:timers", "timers/promises", "node:timers/promises"];
 
 /// A path rooted in a global value: `(root name, members)`, with `globalThis.`-style prefixes
 /// removed. Imported bindings are not globals, except `node:process`, which is the same object as
-/// the global `process`.
+/// the global `process`, and the timer modules, whose exports are the global timer functions.
 pub fn global_ref(path: &Path) -> Option<(String, Vec<String>)> {
     let origin = &path.origin;
     let is_process_module = matches!(origin.module.as_str(), "process" | "node:process");
+    if TIMER_MODULES.contains(&origin.module.as_str()) {
+        // `import { setTimeout } from "node:timers"` is the global `setTimeout`; `import * as t` /
+        // default import: `t.setTimeout` is the global `setTimeout` too.
+        let mut members = path.members.clone();
+        let root = match origin.kind {
+            OriginKind::Named => origin.export.clone(),
+            OriginKind::Default | OriginKind::Namespace if !members.is_empty() => members.remove(0),
+            _ => return None,
+        };
+        return Some((root, members));
+    }
     match origin.kind {
         OriginKind::Unresolved => {
             let mut members = path.members.clone();
@@ -117,7 +169,7 @@ pub fn collect(program: &Program, resolver: &Resolver) -> Hits {
     let mut collector = Collector {
         resolver,
         hits: SELECTORS.iter().map(|s| (*s, Vec::new())).collect(),
-        boundary_fns: HashSet::new(),
+        boundary_fns: HashMap::new(),
         frames: Vec::new(),
         marked: HashSet::new(),
     };
@@ -128,10 +180,10 @@ pub fn collect(program: &Program, resolver: &Resolver) -> Hits {
 struct Collector<'r, 's> {
     resolver: &'r Resolver<'s>,
     hits: Hits,
-    /// Spans of functions that are Effect boundary callbacks.
-    boundary_fns: HashSet<(u32, u32)>,
-    /// One entry per enclosing function: is it a boundary callback.
-    frames: Vec<bool>,
+    /// Spans of functions that are Effect boundary callbacks, with what the boundary expects of them.
+    boundary_fns: HashMap<(u32, u32), Boundary>,
+    /// One entry per enclosing function.
+    frames: Vec<Frame>,
     /// Bindings whose value already counted as a reference hit at their declaration; their uses do not
     /// hit again (`const { PORT } = process.env` is one finding, not one per use of `PORT`).
     marked: HashSet<SymbolId>,
@@ -142,22 +194,33 @@ impl Collector<'_, '_> {
         self.hits.get_mut(selector).expect("selector registered").push(offset);
     }
 
-    fn in_boundary(&self) -> bool {
-        self.frames.last().copied().unwrap_or(false)
+    /// Is `await` exempt here: the nearest enclosing function is a Promise callback.
+    fn awaits_exempt(&self) -> bool {
+        self.frames.last().is_some_and(|f| f.boundary.is_some_and(Boundary::admits_async))
     }
 
-    fn is_boundary_callee(&self, callee: &Expression, members: &[&str]) -> bool {
-        let Some(path) = self.resolver.path_of(callee) else { return false };
-        !path.via_call && path.binding_verified && effect_member(&path).is_some_and(|m| members.contains(&m))
+    /// Is `try` exempt here, per the nearest enclosing function.
+    fn try_exempt(&self) -> bool {
+        self.frames.last().is_some_and(|f| f.boundary.is_some_and(|b| b.admits_try(f.is_async)))
     }
 
-    fn register_boundary(&mut self, expr: &Expression) {
+    /// The `Effect` boundary constructor a callee is, with its callback kind and option support.
+    fn boundary_of(&self, callee: &Expression) -> Option<(Boundary, bool)> {
+        let path = self.resolver.path_of(callee)?;
+        if path.via_call || !path.binding_verified {
+            return None;
+        }
+        let member = effect_member(&path)?;
+        BOUNDARIES.iter().find(|(name, _, _)| *name == member).map(|(_, kind, options)| (*kind, *options))
+    }
+
+    fn register_boundary(&mut self, expr: &Expression, kind: Boundary) {
         match unwrap(expr) {
             Expression::FunctionExpression(f) => {
-                self.boundary_fns.insert((f.span.start, f.span.end));
+                self.boundary_fns.insert((f.span.start, f.span.end), kind);
             }
             Expression::ArrowFunctionExpression(a) => {
-                self.boundary_fns.insert((a.span.start, a.span.end));
+                self.boundary_fns.insert((a.span.start, a.span.end), kind);
             }
             _ => {}
         }
@@ -196,48 +259,48 @@ fn binding_symbols(pattern: &BindingPattern, out: &mut Vec<SymbolId>) {
 
 impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
-        let boundary = self.boundary_fns.contains(&(func.span.start, func.span.end));
-        if func.r#async && !boundary {
+        let boundary = self.boundary_fns.get(&(func.span.start, func.span.end)).copied();
+        if func.r#async && !boundary.is_some_and(Boundary::admits_async) {
             self.hit("async-function", func.span.start);
         }
-        self.frames.push(boundary);
+        self.frames.push(Frame { boundary, is_async: func.r#async });
         walk::walk_function(self, func, flags);
         self.frames.pop();
     }
 
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
-        let boundary = self.boundary_fns.contains(&(arrow.span.start, arrow.span.end));
-        if arrow.r#async && !boundary {
+        let boundary = self.boundary_fns.get(&(arrow.span.start, arrow.span.end)).copied();
+        if arrow.r#async && !boundary.is_some_and(Boundary::admits_async) {
             self.hit("async-arrow", arrow.span.start);
         }
-        self.frames.push(boundary);
+        self.frames.push(Frame { boundary, is_async: arrow.r#async });
         walk::walk_arrow_function_expression(self, arrow);
         self.frames.pop();
     }
 
     fn visit_await_expression(&mut self, expr: &AwaitExpression<'a>) {
-        if !self.in_boundary() {
+        if !self.awaits_exempt() {
             self.hit("await", expr.span.start);
         }
         walk::walk_await_expression(self, expr);
     }
 
     fn visit_for_of_statement(&mut self, stmt: &ForOfStatement<'a>) {
-        if stmt.r#await && !self.in_boundary() {
+        if stmt.r#await && !self.awaits_exempt() {
             self.hit("await", stmt.span.start);
         }
         walk::walk_for_of_statement(self, stmt);
     }
 
     fn visit_variable_declaration(&mut self, decl: &VariableDeclaration<'a>) {
-        if decl.kind == VariableDeclarationKind::AwaitUsing && !self.in_boundary() {
+        if decl.kind == VariableDeclarationKind::AwaitUsing && !self.awaits_exempt() {
             self.hit("await", decl.span.start);
         }
         walk::walk_variable_declaration(self, decl);
     }
 
     fn visit_try_statement(&mut self, stmt: &TryStatement<'a>) {
-        if !self.in_boundary() {
+        if !self.try_exempt() {
             self.hit("try-statement", stmt.span.start);
         }
         walk::walk_try_statement(self, stmt);
@@ -273,11 +336,10 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         if let Some(selector) = self.resolver.path_of(&call.callee).and_then(|p| call_selector(&p)) {
             self.hit(selector, call.span.start);
         }
-        if self.is_boundary_callee(&call.callee, &BOUNDARY_MEMBERS) {
-            let options = self.is_boundary_callee(&call.callee, &BOUNDARY_OPTION_MEMBERS);
+        if let Some((kind, options)) = self.boundary_of(&call.callee) {
             for arg in &call.arguments {
                 let Some(expr) = arg.as_expression() else { continue };
-                self.register_boundary(expr);
+                self.register_boundary(expr, kind);
                 if let (true, Expression::ObjectExpression(object)) = (options, unwrap(expr)) {
                     for property in &object.properties {
                         let ObjectPropertyKind::ObjectProperty(p) = property else { continue };
@@ -287,7 +349,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
                             _ => false,
                         };
                         if named_try && !p.computed {
-                            self.register_boundary(&p.value);
+                            self.register_boundary(&p.value, kind);
                         }
                     }
                 }
