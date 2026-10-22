@@ -3,7 +3,13 @@ BIN ?= $(PREFIX)/bin/effect-scan
 BUILD_DIR ?= dist-dev
 INSTALL_ROOT ?= dist-installed
 
-.PHONY: build install package skill verify verify-acceptance verify-performance verify-performance-realworld
+.PHONY: rust-build diff-fixtures build install package skill verify verify-acceptance verify-performance verify-performance-realworld
+
+rust-build:
+	CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo build --release -p effect-scan
+
+diff-fixtures: build rust-build
+	node "$(BUILD_DIR)/scripts/diff-fixtures.js" target/release/effect-scan
 
 build:
 	rm -rf "$(BUILD_DIR)"

@@ -1,0 +1,296 @@
+use crate::findings::{Finding, Registry};
+use crate::manifest::{self, Manifest};
+use crate::source::{self, SourceFacts};
+use crate::util::{self, locale_compare, matches_any, rel};
+use regex::Regex;
+use serde_json::{json, Value};
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+pub struct Options {
+    pub strict: bool,
+    pub manifest_path: Option<String>,
+    pub fail_on_suppression_drift: bool,
+}
+
+pub struct FileRoles {
+    pub test: bool,
+    pub generated: bool,
+    pub host_tooling: bool,
+}
+
+pub struct SourceFile {
+    pub relative: String,
+    pub lines: Vec<String>,
+    pub package: Option<String>,
+    pub roles: FileRoles,
+    pub facts: SourceFacts,
+}
+
+pub struct ScanResult {
+    pub findings: Vec<Finding>,
+    pub warnings: Vec<String>,
+}
+
+/// Rules whose verdict this build computes; the rest of the contract is not yet ported.
+pub const IMPLEMENTED_KINDS: [&str; 3] = ["line-regex", "source-import", "source-ast"];
+
+pub fn implemented_rules(registry: &Registry) -> Vec<String> {
+    let ids: Vec<String> = registry
+        .rules
+        .iter()
+        .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
+        .map(|r| r.id.clone())
+        .collect();
+    ids
+}
+
+pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanResult, String> {
+    let loaded = manifest::load(root, options.strict, options.manifest_path.as_deref(), registry);
+    let mut findings = loaded.findings;
+    let manifest = loaded.manifest;
+    let files = collect_source_files(root, manifest.as_ref())?;
+    findings.extend(scan_line_rules(&files, registry));
+    let raw = findings.clone();
+    findings = apply_suppressions(findings, manifest.as_ref(), registry);
+    if options.fail_on_suppression_drift {
+        findings.extend(suppression_drift(&files, manifest.as_ref(), &raw, registry));
+    }
+    findings.sort_by(|a, b| {
+        locale_compare(&a.file, &b.file).then(a.line.cmp(&b.line)).then(locale_compare(&a.rule_id, &b.rule_id))
+    });
+    Ok(ScanResult { findings, warnings: loaded.warnings })
+}
+
+fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
+    let re = Regex::new(r"^([^*?\[\]{}()!]+)/\*\*$").unwrap();
+    let mut out: Vec<String> = manifest
+        .map(|m| m.host_tooling_paths.iter())
+        .into_iter()
+        .flatten()
+        .filter_map(|glob| {
+            let normalized = util::to_posix(glob).trim_end_matches('/').to_string();
+            let prefix = re.captures(&normalized)?.get(1)?.as_str().trim_end_matches('/').to_string();
+            (!prefix.is_empty() && prefix != "." && !prefix.contains("..")).then_some(prefix)
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+fn collect_source_files(root: &Path, manifest: Option<&Manifest>) -> Result<Vec<SourceFile>, String> {
+    let prune = host_tooling_prune_dirs(manifest);
+    let paths: Vec<PathBuf> = util::collect_files(root, &prune)?;
+    let default_tests = util::default_test_globs();
+    let mut files = Vec::new();
+    for path in paths {
+        let relative = rel(root, &path);
+        if relative.ends_with(".d.ts") || relative.ends_with(".d.mts") || relative.ends_with(".d.cts") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).map_err(|e| format!("cannot read {relative}: {e}"))?;
+        let is_test = match manifest {
+            Some(m) => matches_any(&relative, &m.test_globs),
+            None => matches_any(&relative, &default_tests),
+        };
+        let is_generated = manifest.is_some_and(|m| m.generated_globs.iter().any(|g| matches_any(&relative, std::slice::from_ref(g))));
+        let is_host = manifest.is_some_and(|m| m.host_tooling_paths.iter().any(|g| matches_any(&relative, std::slice::from_ref(g))));
+        if is_host {
+            continue;
+        }
+        files.push(SourceFile {
+            facts: source::analyze(&relative, &text),
+            lines: text.split('\n').map(|l| l.strip_suffix('\r').unwrap_or(l).to_string()).collect(),
+            package: manifest.and_then(|m| m.package_for_file(&relative)).map(|p| p.path.clone()),
+            relative,
+            roles: FileRoles { test: is_test, generated: is_generated, host_tooling: is_host },
+        });
+    }
+    Ok(files)
+}
+
+/// Rule patterns are JS regexes with ASCII `\b`; the Rust engine needs that spelled explicitly.
+fn compile(pattern: &str) -> Result<Regex, String> {
+    Regex::new(&pattern.replace("\\b", "(?-u:\\b)")).map_err(|e| format!("bad rule pattern {pattern}: {e}"))
+}
+
+fn skip_file(file: &SourceFile, scanner: &Value) -> bool {
+    if scanner.get("scanTests").and_then(Value::as_bool) == Some(true) {
+        return false;
+    }
+    let globs = |key: &str| -> Vec<String> {
+        scanner.get(key).and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default()
+    };
+    let (include, exclude) = (globs("include"), globs("exclude"));
+    if !include.is_empty() && !matches_any(&file.relative, &include) {
+        return true;
+    }
+    if !exclude.is_empty() && matches_any(&file.relative, &exclude) {
+        return true;
+    }
+    file.roles.test
+}
+
+fn scan_line_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for rule in &registry.rules {
+        let kind = rule.scanner.get("kind").and_then(Value::as_str).unwrap_or("");
+        if !IMPLEMENTED_KINDS.contains(&kind) {
+            continue;
+        }
+        let re = match kind {
+            "source-ast" => None,
+            _ => Some(compile(rule.scanner.get("pattern").and_then(Value::as_str).unwrap_or("")).expect("rule pattern")),
+        };
+        for file in files {
+            if skip_file(file, &rule.scanner) {
+                continue;
+            }
+            let at = |line: u32| file.lines.get(line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+            let make = |line: u32| registry.finding(&rule.id, &file.relative, line, &at(line), None, file.package.as_deref());
+            match kind {
+                "source-ast" => {
+                    let selector = rule.scanner.get("selector").and_then(Value::as_str).unwrap_or("");
+                    let lines = file.facts.selector(selector).unwrap_or_else(|| panic!("unsupported source-ast selector: {selector}"));
+                    let mut seen = Vec::new();
+                    for &line in lines {
+                        if !seen.contains(&line) {
+                            seen.push(line);
+                            findings.push(make(line));
+                        }
+                    }
+                }
+                "source-import" => {
+                    let re = re.as_ref().unwrap();
+                    if let Some(hit) = file.facts.imports.iter().find(|i| re.is_match(&format!("from \"{}\"", i.specifier))) {
+                        findings.push(make(hit.line));
+                    }
+                }
+                _ => {
+                    let re = re.as_ref().unwrap();
+                    for (index, code) in file.facts.code_lines.iter().enumerate() {
+                        if re.is_match(code) {
+                            findings.push(make(index as u32 + 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    findings
+}
+
+struct LineSuppression {
+    rule_id: String,
+    reason: Option<String>,
+    expires: Option<String>,
+}
+
+fn parse_line_suppression(text: &str) -> Option<LineSuppression> {
+    let ignore = Regex::new(r"//\s*eff-ignore\s+(EFF\d{3})(.*)$").unwrap();
+    let attrs = Regex::new(r#"(\w+)="([^"]*)""#).unwrap();
+    let caps = ignore.captures(text)?;
+    let mut reason = None;
+    let mut expires = None;
+    for a in attrs.captures_iter(caps.get(2).map_or("", |m| m.as_str())) {
+        match &a[1] {
+            "reason" => reason = Some(a[2].to_string()),
+            "expires" => expires = Some(a[2].to_string()),
+            _ => {}
+        }
+    }
+    Some(LineSuppression { rule_id: caps[1].to_string(), reason, expires })
+}
+
+fn is_suppressed(finding: &Finding, manifest: Option<&Manifest>) -> bool {
+    if matches!(finding.rule_id.as_str(), "EFF400" | "EFF401") {
+        return false;
+    }
+    if let Some(parsed) = parse_line_suppression(&finding.line_text) {
+        if parsed.rule_id == finding.rule_id {
+            return parsed.reason.as_deref().is_some_and(|r| !r.is_empty());
+        }
+    }
+    let Some(manifest) = manifest else { return false };
+    let file = util::to_posix(&finding.file);
+    manifest.allowed_adapters.iter().any(|a| a.rules.contains(&finding.rule_id) && util::glob_to_regex(&a.path).is_match(&file))
+        || manifest.generated_globs.iter().any(|g| util::glob_to_regex(g).is_match(&file))
+}
+
+fn apply_suppressions(findings: Vec<Finding>, manifest: Option<&Manifest>, registry: &Registry) -> Vec<Finding> {
+    let mut kept = Vec::new();
+    let mut drift = Vec::new();
+    for finding in findings {
+        if let Some(parsed) = parse_line_suppression(&finding.line_text) {
+            if parsed.rule_id == finding.rule_id && parsed.reason.as_deref().is_none_or(str::is_empty) {
+                let msg = format!("eff-ignore {} requires reason=\"...\"", finding.rule_id);
+                drift.push(registry.finding(&finding.rule_id, &finding.file, finding.line, &finding.line_text, Some(&msg), finding.package.as_deref()));
+                kept.push(finding);
+                continue;
+            }
+        }
+        if !is_suppressed(&finding, manifest) {
+            kept.push(finding);
+        }
+    }
+    kept.extend(drift);
+    kept
+}
+
+fn suppression_drift(files: &[SourceFile], manifest: Option<&Manifest>, raw: &[Finding], registry: &Registry) -> Vec<Finding> {
+    let _ = manifest;
+    let active: std::collections::HashSet<String> = raw.iter().map(|f| format!("{}:{}:{}", f.file, f.line, f.rule_id)).collect();
+    let mut out = Vec::new();
+    for file in files {
+        for (index, text) in file.lines.iter().enumerate() {
+            let Some(s) = parse_line_suppression(text) else { continue };
+            let line = index as u32 + 1;
+            let trimmed = text.trim();
+            let mk = |msg: String| registry.finding(&s.rule_id, &file.relative, line, trimmed, Some(&msg), None);
+            if s.reason.as_deref().is_none_or(str::is_empty) {
+                out.push(mk(format!("eff-ignore {} requires reason=\"...\"", s.rule_id)));
+            }
+            if let Some(expires) = &s.expires {
+                // Date parsing for `expires` is ported with the strict pipeline; ISO dates compare lexically.
+                if expires.as_str() < today().as_str() {
+                    out.push(mk(format!("eff-ignore {} expired at {}", s.rule_id, expires)));
+                }
+            }
+            if !active.contains(&format!("{}:{}:{}", file.relative, line, s.rule_id)) {
+                out.push(mk(format!("orphan eff-ignore {}: ignored rule no longer matches this line", s.rule_id)));
+            }
+        }
+    }
+    out
+}
+
+fn today() -> String {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
+    let days = secs / 86_400;
+    // civil-from-days (Howard Hinnant)
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    format!("{:04}-{:02}-{:02}", if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+pub fn summarize(findings: &[Finding]) -> Value {
+    let mut by_rule: BTreeMap<&str, usize> = BTreeMap::new();
+    for f in findings {
+        *by_rule.entry(&f.rule_id).or_default() += 1;
+    }
+    json!({
+        "total": findings.len(),
+        "errors": findings.iter().filter(|f| f.severity == "error").count(),
+        "warnings": findings.iter().filter(|f| f.severity == "warning").count(),
+        "byRule": by_rule,
+    })
+}

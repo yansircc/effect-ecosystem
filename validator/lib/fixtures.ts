@@ -1006,3 +1006,20 @@ function factKeys(schema) {
     if (value.items) visit(value.items)
   }
 }
+
+/** Materializes every fixture case into a temp dir for differential runs against another scanner build. */
+export function forEachFixtureCase(callback: (testCase: any, scanRoot: string, rulesPath: string | undefined) => void) {
+  const config = JSON.parse(readFileSync(CONFIG_PATH, "utf8"))
+  for (const testCase of selectedCases(config, {})) {
+    const root = mkdtempSync(resolve(tmpdir(), "effect-skill-fixture-"))
+    try {
+      writeFiles(root, fixtureFiles(testCase))
+      linkFixtureNodeModules(root)
+      const rulesPath = testCase.rulesJsonl ? resolve(root, "fixture-rules.jsonl") : undefined
+      if (testCase.rulesJsonl) writeFileSync(rulesPath, fixtureRuleContract(testCase.rulesJsonl))
+      callback(testCase, resolve(root, testCase.scanPath ?? "."), rulesPath)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+}
