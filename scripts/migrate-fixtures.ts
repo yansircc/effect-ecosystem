@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One-off, mechanical stage 1 of the fixture-layout migration (kept for audit).
 //
-//   node dist-dev/scripts/migrate-fixtures.js [--rev <git rev>] [--out fixtures] [--force]
+//   node dist/tools/scripts/migrate-fixtures.js [--rev <git rev>] [--out fixtures] [--force]
 //
 // Reads the legacy `validator/fixtures/fixtures.config.json` (JSON-escaped file trees, with package.json /
 // tsconfig.json rewritten at run time by `fixtureFiles()`) from git history and writes one directory per case:

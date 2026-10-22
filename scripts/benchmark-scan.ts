@@ -2,7 +2,7 @@
 // Performance gate: the Rust scanner on the benchmark targets of benchmarks/targets.json (`--github` selects the
 // pinned real-world repository instead of the generated local target).
 //
-//   node dist-dev/scripts/benchmark-scan.js [--github] [--bin target/release/effect-scan]
+//   node dist/tools/scripts/benchmark-scan.js [--github] [--bin target/release/effect-scan]
 //
 // Limits come from the documented baseline (docs/rust-migration.md, "Baseline and result"): the original TypeScript
 // scanner took 470 ms (local) / 2.4 s (github), wall clock of the whole CLI process, and the Rust scanner must stay

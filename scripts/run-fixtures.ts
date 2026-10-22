@@ -3,7 +3,7 @@
 // with the Rust binary and checked (see tools/fixtures/assert.ts), then the internal suites run
 // (tools/fixtures/suites.ts).
 //
-//   node dist-dev/scripts/run-fixtures.js [--bin target/release/effect-scan] [--fixtures fixtures] [--root .]
+//   node dist/tools/scripts/run-fixtures.js [--bin target/release/effect-scan] [--fixtures fixtures] [--root .]
 //        [--suite <name>] [--filter <substring of fixture id>] [--exact] [--jobs N] [--list] [--fix-pins]
 import { existsSync } from "node:fs"
 import { availableParallelism } from "node:os"
