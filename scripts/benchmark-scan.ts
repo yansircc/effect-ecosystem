@@ -33,6 +33,9 @@ const warmLimit = Number(process.env.EFFECT_SCAN_WARM_LIMIT_MS ?? Math.floor(bas
 const target = await prepareBenchmarkTarget(mode)
 
 try {
+  // A just-built binary pays a one-time OS cost on its first exec (code signature / quarantine checks);
+  // that is not scan time, so absorb it before the cold measurement.
+  spawnSync(bin, ["--list-implemented-rules"], { encoding: "utf8" })
   const cold = measure("cold")
   const warmRuns = Array.from({ length: WARM_RUNS }, () => measure("warm"))
   const warm = warmRuns.sort((a, b) => a.totalMs - b.totalMs)[Math.floor(WARM_RUNS / 2)]

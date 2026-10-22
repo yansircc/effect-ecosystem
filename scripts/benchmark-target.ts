@@ -16,7 +16,16 @@ import { homedir, tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
+// The checkout root, wherever the compiled script lives: nearest ancestor holding benchmarks/targets.json.
+const sourceRoot = (() => {
+  let current = dirname(fileURLToPath(import.meta.url))
+  while (!existsSync(resolve(current, "benchmarks", "targets.json"))) {
+    const parent = dirname(current)
+    if (parent === current) throw new Error("benchmarks/targets.json not found above the script")
+    current = parent
+  }
+  return current
+})()
 const contractPath = resolve(sourceRoot, "benchmarks", "targets.json")
 
 export async function prepareBenchmarkTarget(mode: "local" | "github") {
