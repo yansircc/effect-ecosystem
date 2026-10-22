@@ -6,9 +6,11 @@ use oxc_semantic::Scoping;
 use std::collections::BTreeMap;
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
+use crate::exports::{ExportIndex, ExportTable, Link};
 use crate::facts::{self, Contract, ModuleFacts};
 use crate::rules;
 use oxc_span::{SourceType, Span};
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct ImportFact {
@@ -18,8 +20,17 @@ pub struct ImportFact {
     pub line: u32,
 }
 
+/// The file does not parse. Its facts are empty: nothing is guessed from a recovered tree, and the
+/// scan reports the file as EFF504 instead of silently proving nothing about it.
+#[derive(Debug, Clone)]
+pub struct ParseFailure {
+    pub line: u32,
+    pub message: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct SourceFacts {
+    pub parse_failure: Option<ParseFailure>,
     pub imports: Vec<ImportFact>,
     /// Selector hits as 1-based lines (see `rules::SELECTORS`).
     selectors: BTreeMap<&'static str, Vec<u32>>,
@@ -38,22 +49,52 @@ impl SourceFacts {
     }
 }
 
-pub fn analyze(path: &str, source: &str, contract: &Contract) -> SourceFacts {
-    let allocator = Allocator::default();
+/// The one parse of a file: every consumer of a file's syntax parses through here.
+/// CommonJS extensions parse as scripts; the compiler accepts module syntax in them, so a file is
+/// a failure only when it parses under neither goal.
+pub fn parse<'a>(allocator: &'a Allocator, path: &str, source: &'a str) -> oxc_parser::ParserReturn<'a> {
     let source_type = SourceType::from_path(path).unwrap_or_else(|_| SourceType::ts());
-    let parsed = Parser::new(&allocator, source, source_type).parse();
-    let semantic = SemanticBuilder::new().build(&parsed.program).semantic;
-    let resolver = facts::build_resolver(&parsed.program, semantic.scoping());
-    let module = facts::collect(&parsed.program, &resolver, contract);
-    let hits = rules::collect(&parsed.program, &resolver);
+    let parsed = Parser::new(allocator, source, source_type).parse();
+    if (parsed.fatal_error || parsed.diagnostics.has_errors()) && !source_type.is_module() {
+        let as_module = Parser::new(allocator, source, source_type.with_module(true)).parse();
+        if !as_module.fatal_error && !as_module.diagnostics.has_errors() {
+            return as_module;
+        }
+    }
+    parsed
+}
+
+/// Facts of one file. `abs` is the file's normalized absolute path; with `links`, relative imports
+/// resolve through the project's re-export forwarding.
+pub fn analyze(path: &str, abs: &Path, source: &str, contract: &Contract, links: Option<&ExportIndex>) -> SourceFacts {
+    let allocator = Allocator::default();
+    let parsed = parse(&allocator, path, source);
     let mut starts = vec![0u32];
     starts.extend(source.bytes().enumerate().filter(|(_, b)| *b == b'\n').map(|(i, _)| i as u32 + 1));
+    if parsed.fatal_error || parsed.diagnostics.has_errors() {
+        let first = parsed.diagnostics.errors().next();
+        let line = first.and_then(|d| d.labels.first()).map_or(1, |label| line_in(&starts, label.offset() as u32));
+        let message = first.map_or_else(|| "the parser could not recover".to_string(), |d| d.message.to_string());
+        let selectors = rules::SELECTORS.iter().map(|s| (*s, Vec::new())).collect();
+        return SourceFacts {
+            parse_failure: Some(ParseFailure { line, message: format!("syntax error (oxc): {message}") }),
+            selectors,
+            line_starts: starts,
+            ..SourceFacts::default()
+        };
+    }
+    let semantic = SemanticBuilder::new().build(&parsed.program).semantic;
+    let link = links.map(|index| Link { index, from: abs });
+    let resolver = facts::build_resolver(&parsed.program, semantic.scoping(), link);
+    let mut module = facts::collect(&parsed.program, &resolver, contract);
+    module.exports = ExportTable::from_program(&parsed.program);
+    let hits = rules::collect(&parsed.program, &resolver);
     let selectors = hits.into_iter().map(|(name, offsets)| (name, offsets.into_iter().map(|o| line_in(&starts, o)).collect())).collect();
     let mut collector = Collector { scoping: semantic.scoping(), line_starts: &starts, imports: Vec::new() };
     collector.visit_program(&parsed.program);
     let mut imports = collector.imports;
     imports.sort_by_key(|i| i.start);
-    SourceFacts { imports, selectors, module, line_starts: starts }
+    SourceFacts { parse_failure: None, imports, selectors, module, line_starts: starts }
 }
 
 fn line_in(starts: &[u32], offset: u32) -> u32 {

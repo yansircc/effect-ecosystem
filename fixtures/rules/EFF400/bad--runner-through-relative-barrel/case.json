@@ -1,0 +1,16 @@
+{
+  "description": "runner-through-relative-barrel",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:4:EFF400:error",
+    "src/a.ts:5:EFF400:error",
+    "src/a.ts:6:EFF400:error"
+  ]
+}

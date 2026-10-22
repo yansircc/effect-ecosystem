@@ -1,0 +1,14 @@
+{
+  "description": "runner-reference-as-value",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:2:EFF400:error"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "description": "effect-boundary-promise-and-value-callbacks-green",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

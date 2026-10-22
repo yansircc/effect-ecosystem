@@ -1,5 +1,6 @@
 mod contracts;
 mod diagnostics;
+mod exports;
 mod facts;
 mod findings;
 mod manifest;

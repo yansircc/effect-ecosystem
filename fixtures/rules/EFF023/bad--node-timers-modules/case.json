@@ -1,0 +1,15 @@
+{
+  "description": "node-timers-modules",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF023"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:3:EFF023:error",
+    "src/a.ts:4:EFF023:error"
+  ]
+}

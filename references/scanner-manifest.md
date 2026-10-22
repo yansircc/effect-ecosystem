@@ -475,13 +475,26 @@ positive admission rule and cannot be suppressed by line comments,
 The current terminal inventory is `runCallback`, `runCallbackWith`, `runFork`,
 `runForkWith`, `runPromise`, `runPromiseWith`, `runPromiseExit`,
 `runPromiseExitWith`, `runSync`, `runSyncWith`, `runSyncExit`, and
-`runSyncExitWith`.
+`runSyncExitWith`. `ManagedRuntime.make(...)` and the runners of its result
+(`runPromise`, `runPromiseExit`, `runFork`, `runSync`, `runSyncExit`,
+`runCallback`, `dispose`) are terminal too. The vocabulary is the manifest
+schema's `effectRunner` enum; the scanner derives it from there.
+
+Every reference to a terminal runner is confined, whether it is called, passed
+as an argument, aliased, or stored. `*Runtime.runMain` references outside
+executable edges are not EFF400 findings: their ownership is the `process-main`
+contract of EFF401. Runner identity follows import bindings, `const` aliases and
+relative re-exports (`export { x as y } from`, `export * as N from`); runners
+reached through dynamic `import()` namespaces are not visible.
 
 ### EFF401 edge-execution-contract-mismatch
 
 An executable edge must prove its declared lifecycle from AST bindings and
-nesting. `process-main` requires exactly one exact imported runtime runner at
-module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
+nesting. A run point is a runner reference that is called or passed as an
+argument of a call or `new` (`p.pipe(NodeRuntime.runMain)`); assigning or
+exporting a runner is not execution. `process-main` requires exactly one exact
+imported runtime runner (`@effect/platform-node`, `-node-shared`, `-bun`,
+`-browser`) at module scope and owns no `Effect.run*` calls. `host-callback` proves each exact
 named host import and callback position. `tanstack-server-fn` proves the exact
 `@tanstack/react-start` `createServerFn(...).handler(callback)` builder chain.
 `tanstack-file-route` proves the exact `@tanstack/react-router`

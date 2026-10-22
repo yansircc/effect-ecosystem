@@ -747,6 +747,8 @@
         "ManagedRuntime.runPromiseExit",
         "ManagedRuntime.runFork",
         "ManagedRuntime.runSync",
+        "ManagedRuntime.runSyncExit",
+        "ManagedRuntime.runCallback",
         "ManagedRuntime.dispose"
       ]
     },

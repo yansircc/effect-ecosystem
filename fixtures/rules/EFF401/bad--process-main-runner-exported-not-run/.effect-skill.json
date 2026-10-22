@@ -1,0 +1,16 @@
+{
+  "shape": [
+    "node"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@fixture",
+      "reason": "entry",
+      "execution": {
+        "lifecycle": "process-main",
+        "runner": "NodeRuntime.runMain"
+      }
+    }
+  ]
+}

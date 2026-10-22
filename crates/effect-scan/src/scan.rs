@@ -33,6 +33,8 @@ pub struct FileRoles {
 
 pub struct SourceFile {
     pub relative: String,
+    /// The one read of the file: every fact below, and every later re-parse, is of this text.
+    pub text: String,
     pub lines: Vec<String>,
     pub package: Option<String>,
     pub roles: FileRoles,
@@ -89,6 +91,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     // The compiler pass overlaps with every other stage: started here, joined below.
     let diagnostics = (options.strict && manifest.is_some()).then(|| crate::diagnostics::start(&ctx));
     findings.extend(scan_source_rules(&files, registry));
+    let parse_failures = parse_failure_findings(&files, registry);
     timings.mark("sourceRules");
     let mut extras = serde_json::Map::new();
     let mut not_proven_facts: Vec<crate::contracts::NotProven> = Vec::new();
@@ -102,10 +105,12 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         findings.extend(crate::package::scan(&ctx));
         timings.mark("package");
     }
-    if let Some(diagnostics) = diagnostics {
-        findings.extend(diagnostics.finish());
-        timings.mark("diagnostics");
-    }
+    // A file the compiler already reports is not reported again for the same syntax error.
+    let compiled = diagnostics.map(|d| d.finish()).unwrap_or_default();
+    let compiler_reported: std::collections::HashSet<&str> = compiled.iter().filter(|f| f.rule_id == "EFF504").map(|f| f.file.as_str()).collect();
+    findings.extend(parse_failures.into_iter().filter(|f| !compiler_reported.contains(f.file.as_str())));
+    findings.extend(compiled.iter().cloned());
+    timings.mark("diagnostics");
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);
     timings.mark("suppressions");
@@ -164,8 +169,9 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
             continue;
         }
         files.push(SourceFile {
-            facts: source::analyze(&relative, &text, contract),
+            facts: source::analyze(&relative, &abs_path(root, &relative), &text, contract, None),
             lines: text.split('\n').map(|l| l.strip_suffix('\r').unwrap_or(l).to_string()).collect(),
+            text,
             package: manifest.and_then(|m| m.package_for_file(&relative)).map(|p| p.path.clone()),
             relative: relative.clone(),
             roles: FileRoles {
@@ -175,7 +181,40 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Con
             },
         });
     }
+    link_reexports(root, &mut files, contract);
     Ok(files)
+}
+
+fn abs_path(root: &Path, relative: &str) -> PathBuf {
+    crate::contracts::modules::normalize(&root.join(relative))
+}
+
+/// Second pass for files that import a module forwarding re-exports (a barrel): their facts are
+/// recomputed with the project's export index, so an `Effect` imported through the barrel is the
+/// `effect` one. Files that import no forwarding module keep their first-pass facts.
+fn link_reexports(root: &Path, files: &mut [SourceFile], contract: &Contract) {
+    let tables: std::collections::HashMap<PathBuf, _> = files.iter().map(|f| (abs_path(root, &f.relative), f.facts.module.exports.clone())).collect();
+    let surface = |module: &str, name: &str| contract.is_runner_surface(module, name);
+    let index = crate::exports::ExportIndex::new(tables, &surface);
+    for file in files.iter_mut() {
+        let abs = abs_path(root, &file.relative);
+        let imports_forwarder = file.facts.imports.iter().any(|i| crate::contracts::modules::is_relative_specifier(&i.specifier) && index.forwards(&abs, &i.specifier));
+        if imports_forwarder {
+            file.facts = source::analyze(&file.relative, &abs, &file.text, contract, Some(&index));
+        }
+    }
+}
+
+/// A file that does not parse proves nothing about itself: EFF504, never an empty verdict.
+fn parse_failure_findings(files: &[SourceFile], registry: &Registry) -> Vec<Finding> {
+    files
+        .iter()
+        .filter_map(|file| {
+            let failure = file.facts.parse_failure.as_ref()?;
+            let text = file.lines.get(failure.line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+            Some(registry.finding("EFF504", &file.relative, failure.line, &text, Some(&failure.message), file.package.as_deref()))
+        })
+        .collect()
 }
 
 fn skip_file(file: &SourceFile, scanner: &Value) -> bool {

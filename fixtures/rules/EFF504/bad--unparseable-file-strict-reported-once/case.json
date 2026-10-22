@@ -1,0 +1,14 @@
+{
+  "description": "unparseable-file-strict-reported-once",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "expectRuleCounts": {
+    "EFF504": 1
+  }
+}

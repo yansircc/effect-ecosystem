@@ -1,0 +1,11 @@
+{
+  "description": "process-main-platform-node-shared",
+  "suites": [
+    "runner-facts",
+    "edge-rules"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

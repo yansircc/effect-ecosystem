@@ -1,0 +1,14 @@
+{
+  "description": "call-result-is-not-runner",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:3:EFF400:error"
+  ]
+}

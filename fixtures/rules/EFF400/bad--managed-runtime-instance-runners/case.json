@@ -1,0 +1,16 @@
+{
+  "description": "managed-runtime-instance-runners",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:2:EFF400:error",
+    "src/a.ts:3:EFF400:error",
+    "src/a.ts:4:EFF400:error"
+  ]
+}

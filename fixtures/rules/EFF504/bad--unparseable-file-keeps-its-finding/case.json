@@ -1,0 +1,19 @@
+{
+  "description": "unparseable-file-keeps-its-finding",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "expectFindingKeys": [
+    "src/x.ts:5:EFF504:error"
+  ],
+  "allowCompileErrors": [
+    "TS1109",
+    "TS1005"
+  ],
+  "allowCompileErrorsReason": "the fixture is a deliberate syntax error: the scanner must report the file itself"
+}

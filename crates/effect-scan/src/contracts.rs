@@ -5,7 +5,7 @@
 //! EFF402: constructor provenance is a fact (`facts::CtorOrigin`); what only a type could decide is
 //! returned as `NotProven`, never guessed.
 mod model;
-mod modules;
+pub(crate) mod modules;
 mod verify;
 pub mod wrangler;
 
@@ -15,7 +15,6 @@ use crate::manifest::{ExecutableEdge, Manifest};
 use crate::scan::{ScanContext, SourceFile};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const RULES: &[&str] = &["EFF401", "EFF402"];
@@ -77,9 +76,8 @@ fn execution_contract_findings(ctx: &ScanContext, manifest: &Manifest, root: &Pa
             findings.push(ctx.registry.finding("EFF401", path, 1, "", Some(&message), None));
             continue;
         };
-        let text = fs::read_to_string(root.join(&file.relative)).unwrap_or_default();
         let package = manifest.package_for_file(&file.relative);
-        if let Err(m) = verify::verify_execution(root, file, &text, package, &edge.execution) {
+        if let Err(m) = verify::verify_execution(root, file, package, &edge.execution) {
             let lifecycle = edge.execution.get("lifecycle").and_then(Value::as_str).unwrap_or("undefined");
             let message = format!("executable edge {path} does not match {lifecycle} contract: {}", m.reason);
             findings.push(ctx.registry.finding("EFF401", path, m.line, &m.line_text, Some(&message), None));

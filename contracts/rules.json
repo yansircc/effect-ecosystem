@@ -77,7 +77,7 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 try 语句(Effect.try/tryPromise/promise/sync 边界回调内除外)",
+        "proves": "扫描范围内没有 try 语句(Effect.promise/tryPromise 回调内与非 async 的 Effect.sync/try 回调内除外)",
         "blindSpots": [
           "Promise 的 .catch()/.then() 错误处理不被检查",
           "经变量间接传给 Effect 边界的回调按普通函数处理(可能误报,不会漏报)",
@@ -103,7 +103,7 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async function/方法声明(Effect 边界回调内除外)",
+        "proves": "扫描范围内没有 async function/方法声明(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告)",
         "blindSpots": [
           "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
@@ -128,7 +128,7 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async 箭头函数(Effect 边界回调内除外)",
+        "proves": "扫描范围内没有 async 箭头函数(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告)",
         "blindSpots": [
           "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
@@ -153,7 +153,7 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 await/for await/await using(Effect 边界回调内除外)",
+        "proves": "扫描范围内没有 await/for await/await using(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调内仍报告)",
         "blindSpots": [
           "Promise .then() 链式等待不被识别",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
@@ -559,7 +559,7 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 setTimeout 绑定的调用",
+        "proves": "扫描范围内没有经全局 setTimeout 绑定的调用(含从 node:timers、timers、timers/promises 导入的 setTimeout)",
         "blindSpots": [
           "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
           "setImmediate/queueMicrotask/requestAnimationFrame 不在本规则范围",
@@ -585,7 +585,7 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 setInterval 绑定的调用",
+        "proves": "扫描范围内没有经全局 setInterval 绑定的调用(含从 node:timers、timers、timers/promises 导入的 setInterval)",
         "blindSpots": [
           "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
@@ -1201,10 +1201,13 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "Effect.run*/ManagedRuntime 运行器/*Runtime.runMain 的每个引用(调用或作为值传递)都位于 manifest executableEdges",
+        "proves": "Effect.run*/ManagedRuntime 运行器(make 及其实例的 run*/dispose)的每个引用(被调用、作为调用或 new 的参数传递、别名初始化或其它值位置)都位于 manifest executableEdges",
         "blindSpots": [
           "只检查运行器引用本身:经 executableEdges 内导出的包装函数在别处被调用不会被标记",
           "经动态属性/函数参数取得的运行器不可见",
+          "*Runtime.runMain 不属于本规则:非 executableEdges 文件里的 runMain 不被 EFF400 报告,其归属由 EFF401 的 process-main 契约校验",
+          "运行器身份只按文件内的 import 与 const 别名解析,外加相对路径的重导出(export { a as b } from、export * as N from、导入后再导出;export * from 只对运行器相关的 effect/@effect 名称生效,不核对包的真实导出表);非相对路径的重导出与函数内动态 import 取得的 Effect 命名空间(const { Effect: E } = await import(\"effect\"))不可见",
+          "无法解析的文件不产生运行器事实,只报 EFF504",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -1228,9 +1231,11 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明的可执行边在源码中满足其 execution 合同(运行器引用与处理器形状)",
+        "proves": "声明的可执行边在源码中满足其 execution 合同(运行点:被调用或作为调用/new 的参数传入的运行器引用;与处理器形状)",
         "blindSpots": [
-          "只证明边文件的源码形状;该文件是否真的是进程/宿主入口(wrangler、宿主配置消费)不在证明范围"
+          "只证明边文件的源码形状;该文件是否真的是进程/宿主入口(wrangler、宿主配置消费)不在证明范围",
+          "赋值、导出、返回值与裸表达式里的运行器引用不是运行点(export const main = NodeRuntime.runMain 不满足 process-main);别名只在别名自身被调用或传入时计数",
+          "运行器身份的盲区同 EFF400:非相对路径的重导出与函数内动态 import 取得的 Effect 命名空间不可见;边文件无法解析时合同不可证明,按不匹配报告"
         ]
       }
     },
@@ -1440,7 +1445,7 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "程序内扫描文件在项目 tsconfig 下通过 TypeScript 编译",
+        "proves": "程序内扫描文件在项目 tsconfig 下通过 TypeScript 编译;扫描器自身无法解析的文件(语法错误)按文件报告,不会静默得到空结论",
         "blindSpots": [
           "不在 tsconfig 程序内的文件、skipLibCheck 的声明文件与 ts-expect-error/ts-ignore 抑制的错误不被报告"
         ]
