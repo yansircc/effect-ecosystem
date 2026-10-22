@@ -25,6 +25,9 @@ for (const required of [
 ]) {
   if (!skill.includes(required)) failures.push(`SKILL.md missing executor pointer: ${required}`)
 }
+if (skill.includes("npm i -g")) {
+  failures.push("SKILL.md must not point at the retired npm package; install with make install")
+}
 if (skill.includes("node validator/scan")) {
   failures.push("SKILL.md must use the installed effect-scan entrypoint, not the source path")
 }

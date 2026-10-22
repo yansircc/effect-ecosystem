@@ -392,8 +392,10 @@ No other `extras` key exists besides the projection's own outputs (`signals`, `p
 
 ## Distribution and installation
 
-Invariant: one build produces one native binary per platform; every consumer path (npm, skill,
-local install) ships those same bytes and the same `build-info.json` (one build id per release).
+Invariant: one build produces one native binary per platform, with one `build-info.json`; the local install and the
+skill ship those same bytes. Nothing is published: the Rust scanner is used from a local `make install` (or the skill
+directory). The old npm package `@yansircc/effect-scan` is no longer maintained: no new versions will be published
+(it is not deprecated either).
 
 ### Layout and targets
 
@@ -402,44 +404,29 @@ local install) ships those same bytes and the same `build-info.json` (one build 
 | `dist/platforms/<platform>/effect-scan` + `build-info.json` | the only build output; `<platform>` is `darwin-arm64`, `linux-x64`, `linux-arm64` (`scripts/release/platforms.mjs` is the one list) |
 | `dist/tools/` | TypeScript development tools (fixture runner, checks, `build-info.json`); never shipped |
 | `dist/skill/` | assembled skill (`make skill`) |
-| `dist/npm/*.tgz` | npm release set (`make npm-package`) |
 | `$(INSTALL_ROOT)/<buildId>/effect-scan` | installed binary (default `~/.local/lib/effect-scan`) |
 | `$(PREFIX)/bin/effect-scan` | symlink to the installed binary (default `~/.local/bin`) |
 
-`dist-dev/`, `dist-installed/`, `dist/build/`, `dist/validator/` no longer exist (the scanner never treats `dist-dev`/`dist-installed` as source).
 `target/release/effect-scan` is cargo's scratch output and is NOT the artifact: a plain
 `cargo build` embeds the "unknown build" record; `make build` builds with
-`EFFECT_SCAN_BUILD_INFO=dist/tools/build-info.json` (written by `scripts/write-build-info.ts`, source set now
-includes `crates/`, `Cargo.*`, `packaging/`) and then asserts the binary's `--build-info` equals it
-(`scripts/release/check-binary.mjs`).
+`EFFECT_SCAN_BUILD_INFO=dist/tools/build-info.json` (written by `scripts/write-build-info.ts`: commit, dirty/clean,
+and a hash of the working-tree change over `crates/`, `Cargo.*`, `packaging/` and the other source paths) and then
+asserts the binary's `--build-info` equals it (`scripts/release/check-binary.mjs`).
 
 | target | does |
 |---|---|
 | `make tools` | TS dev tools into `dist/tools` and `build-info.json` |
 | `make build` | `tools` + `cargo build --release --locked` with embedded provenance -> `dist/platforms/<host>/` |
-| `make install [PREFIX= INSTALL_ROOT=]` | build, copy to `$(INSTALL_ROOT)/<buildId>/effect-scan` (immutable per build id), point `$(BIN)` at it |
+| `make install [PREFIX= INSTALL_ROOT=]` | build, copy to `$(INSTALL_ROOT)/<buildId>/effect-scan` (immutable per build id), point `$(BIN)` (`$(PREFIX)/bin/effect-scan`) at it |
 | `make skill` | build, assemble `dist/skill`, run `scripts/check-skill-entry.mjs` |
-| `make npm-package` | build, `scripts/release/pack.mjs` -> `dist/npm` (missing platforms become marked placeholders locally; `PACK_FLAGS=` requires all) |
-| `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `verify-package` |
+| `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `scripts/verify-install.mjs` (install into a temporary `PREFIX`, run the installed binary on this repository) |
 | `make verify-online` | networked acceptance + benchmark |
 | `make verify` | offline + online, and the installed binary must not change meanwhile |
 
-### npm
-
-`@yansircc/effect-scan` is a JS shim (`bin/effect-scan.js`) with `optionalDependencies` on
-`@yansircc/effect-scan-darwin-arm64|linux-x64|linux-arm64` (each: the binary, `os`/`cpu`, `libc: glibc` on Linux).
-The shim resolves the platform package, runs the binary with the same argv and stdio, and returns its exit
-status. The repository `package.json` is private and is the single version source (CI-owned, bumped by
-`scripts/release/prepare.mjs` from the `Release-Bump:` trailer); `pack.mjs` generates the published manifests,
-all at that version. Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39 (`minGlibc` in
-`platforms.mjs`, the one record). CI fails a Linux build whose `objdump -T` shows a higher `GLIBC_x.y`
-(`scripts/release/check-glibc.mjs`); pack.mjs copies `minGlibc` into the platform package
-(`effectScan.minGlibc`), and the shim refuses an older host with that number. A musl/older-glibc target is a new
-platform entry, not a patch. The shim spawns the binary (not `spawnSync`), relays SIGINT/SIGTERM/SIGHUP to it,
-re-raises the binary's fatal signal on itself, and otherwise returns its exit status; it names the actual cause
-for musl (no glibc), an x64 Node under Rosetta on Apple Silicon, a missing dynamic loader or wrong-architecture
-binary, instead of a generic "not installed". Consumers still need `node` on `PATH` (the scanner runs the
-project's own `tsc`).
+Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39 (`minGlibc` in `platforms.mjs`, the one record). CI
+fails a Linux build whose `objdump -T` shows a higher `GLIBC_x.y` (`scripts/release/check-glibc.mjs`). A
+musl/older-glibc target is a new platform entry, not a patch. The scanner runs the project's own `tsc`, so `node` must
+be on `PATH`.
 
 ### Skill
 
@@ -453,79 +440,16 @@ CI uploads the skill as `skill-<sha>` containing `skill-<sha>.tar.gz` (GitHub ar
 modes; the tarball keeps `runtime/**/effect-scan` executable). Unpack with
 `tar -xzf skill-<sha>.tar.gz` (creates `skill/`); do not repack the extracted directory with a zip tool.
 
-### CI and release
+### CI
 
-`.github/workflows/ci.yml`: `identity` (release version) -> `build` matrix (macos-14, ubuntu-24.04,
-ubuntu-24.04-arm; rustup stable, `make verify-offline`; glibc check on Linux; `make verify-online` on linux-x64;
-uploads `dist/platforms`) -> `package` (collects the three binaries, `pack.mjs`, `verify-package.mjs --packages`,
-release build-info check, skill assembly, `publish.mjs --dry-run`, uploads) -> `publish`
-(`scripts/release/publish.mjs`: platform packages first, shim last, idempotent by integrity, `--provenance`,
-OIDC only) -> `commit_release` (`push-release.mjs`: release commit + tag) and `verify-public`. Pull requests run
-identity/build/package only; publishing needs `push` to `main` and is the only job with `id-token: write`
-(`verify-package.mjs` asserts both, and the absence of `pull_request_target`). All artifacts are kept 30 days.
+`.github/workflows/ci.yml` (runs on pull requests, pushes to `main` and manual dispatch; `permissions: contents: read`,
+no secrets, no tags, no commits): `build` matrix (macos-14, ubuntu-24.04, ubuntu-24.04-arm; rustup stable,
+`make verify-offline`; glibc check on Linux; `make verify-online` on linux-x64; uploads `dist/platforms`) -> `skill`
+(collects the three binaries, `assemble-skill.mjs --require-all-platforms`, `check-skill-entry.mjs`, uploads the skill
+tarball). Artifacts are kept 30 days. `verify-install.mjs` asserts the matrix matches `platforms.mjs`, that Linux builds
+run the glibc check, and that the workflow has no `pull_request_target`, OIDC token or write permission.
 
-Release identity. A release is (source commit, version); the published tree is always the source commit plus a
-release patch that is a pure function of the version (`release-patch.mjs`: version fields of `package.json` and
-lock files). Every job checks out the source commit and re-applies the patch; the release commit on main only
-records the pair (`Release-Source:` trailer), so it is never the build input and `deriveBuildInfo` (source commit
-= checked-out commit) holds in every mode. `prepare.mjs` modes: `new` (no release commit for this source:
-version = bump of the latest released version on main) and `existing` (a release commit exists: its version is
-read back and the same patch re-applied, so a rebuild yields the same build id). A source that is not newer than
-the latest released source is refused.
-
-Bump rule: the greatest `Release-Bump:` (major > minor > patch; default patch) over every commit from the
-previous release's source to this source, not only the head commit, so multi-commit pushes and runs superseded in
-the concurrency queue keep their bumps. A squash body repeating or mixing values is not an error: the greatest
-wins and a conflict is logged. Release commits are not input.
-
-Publish before record. `publish` runs before `commit_release`: a failed publish leaves no tag and no release
-commit, so the next run computes the same release again. `commit_release` re-applies the patch to the current tip
-of `main` and pushes commit + tag atomically; if `main` moved during the build (push rejected) it re-fetches and
-retries with backoff (5 attempts), then fails saying the packages are already published and the job can simply
-be re-run (idempotent). Consequence: the tag's tree is the tip at record time plus the version patch; the exact
-built source is `Release-Source:`, which is authoritative.
-
-### First publish of a new package name
-
-Trusted publishing (OIDC) can only be configured for a package that already exists, so the first publish of
-each new name cannot be done by CI. One-time, per new name (`@yansircc/effect-scan-darwin-arm64`,
-`-linux-x64`, `-linux-arm64`; the shim `@yansircc/effect-scan` already exists):
-
-1. `node scripts/release/bootstrap-packages.mjs --out /tmp/effect-scan-bootstrap` writes `0.0.0` placeholder
-   packages (no files, `effectScanPlaceholder`) for names `npm view` reports missing, and prints the commands. It
-   publishes nothing.
-2. npmjs.com > Access Tokens: a granular token, 1-day expiry, read+write limited to the `@yansircc` scope.
-3. From each printed directory: `NODE_AUTH_TOKEN=<token> npm publish --access public --tag bootstrap` (the
-   `bootstrap` tag keeps `latest` free for the first real release; the token stays in the environment, never in a
-   file).
-4. Revoke the token. For each package on npmjs.com: Settings > Trusted Publisher > GitHub Actions, repository
-   `yansircc/effect-ecosystem`, workflow `ci.yml`, no environment.
-5. Optionally `npm deprecate '<name>@0.0.0' 'placeholder'`. Exact optional dependency versions mean `0.0.0` is
-   never resolved.
-
-`publish.mjs` checks every package name exists before uploading anything and, if one is missing, stops with this
-procedure (no half release); an authentication failure while publishing and a `verify-public` timeout print the
-same pointer.
-
-### Recovering a failed release
-
-| failure | state | recovery |
-|---|---|---|
-| build/package fails | nothing published, no tag | fix and push; the same version is computed again |
-| `publish` fails (auth, network) | some platform packages possibly published, no tag | re-run failed jobs of the same run: same artifact bytes, published versions are skipped by integrity |
-| `commit_release` fails | all packages published, no tag | re-run the job (idempotent; retries on a moved `main`) |
-| `verify-public` fails | published and recorded | re-run the job; propagation delay is retried for 5 minutes |
-| artifacts expired (> 30 days) with an incomplete publish | partial | re-run the whole workflow: `existing` mode rebuilds from the source commit with the same patch, but a Rust rebuild is not guaranteed byte-identical, so an already published package may fail the integrity comparison; then deprecate the partial version and release again with a `Release-Bump: minor` (or `major`) commit |
-
-Local verification of all of this needs no network: `node scripts/release/self-test.mjs` (also part of
-`verify-package.mjs`, hence `make verify-offline`) exercises bump resolution, new/existing/queued/stale identities
-and the record step with a rejected push in temporary git repositories, glibc parsing, and the shim's exit codes
-and signal relay. What it cannot prove: the workflow running on GitHub, OIDC publishing, and the bootstrap.
-
-Dry run, locally: `make npm-package && node scripts/verify-package.mjs`; with all platform binaries present
-(`PACK_FLAGS=` and binaries in `dist/platforms`), `node scripts/release/publish.mjs dist/npm --dry-run`
-(`npm publish --dry-run` per tarball; placeholders are refused; an already-published version is reported, not
-an error; a missing package name is a warning). Nothing in the repository publishes outside `publish.mjs`.
+What cannot be verified locally: the workflow running on GitHub and the Linux builds.
 
 ### Migration notes for users
 
@@ -533,9 +457,9 @@ Command name, output modes and the 0/1/2/64 exit codes are unchanged; the items 
 tool has to know.
 
 **Installation**
-- Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`) -> a shim that execs the native
-  binary: `npm i -g @yansircc/effect-scan` keeps working; `npx`/`node_modules/.bin/effect-scan` too. Do not call
-  `dist/validator/scan.js`; it no longer exists. Self-test flags are maintainer-only.
+- Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`, npm package `@yansircc/effect-scan`):
+  the npm entry is retired. The package is no longer maintained and no new version will be published. Use `make install`
+  from this repository. `dist/validator/scan.js` no longer exists. Self-test flags are maintainer-only.
 - Old local install `make install` -> `<repo>/dist-installed/<buildId>/validator/scan.js` symlinked at
   `~/.local/bin/effect-scan`; now `~/.local/lib/effect-scan/<buildId>/effect-scan` (a real binary) behind the same
   `~/.local/bin/effect-scan`. Delete the old `dist-installed/`.
@@ -543,7 +467,7 @@ tool has to know.
   contain); it is `<skill-root>/runtime/effect-scan`. The skill no longer bundles `node_modules` or the TypeScript
   runtime packages.
 - Hashes: `scanner.buildId` (and so `complianceHash`) changes with every build as before; it now also covers Rust
-  sources (`crates/`, `Cargo.*`, `packaging/`), so the first release of this layout re-baselines.
+  sources (`crates/`, `Cargo.*`, `packaging/`), so the first build of this layout re-baselines.
 
 **Command line**
 - Unknown flags used to be ignored (`--stirct` ran a non-strict scan and exited 0; `--help` scanned the current
@@ -596,4 +520,4 @@ runner values) can add or remove findings against a repository that passed befor
 - EFF020/EFF021 (node fs/path) still run alongside tsgo's own diagnostics for the same imports; deduplicating them against
   tsgo diagnostic names needs a policy decision on which side owns the verdict.
 - `locale_compare` is exact only for ASCII path keys.
-- The first release in this layout re-baselines `complianceHash` (build-id derivation now covers `crates/`, `Cargo.*`, `packaging/`).
+- The first build in this layout re-baselines `complianceHash` (build-id derivation now covers `crates/`, `Cargo.*`, `packaging/`).

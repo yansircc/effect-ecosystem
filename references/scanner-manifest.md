@@ -719,11 +719,8 @@ debugging but is never the default. The removed `--json` flag is a usage error.
 `complianceHash` hashes normalized block/report findings plus scanner build id.
 It is comparable only when `scanner.buildId` is equal. If the scanner build
 changes, re-baseline the gate instead of treating the hash as comparable. Dirty
-scanner builds are not reproducible acceptance evidence. A CI-owned release
-patch is different: it may modify only the package manifest and lock file after
-the source commit is checked out. Its exact file set and SHA-256 are embedded in
-`build-info.json`, and the patch hash is part of `scanner.buildId`; any other
-working-tree change remains dirty and is rejected as release provenance.
+scanner builds are not reproducible acceptance evidence: any working-tree
+change to the source set makes `scanner.buildId` `<commit>-dirty-<hash>`.
 
 `complianceHash`, `input.sha256`, and `full.sha256` do not include stdout mode,
 artifact paths, whether `--evidence` was used, or temporary directories.
