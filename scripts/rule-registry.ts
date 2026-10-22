@@ -36,6 +36,14 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.references)) errors.push(`${rule.id}.references must be an array`)
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
     if (!rule.scanner || !["source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (rule.coverage !== undefined) {
+      const { proves, blindSpots, ...rest } = rule.coverage ?? {}
+      if (typeof proves !== "string" || proves.trim() === "") errors.push(`${rule.id}.coverage.proves is required`)
+      if (!Array.isArray(blindSpots) || blindSpots.length === 0 || blindSpots.some((spot) => typeof spot !== "string" || !spot.trim()) || new Set(blindSpots).size !== blindSpots.length) {
+        errors.push(`${rule.id}.coverage.blindSpots must be a non-empty list of unique strings`)
+      }
+      if (Object.keys(rest).length > 0) errors.push(`${rule.id}.coverage has unknown keys: ${Object.keys(rest).join(", ")}`)
+    }
     if (rule.id === "EFF402") {
       for (const key of ["constructors", "testFixtures"]) {
         const names = rule.scanner?.[key]

@@ -1,6 +1,7 @@
 use crate::findings::{Finding, Registry};
 use crate::manifest::{self, Manifest};
 use crate::facts::{Contract, RunnerKind};
+use crate::projection::Timings;
 use crate::rules::ImportMatcher;
 use crate::source::{self, SourceFacts};
 use crate::util::{self, locale_compare, matches_any, rel};
@@ -14,6 +15,13 @@ pub struct Options {
     pub strict: bool,
     pub manifest_path: Option<String>,
     pub fail_on_suppression_drift: bool,
+    /// `--profile`: emit `signals` and `profile` in the raw result.
+    pub profile: bool,
+    pub timings: bool,
+    /// `--evidence <dir>`: write the evidence bundle there.
+    pub evidence_dir: Option<String>,
+    /// Build the gate summary (gate-json and human output; implies profile and signals).
+    pub gate_summary: bool,
 }
 
 pub struct FileRoles {
@@ -58,7 +66,7 @@ pub fn implemented_rules(registry: &Registry) -> Vec<String> {
         .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
         .map(|r| r.id.clone())
         .collect();
-    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES] {
+    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES, crate::projection::RULES] {
         ids.extend(stage.iter().map(|s| s.to_string()));
     }
     ids
@@ -68,30 +76,42 @@ const MANIFEST_RULES: [&str; 2] = ["EFF000", "EFF903"];
 const EDGE_RULES: [&str; 3] = ["EFF400", "EFF403", "EFF404"];
 
 pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanResult, String> {
+    let mut timings = Timings::new();
     let loaded = manifest::load(root, options.strict, options.manifest_path.as_deref(), registry);
+    timings.mark("manifest");
     let mut findings = loaded.findings;
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value());
     let files = collect_source_files(root, manifest.as_ref(), &contract)?;
+    timings.mark("collectSourceFiles");
     findings.extend(scan_source_rules(&files, registry));
+    timings.mark("sourceRules");
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
+    let mut extras = serde_json::Map::new();
     if let Some(m) = manifest.as_ref() {
         findings.extend(scan_edge_rules(&files, m, registry));
+        timings.mark("edgeRules");
         findings.extend(crate::contracts::scan(&ctx));
+        timings.mark("contracts");
         findings.extend(crate::package::scan(&ctx));
+        timings.mark("package");
     }
     if options.strict && manifest.is_some() {
         findings.extend(crate::diagnostics::scan(&ctx));
+        timings.mark("diagnostics");
     }
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);
+    timings.mark("suppressions");
     if options.fail_on_suppression_drift {
         findings.extend(suppression_drift(&files, manifest.as_ref(), &raw, registry));
+        timings.mark("suppressionDrift");
     }
     findings.sort_by(|a, b| {
         locale_compare(&a.file, &b.file).then(a.line.cmp(&b.line)).then(locale_compare(&a.rule_id, &b.rule_id))
     });
-    let extras = crate::projection::build(&ctx, &findings, &loaded.warnings);
+    timings.mark("sortFindings");
+    crate::projection::build(&ctx, &findings, &loaded.warnings, &mut extras, &mut timings)?;
     Ok(ScanResult { findings, warnings: loaded.warnings, extras })
 }
 

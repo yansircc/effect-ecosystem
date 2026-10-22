@@ -813,12 +813,24 @@ function validateNotProvenManifest() {
     const gate = readGateSummary(evidenceDir)
     if (!gate.notProven.some((item) => item.id === "architecture-boundaries" && item.source === "scanner-default")) failures.push("notProven-manifest: missing scanner default")
     if (!gate.notProven.some((item) => item.id === "live-recorded-authored" && item.source === "manifest" && item.owner === "agentOS")) failures.push("notProven-manifest: missing manifest extension")
+    // Rule coverage: the blind spots of every rule that ran. Source rules always, manifest-gated
+    // families with a manifest, type diagnostics (EFF5xx) only under --strict.
+    const coverage = gate.notProven.filter((item) => item.source === "rule-coverage")
+    for (const id of ["EFF001", "EFF402", "EFF400"]) {
+      if (!coverage.some((item) => item.id === id && typeof item.reason === "string" && item.reason.length > 0 && item.owner === undefined)) failures.push(`notProven-manifest: missing rule-coverage entry for ${id}`)
+    }
+    if (coverage.some((item) => item.id.startsWith("EFF5"))) failures.push("notProven-manifest: non-strict scan listed type-diagnostics blind spots")
 
     writeFileSync(resolve(root, ".effect-skill.json"), "{\"shape\":[\"library\"]}")
     const defaultDir = resolve(root, ".scan-evidence-default")
     runScan(root, { evidenceDir: defaultDir })
     const defaultGate = readGateSummary(defaultDir)
     if (defaultGate.notProven.some((item) => item.id === "live-recorded-authored")) failures.push("notProven-manifest: default scanner leaked product-specific notProven id")
+    const noManifestDir = resolve(root, ".scan-evidence-no-manifest")
+    rmSync(resolve(root, ".effect-skill.json"))
+    runScan(root, { evidenceDir: noManifestDir })
+    const noManifest = readGateSummary(noManifestDir).notProven.filter((item) => item.source === "rule-coverage").map((item) => item.id)
+    if (!noManifest.includes("EFF001") || noManifest.includes("EFF400")) failures.push("notProven-manifest: manifest-gated rules listed without a manifest")
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

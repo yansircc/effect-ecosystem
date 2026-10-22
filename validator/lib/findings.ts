@@ -12,6 +12,7 @@ export const RULES = Object.fromEntries(
     severity: rule.severity,
     message: rule.message,
     ref: rule.references[0] ?? null,
+    coverage: rule.coverage ?? null,
   }]),
 )
 

@@ -86,6 +86,9 @@ export function runScan(inputRoot: string, options: any = {}) {
   }
 
   findings = timings.measure("sortFindings", () => sortFindings(findings))
+  // Differential-harness seam: project exactly these findings (the Rust scanner's), so the projection
+  // layer is compared in isolation from the rule stages.
+  if (options.findingsOverride) findings = options.findingsOverride
   const summary = timings.measure("summarize", () => summarize(findings))
   const tscVersion = timings.measure("tscVersion", () => runLocalTsc(context.workspaceRoot, ["--version"]))
   const toolchainMeta = {
@@ -107,11 +110,11 @@ export function runScan(inputRoot: string, options: any = {}) {
     result.profile = timings.measure("profile", () => buildProfile(root, manifest, files, toolchainMeta, scanState, requiredReferences))
   }
   if (options.evidenceDir) {
-    const written = timings.measure("evidence", () => writeScanBundle(root, manifest, files, toolchainMeta, scanState, options.evidenceDir, result))
+    const written = timings.measure("evidence", () => writeScanBundle(root, manifest, files, toolchainMeta, scanState, options.evidenceDir, result, strict))
     result.evidence = written.bundle
     if (options.gateSummary) result.gateSummary = written.gateSummary
   } else if (options.gateSummary) {
-    result.gateSummary = timings.measure("gateSummary", () => buildScanProjection(root, manifest, toolchainMeta, scanState, result, null).gateSummary)
+    result.gateSummary = timings.measure("gateSummary", () => buildScanProjection(root, manifest, toolchainMeta, scanState, result, null, strict).gateSummary)
   }
   if (options.timings) {
     result.timings = {

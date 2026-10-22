@@ -4778,6 +4778,214 @@
         "src/a.ts:5:EFF003:error",
         "src/a.ts:5:EFF004:error"
       ]
+    },
+    {
+      "name": "v4-observability-otlp-layer-signal",
+      "suites": [
+        "otel-signal-boundary",
+        "atomic-signals"
+      ],
+      "strict": false,
+      "profile": true,
+      "rustOnly": true,
+      "rustProjection": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"]}",
+        "package.json": "{}",
+        "src/telemetry.ts": "import { Layer } from \"effect\"\nimport { Otlp } from \"effect/observability\"\nimport * as OtlpTracer from \"effect/observability/OtlpTracer\"\nexport const Live = Otlp.layer({ baseUrl: \"http://collector:4318\" })\nexport const Traces = OtlpTracer.layer({ url: \"http://collector:4318/v1/traces\" })\nexport const All = Layer.mergeAll(Live, Traces)\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignals": [
+        "observability-wiring-facts"
+      ],
+      "expectSignalFacts": [
+        {
+          "kind": "observability-wiring-facts",
+          "facts": {
+            "containsOtlpLayer": true,
+            "containsNodeSdkLayer": false,
+            "containsWebSdkLayer": false,
+            "opentelemetryImportedModules": [],
+            "opentelemetryLayerFactories": [
+              "OtlpTracer.layer",
+              "observability.Otlp.layer"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "v4-observability-wiring-not-triggered-by-http-layers",
+      "suites": [
+        "otel-signal-boundary",
+        "atomic-signals"
+      ],
+      "strict": false,
+      "profile": true,
+      "rustOnly": true,
+      "rustProjection": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"]}",
+        "package.json": "{}",
+        "src/client.ts": "import { Layer } from \"effect\"\nimport { FetchHttpClient } from \"effect/http\"\nexport const ClientLive = Layer.provide(Layer.empty, FetchHttpClient.layer)\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignalCount": 0
+    },
+    {
+      "name": "v4-http-platform-is-effect-http-import",
+      "suites": [
+        "otel-signal-boundary",
+        "atomic-signals"
+      ],
+      "strict": false,
+      "profile": true,
+      "rustOnly": true,
+      "rustProjection": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\"]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "src/server.ts": "import { HttpClient } from \"effect/http\"\nexport const client = HttpClient.HttpClient\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignalFacts": [
+        {
+          "kind": "observability-wiring-facts",
+          "facts": {
+            "hasEffectOpenTelemetryDependency": true,
+            "hasEffectPlatformDependency": true,
+            "containsHttpClientToken": true,
+            "containsOtlpLayer": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "v4-effect-fn-span-recognition",
+      "suites": [
+        "atomic-signals",
+        "signal-token-view"
+      ],
+      "strict": false,
+      "profile": true,
+      "rustOnly": true,
+      "rustProjection": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"library\"]}",
+        "package.json": "{}",
+        "src/named.ts": "import { Effect } from \"effect\"\nexport const named = Effect.fn(\"named\")(function* () {\n  return 1\n})\n",
+        "src/unnamed.ts": "import { Effect } from \"effect\"\nexport const unnamed = Effect.fn(function* () {\n  return 1\n})\n",
+        "src/untraced.ts": "import { Effect } from \"effect\"\nexport const untraced = Effect.fnUntraced(function* () {\n  return 1\n})\n",
+        "src/with-span.ts": "import { Effect } from \"effect\"\nexport const spanned = Effect.succeed(1).pipe(Effect.withSpan(\"spanned\"))\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignalCount": 3,
+      "expectSignalFacts": [
+        {
+          "kind": "library-exported-effect-package",
+          "package": ".",
+          "facts": {
+            "exportedEffectFiles": 4,
+            "withSpanFiles": 2,
+            "withoutSpanFiles": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "v4-rpc-boundary-tokens-are-rpc-group",
+      "suites": [
+        "atomic-signals",
+        "signal-token-view"
+      ],
+      "strict": false,
+      "profile": true,
+      "rustOnly": true,
+      "rustProjection": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"rpc\"]}",
+        "package.json": "{}",
+        "src/legacy.ts": "export const router = RpcRouter.make()\n",
+        "src/group.ts": "import { RpcGroup } from \"effect/rpc\"\nexport const Api = RpcGroup.make()\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignalCount": 1,
+      "expectSignalFacts": [
+        {
+          "kind": "rpc-boundary-file",
+          "facts": {
+            "containsRpcToken": true,
+            "importsSchema": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "signal-token-masking",
+      "suites": [
+        "atomic-signals",
+        "signal-token-view"
+      ],
+      "strict": false,
+      "profile": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\",\"library\"]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "src/tokens.ts": "// HttpApiGroup in comment\n/* RpcGroup block\n   HttpApiEndpoint */\nconst s = \"HttpApi.make\"\nconst x = 1\nconst t = `HttpApiEndpoint ${x} RpcGroup`\nexport const u = `a ${ HttpApiGroup } b`\nconst n = `nested ${`inner ${HttpApi.make}`} tail`\nconst re = /HttpApiEndpoint/\n",
+        "src/misc.ts": "#!/usr/bin/env node\n\"use strict\"\nimport type { Effect } from \"effect\"\nimport Effect2 = require(\"effect\")\nexport const e = `HttpApiGroup`\nexport enum En { A = \"HttpApiEndpoint\", \"RpcGroup\" = 2 }\ndeclare module \"HttpApiGroup\" { }\ntype T = `Rpc.make-${string}`\nexport { x as \"RpcGroup\" } from \"./y\"\n",
+        "src/decoys.ts": "import { Effect } from \"effect\"\n// export const fake = Effect.succeed(1)\nconst text = \"export const x = Effect.\"\nexport const a = Effect.fnUntraced(function* () { return 1 })\nexport const spanned = Effect.succeed(1).pipe(Effect.withSpan(\"decoy-free\"))\nconst decoy = \"Effect.withSpan\"\n"
+      },
+      "expectExit": 0,
+      "expectRules": [],
+      "expectSignalCount": 3
+    },
+    {
+      "name": "signal-effect-member-names",
+      "suites": [
+        "atomic-signals",
+        "signal-token-view"
+      ],
+      "strict": false,
+      "profile": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\",\"library\"]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "src/sched.ts": "import { Schedule, Effect as E } from \"effect\"\nimport * as Sch from \"effect/Schedule\"\nimport { exponential, jittered as j } from \"effect/Schedule\"\nimport * as effect from \"effect\"\nimport Eff from \"effect/Effect\"\nexport const p = E.retry(E.succeed(1), Schedule.recurs(3))\nexport const q = Sch.jittered(Sch.fixed(\"1 second\"))\nexport const r = exponential(\"1 second\")\nexport const s = j(Sch.spaced(\"1 second\"))\nexport const t = effect.Schedule.upTo(\"1 second\")\nexport const u = Eff.repeat(Eff.succeed(1), Schedule?.fixed(\"1 second\"))\nexport const v = (Schedule).fixed(\"1 second\")\nclass K implements Schedule.Schedule<number> {}\n",
+        "src/pubsub.ts": "import { PubSub, Effect } from \"effect\"\nimport * as PS from \"effect/PubSub\"\nexport const a = PubSub.bounded<number>(2)\nexport const b = PS.sliding<number>(2)\nexport const c = Effect.flatMap(PubSub.unbounded<number>(), (ps) => PubSub.publish(ps, 1))\nexport const d = PS.dropping\n",
+        "src/chains.ts": "import { Schedule } from \"effect\"\nclass C {\n  #x = Schedule\n  m() { return this.#x.fixed(\"1 second\") }\n}\ndeclare const a: any\nexport const o = a?.b.c\nexport const p = a!.b.c\nexport const q = a()?.Schedule.fixed\nexport const r = Schedule[\"fixed\"](\"1 second\")\nexport const s = new (Schedule as any).Foo()\nexport const t = Schedule.fixed<number>\n",
+        "src/shadow.ts": "import { Schedule } from \"effect\"\nfunction f(Schedule: any) { return Schedule.fixed(\"1 second\") }\nexport const z = f(Schedule)\n",
+        "src/Comp.tsx": "import * as Sch from \"effect/Schedule\"\nimport { Schedule } from \"effect\"\nexport const X = () => <Schedule.Foo prop=\"HttpApiGroup\" ><Sch.Bar.Baz />HttpApiGroup text</Schedule.Foo>\n",
+        "src/ai.ts": "import { Chat } from \"effect/ai\"\nimport * as Prompt from \"effect/ai/Prompt\"\nexport const k = [Chat, Prompt]\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF403"
+      ],
+      "expectSignalCount": 9
+    },
+    {
+      "name": "signal-telemetry-layer-names",
+      "suites": [
+        "otel-signal-boundary",
+        "atomic-signals"
+      ],
+      "strict": false,
+      "profile": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"http-server\",\"library\"]}",
+        "package.json": "{\"dependencies\":{\"@effect/opentelemetry\":\"4.0.5\"}}",
+        "src/otel.ts": "import { NodeSdk, Otlp as OtelOtlp } from \"@effect/opentelemetry\"\nimport * as WebSdk from \"@effect/opentelemetry/WebSdk\"\nimport { layer as otlpLayer } from \"@effect/opentelemetry/Otlp\"\nimport { Otlp } from \"effect/observability\"\nimport * as OtlpTracer from \"effect/observability/OtlpTracer\"\nexport const a = NodeSdk.layer(() => ({} as any))\nexport const b = WebSdk.layerTracerProvider({} as any)\nexport const c = otlpLayer({})\nexport const d = Otlp.layer({})\nexport const e = OtlpTracer.layer({})\nexport const f = OtelOtlp.layerJson\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF403"
+      ],
+      "expectSignalCount": 1
     }
   ]
 }

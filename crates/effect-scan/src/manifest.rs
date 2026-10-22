@@ -62,6 +62,9 @@ pub struct Manifest {
     pub generated_paths: Vec<OwnedPattern>,
     #[allow(dead_code)] // read by the projection stage (profile signals)
     pub wrangler_path: Option<String>,
+    /// The manifest as written (schema-valid): the projection reports `hostTooling`, `aiProviderTransports`
+    /// and `gate.notProven` items verbatim, so it reads them here instead of re-modelling each one.
+    pub raw: Value,
 }
 
 pub struct LoadResult {
@@ -218,6 +221,7 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
         host_tooling: owned(raw.get("hostTooling"), "path"),
         generated_paths: owned(raw.get("generatedPaths"), "glob"),
         wrangler_path: raw.get("wranglerPath").and_then(Value::as_str).filter(|w| !w.is_empty()).map(to_posix),
+        raw: raw.clone(),
     }
 }
 
