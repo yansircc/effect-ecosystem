@@ -255,6 +255,21 @@ The scanner default `notProven` list contains only generic categories such as
 type-level limits beyond LSP, runtime behavior, and architecture boundaries.
 Product-specific names belong in the target manifest, not scanner code.
 
+`gate-summary.json` `notProven[]` entries carry a `source`:
+
+- `scanner-default`: the generic categories above (no `owner`/`reason`).
+- `rule-coverage`: one entry per rule that ran in this scan and declares
+  `coverage` in `contracts/rules.json` (`{ "proves": string, "blindSpots": string[] }`);
+  `id` is the rule id, `reason` joins its blind spots. Source rules always run;
+  package, file-pair and edge rules need a manifest; `EFF5xx` need `--strict`.
+  A rule's blind spots are exactly what a clean result for it does not prove.
+- `manifest`: the target's own `gate.notProven` entries (`owner` and `reason` required).
+- `unproven-fact`: a fact a rule could not decide (for example an `EFF402` platform
+  constructor whose origin needs the type checker); `id` names the fact, `reason` says why.
+  Rules report these instead of guessing a verdict.
+
+`notProven` is not part of `complianceHash`.
+
 ## Contract Owners
 
 Growing scanner contract enumerations must live in a checked owner. Unchecked
@@ -595,13 +610,14 @@ Reports files containing HttpApi tokens and whether Schema imports are visible.
 
 ### Signal: rpc-boundary-file
 
-Reports files containing RPC boundary tokens and whether Schema imports are
-visible.
+Reports files containing RPC boundary tokens (`Rpc.make`, `RpcGroup`) and whether
+Schema imports are visible. `RpcRouter` is a v3 concept and is not a token.
 
 ### Signal: library-exported-effect-file
 
 Reports exported library Effect files that contain Effect tokens and no visible
-`Effect.withSpan` token.
+`Effect.withSpan` token or named `Effect.fn("name")` call (a named `Effect.fn`
+carries its own span; `Effect.fn(function* ...)` and `Effect.fnUntraced` do not).
 
 ### Signal: library-exported-effect-package
 
@@ -615,8 +631,14 @@ provider transports, and direct provider SDK dependencies.
 
 ### Signal: observability-wiring-facts
 
-Reports dependency presence and discovered `@effect/opentelemetry` layer
-factories such as `NodeSdk.layer`, `WebSdk.layer`, or `Otlp.layer`.
+Reports `@effect/opentelemetry` dependency presence and the telemetry layer
+factories reached through `@effect/opentelemetry` or `effect/observability`
+imports (`NodeSdk.layer`, `WebSdk.layer`, `Otlp.layer`, `OtlpTracer.layer`, ...).
+`containsOtlpLayer` is true for any `Otlp*` layer factory, including the
+`effect/observability` ones; `hasEffectPlatformDependency` is true when a package
+file imports `effect/http` (the v4 HTTP platform); `containsHttpClientToken`
+matches the `HttpClient` token or an `effect/http/HttpClient` import. A package
+whose only layers are non-telemetry (`FetchHttpClient.layer`, ...) emits no signal.
 
 ### Signal: resilience-boundary-file
 

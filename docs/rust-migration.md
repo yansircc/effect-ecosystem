@@ -61,6 +61,37 @@ Known intentional differences:
   warning plus empty dependency set in Rust (a manifest load cannot fail a scan); `localeCompare`
   ordering of candidate/binding keys uses `util::locale_compare` (code-point order for punctuation).
 - File ordering uses an approximation of `localeCompare` (`util::locale_compare`).
+- **Projection stage** (`projection/`: signals, profile, evidence, gate summary, CLI output). The
+  differential harness compares every output surface (below) with **0 differences** over all
+  fixtures except the pinned `rustProjection` fixtures, which pin these v4 detection fixes (the oracle
+  keeps the v3 recognition; it is deleted with the TypeScript scanner):
+  - `containsOtlpLayer`: true for any `Otlp*` layer factory (`Otlp.layer`, `OtlpTracer.layer`,
+    `observability.Otlp.layer`, ...); the oracle matched the literal `Otlp.layer` only, so an
+    `effect/observability` import (`observability.Otlp.layer`) was never recognised.
+  - `observability-wiring-facts`: `opentelemetryLayerFactories` holds only layer factories reached through
+    `@effect/opentelemetry` or `effect/observability`; the oracle listed every `effect` `*.layer`
+    (`FetchHttpClient.layer`, ...), so any package using one emitted the signal.
+  - `hasEffectPlatformDependency` is true when a package file imports `effect/http` (v4: HTTP lives in
+    `effect`); the oracle read the v3 `@effect/platform` dependency. `containsHttpClientToken` checks the
+    `effect/http/HttpClient` import, not `@effect/platform/HttpClient`. The field names are unchanged.
+  - Library span detection: a named `Effect.fn("name", ...)` call counts as a span (it carries one);
+    `Effect.fn(function* ...)` and `Effect.fnUntraced` do not. The oracle only knew `Effect.withSpan`.
+  - `rpc-boundary-file`: tokens are `Rpc.make` and `RpcGroup`; `RpcRouter` (v3) no longer counts.
+  - `hasEffectAiDependency` (imports of `effect/ai`) is already v4 in the oracle; unchanged.
+  Also: `effect/ai` imports counted for `hasEffectAiDependency` include `require("effect/ai")` in Rust
+  (the shared import fact treats a literal `require` as an import); the oracle ignores `require`.
+- `scanner.*` (build provenance) comes from the artifact: `build.rs` embeds `build-info.json` selected by
+  `EFFECT_SCAN_BUILD_INFO=<path>` at compile time (the "unknown build" record otherwise, as the
+  TypeScript scanner reports without a `build-info.json`). `complianceHash` hashes `scanner.buildId`,
+  so it is comparable across the two scanners only for equal build ids; the harness builds the Rust
+  binary with the oracle's `build-info.json` (`make diff-fixtures`) and refuses to run otherwise.
+- Contract extension (additive): `contracts/rules.json` rules may declare `coverage`
+  `{ proves: string, blindSpots: string[] }` (every rule that has a real blind spot does:
+  `EFF001-EFF032`, `EFF200`, `EFF3xx`, `EFF4xx`, `EFF5xx`); `gate-summary.notProven[]` gains the sources
+  `rule-coverage` (the blind spots of every rule that ran in this scan) and `unproven-fact` (a fact a rule
+  could not decide). Old consumers ignore unknown `source` values. The TypeScript oracle implements the same
+  `rule-coverage` aggregation (it is part of the `compliance-hash`/`gate-summary` self-tests' world);
+  `unproven-fact` is Rust-only, fed by the contracts stage.
 - **Rule verdicts are AST facts, not text matches** (`rules.rs`; architecture requirement iii). The
   Rust scanner has no regex rule mechanism. Documented fixes over the TS oracle, each pinned by a
   `rustOnly` good/bad fixture pair:
@@ -145,7 +176,9 @@ node dist-dev/scripts/diff-fixtures.js target/release/effect-scan
 ```
 
 Runs every fixture through both scanners and compares `(file, line, ruleId, severity)` for the rules
-the Rust build declares implemented (`effect-scan --list-implemented-rules`). The implemented set
+the Rust build declares implemented (`effect-scan --list-implemented-rules`), and the projection layer
+(see "Differential harness: projection"). `make diff-fixtures` builds the Rust binary with the oracle's
+`build-info.json` first. The implemented set
 grows port by port; the migration is complete when it equals the whole contract, strict/profile
 fixtures included.
 
@@ -194,6 +227,51 @@ toolchain, not a pin. EFF901: no local `node_modules/typescript/bin/tsc` of Type
 `+effect-tsgo.` marker, or a declared `typescript` range of another major. EFF902: `@effect/tsgo` not
 declared, or not caret-compatible (same major; for 0.x the same minor) with the provider version in the
 compiler marker. Verified: TypeScript 7.0.2 + `@effect/tsgo` 0.56.0.
+## Projection stage (`projection/`)
+
+Invariant: a projection is a pure function of (findings, files, scan state, toolchain, build info);
+it never recomputes a rule verdict or a resolver fact.
+
+- `collate.rs`, `json.rs`: `stableJson` (keys sorted with `localeCompare`, 2-space indent) and SHA-256 are
+  the byte contract of `complianceHash`/`inputHash`/`fullHash`. `collate::locale_compare` is exact for
+  ASCII (CLDR root order, cross-checked against Node's `Intl.Collator`); non-ASCII sorts by code point.
+- `source_facts.rs`: masked code text (strings, template text, comments blanked, as `sourceFactsForFile.codeLines`)
+  and the Effect member/call names of the top-level import bindings (`semanticFactsForFile`), computed on the
+  oxc AST (no tsgo round trips). Names are rooted in import declarations, not scopes: these are review facts.
+- `signals.rs`, `schemas.rs`: `buildSignals` with `signals.schema.json` validation; evidence and gate summary are
+  validated against their schemas before they are written.
+- `profile.rs`: `buildProfile`, `activeProfilesFor`, `requiredReferencesFor`.
+- `evidence.rs`: evidence record, gate summary (`notProven`: defaults, rule coverage, manifest, unproven facts),
+  bundle files (`scan-result.json`, `scan-evidence.json`, `gate-summary.json`, `input.sha256`, `full.sha256`).
+- `toolchain.rs`: `node <root>/node_modules/typescript/bin/tsc --version` (as `runLocalTsc`; needs `node` on `PATH`),
+  the diagnostics provider version from `effect-capabilities.json`, and the compiler fingerprint
+  (`sha256(sorted absolute scanned paths joined by NUL)`, one transaction).
+- `cli.rs`: `--output human|gate-json|raw-json` (TTY default human, otherwise gate-json), `--profile`, `--timings`,
+  `--evidence <dir>`, `--build-info`, exit codes.
+
+Injection points (other stages leave these in `ScanResult.extras`; the projection consumes and removes them):
+
+| key | shape | provider |
+|---|---|---|
+| `compilerMeta` | `{ "fingerprint": string, "transactionCount": 1 }` | diagnostics stage (until then derived as in the oracle) |
+| `notProvenFacts` | `[{ "id": string, "reason": string }]` | contracts stage (EFF402 cases it cannot decide) |
+
+Other extras (`compilerDiagnostics`, ...) pass through into the raw result in insertion order.
+
+Contract issue found: `compiler.fingerprint` (hence `scanner.fullHash`, the audit hash) hashes *absolute*
+scanned paths, so the same tree checked out elsewhere gets a different `fullHash`. `inputHash` and
+`complianceHash` are unaffected. Fix when the diagnostics stage lands: fingerprint the root-relative paths.
+
+## Differential harness: projection
+
+For every fixture the harness runs the Rust scanner three times and the oracle once, then compares:
+`raw-json --profile --timings --evidence` (signals, profile, evidence, summary, warnings), the five bundle files
+byte for byte, `gate-json` with and without `--evidence` byte for byte, exit codes, and (when the oracle's findings
+are all implemented rules) the human rendering. The oracle projects the Rust findings (`runScan`'s
+`findingsOverride` test seam), so the projection is compared in isolation from rule coverage; findings are
+compared separately. Only `timings` is ignored. A fixture with `rustProjection: true` (always `rustOnly`) pins a
+documented detection fix: its `expectSignals`/`expectSignalCount`/`expectSignalFacts` are asserted on the Rust
+output instead of comparing with the oracle.
 
 ## Next
 
@@ -204,5 +282,5 @@ compiler marker. Verified: TypeScript 7.0.2 + `@effect/tsgo` 0.56.0.
    (`contracts.rs` + `contracts/{model,verify,modules,wrangler}.rs`; `contracts/wrangler.rs` is the
    shared minimal Wrangler config reader).
 2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
-3. Profile, signals, evidence, gate-summary, complianceHash.
+3. ~~Profile, signals, evidence, gate-summary, complianceHash~~ (done: projection stage).
 4. Single build artifact + install path; delete the TS scanner after parity.

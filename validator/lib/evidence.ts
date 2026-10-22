@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { compileContractValidators } from "./contract-validation.js"
 import { effectVersionFromResolution } from "./resolver.js"
+import { RULES } from "./findings.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -18,8 +19,8 @@ const BUNDLE_ARTIFACTS = {
   evidence: "scan-evidence.json",
 }
 
-export function writeScanBundle(root, manifest, files, toolchainMeta, scanState, evidenceDir, rawResult) {
-  const { evidence, inputHash, fullHash, gateSummary } = buildScanProjection(root, manifest, toolchainMeta, scanState, rawResult, BUNDLE_ARTIFACTS)
+export function writeScanBundle(root, manifest, files, toolchainMeta, scanState, evidenceDir, rawResult, strict = false) {
+  const { evidence, inputHash, fullHash, gateSummary } = buildScanProjection(root, manifest, toolchainMeta, scanState, rawResult, BUNDLE_ARTIFACTS, strict)
 
   const outDir = resolve(evidenceDir)
   mkdirSync(outDir, { recursive: true })
@@ -37,9 +38,9 @@ export function writeScanBundle(root, manifest, files, toolchainMeta, scanState,
   return { bundle, gateSummary }
 }
 
-export function buildScanProjection(root, manifest, toolchainMeta, scanState, rawResult, artifacts = null) {
+export function buildScanProjection(root, manifest, toolchainMeta, scanState, rawResult, artifacts = null, strict = false) {
   const { evidence, inputHash, fullHash } = buildScanEvidence(root, toolchainMeta, scanState, rawResult.profile?.requiredReferences ?? [])
-  const gateSummary = buildGateSummary(rawResult, evidence, { inputHash, fullHash }, manifest, artifacts)
+  const gateSummary = buildGateSummary(rawResult, evidence, { inputHash, fullHash }, manifest, artifacts, strict)
   const validators = compileContractValidators()
   const evidenceValidation = validators.validateScanEvidence(evidence)
   if (!evidenceValidation.ok) throw new Error(evidenceValidation.message)
@@ -80,7 +81,7 @@ function buildScanEvidence(root, toolchainMeta, scanState, requiredReferences) {
   return { evidence, inputHash, fullHash }
 }
 
-function buildGateSummary(result, evidence, hashes, manifest, artifacts) {
+function buildGateSummary(result, evidence, hashes, manifest, artifacts, strict) {
   const block = normalizeFindings(result.findings.filter((finding) => finding.severity === "error"))
   const report = normalizeFindings(result.findings.filter((finding) => finding.severity === "warning"))
   const scannerBuildId = evidence.scanner.buildInfo.buildId
@@ -137,6 +138,7 @@ function buildGateSummary(result, evidence, hashes, manifest, artifacts) {
     complianceHash,
     notProven: [
       ...DEFAULT_NOT_PROVEN,
+      ...ruleCoverageNotProven(Boolean(manifest), strict),
       ...(manifest?.gate?.notProven ?? []).map((item) => ({
         id: item.id,
         source: "manifest",
@@ -146,6 +148,16 @@ function buildGateSummary(result, evidence, hashes, manifest, artifacts) {
     ],
     artifacts,
   }
+}
+
+// A rule's declared blind spots (`coverage.blindSpots` in rules.json) are not proven by a scan in which
+// that rule ran: source rules always, manifest-gated families with a manifest, type diagnostics only
+// under --strict with a manifest.
+function ruleCoverageNotProven(hasManifest: boolean, strict: boolean) {
+  const runs = (family: string) => family === "source" ? true : family === "lsp" ? hasManifest && strict : hasManifest
+  return Object.entries(RULES)
+    .filter(([, rule]: [string, any]) => runs(rule.family) && rule.coverage?.blindSpots?.length > 0)
+    .map(([id, rule]: [string, any]) => ({ id, source: "rule-coverage", reason: rule.coverage.blindSpots.join("; ") }))
 }
 
 function normalizeFindings(findings) {

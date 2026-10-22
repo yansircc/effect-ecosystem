@@ -122,11 +122,18 @@
                 ]
               }
             }
+          },
+          {
+            "if": { "properties": { "source": { "enum": ["rule-coverage", "unproven-fact"] } }, "required": ["source"] },
+            "then": {
+              "required": ["reason"],
+              "not": { "required": ["owner"] }
+            }
           }
         ],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "source": { "enum": ["scanner-default", "manifest"] },
+          "source": { "enum": ["scanner-default", "manifest", "rule-coverage", "unproven-fact"] },
           "owner": { "type": "string", "minLength": 1 },
           "reason": { "type": "string", "minLength": 1 }
         }

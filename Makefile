@@ -8,7 +8,9 @@ INSTALL_ROOT ?= dist-installed
 rust-build:
 	cargo build --release -p effect-scan
 
-diff-fixtures: build rust-build
+# The Rust build embeds the TypeScript build's provenance so `scanner.*` and `complianceHash` are comparable.
+diff-fixtures: build
+	EFFECT_SCAN_BUILD_INFO="$(abspath $(BUILD_DIR))/build-info.json" cargo build --release -p effect-scan
 	node "$(BUILD_DIR)/scripts/diff-fixtures.js" target/release/effect-scan
 
 build:
