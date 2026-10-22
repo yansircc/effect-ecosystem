@@ -113,7 +113,7 @@ pub fn resolve_scan_state(manifest: Option<&Manifest>, active_profiles: &[String
     ScanState {
         target: Target {
             root: ".",
-            manifest_path: manifest.map(|_| ".effect-skill.json"),
+            manifest_path: manifest.map(|_| crate::manifest::MANIFEST_NAME),
             host_tooling: sorted_owned_patterns(manifest.map(|m| m.host_tooling.as_slice()).unwrap_or(&[]), "path"),
             generated_paths: sorted_owned_patterns(manifest.map(|m| m.generated_paths.as_slice()).unwrap_or(&[]), "glob"),
             packages: target_packages,

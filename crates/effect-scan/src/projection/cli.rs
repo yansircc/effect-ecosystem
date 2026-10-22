@@ -13,14 +13,17 @@ pub enum OutputMode {
     RawJson,
 }
 
-pub const USAGE: &str = "\
+pub const USAGE: &str = concat!(
+    "\
 usage: effect-scan [root] [flags]
 
   root                           directory to scan (default: current directory)
 
 flags:
   --strict                       compiler-backed pass (requires a manifest)
-  --manifest <file>              manifest path (default: <root>/effect-manifest.json)
+  --manifest <file>              manifest path (default: <root>/",
+    manifest_name!(),
+    ")
   --output <mode>                human | gate-json | raw-json (default: human on a TTY, else gate-json)
   --evidence <dir>               write the evidence bundle to <dir>
   --fail-on-suppression-drift    report expired, reason-less and orphan eff-ignore comments
@@ -36,7 +39,8 @@ exit codes:
   1   scan produced error findings
   2   scanner failure (unreadable root, invalid rule contract or manifest, internal panic)
   64  usage error (unknown flag, missing or repeated flag value, extra argument)
-";
+"
+);
 
 pub const VALUE_FLAGS: [&str; 4] = ["--evidence", "--manifest", "--output", "--rules"];
 pub const BOOL_FLAGS: [&str; 6] = ["--strict", "--fail-on-suppression-drift", "--profile", "--timings", "--list-implemented-rules", "--build-info"];

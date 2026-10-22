@@ -1,3 +1,10 @@
+/// The manifest's file name, as a literal so `concat!` can embed it (the CLI usage text); `manifest::MANIFEST_NAME` is the value.
+macro_rules! manifest_name {
+    () => {
+        ".effect-skill.json"
+    };
+}
+
 mod contracts;
 mod diagnostics;
 mod expires;

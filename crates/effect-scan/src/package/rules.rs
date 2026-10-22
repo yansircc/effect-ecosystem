@@ -19,7 +19,7 @@ pub fn scan(manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
         let effect_major = resolver::safe_package_major(resolved);
         let finding = |rule: &str, file: &str, message: Option<&str>| registry.finding(rule, file, 1, "", message, Some(&pkg.path));
         if pkg.shape.iter().any(|s| s == "worker") && pkg.wrangler_path.is_none() {
-            findings.push(finding("EFF906", ".effect-skill.json", None));
+            findings.push(finding("EFF906", crate::manifest::MANIFEST_NAME, None));
         }
         if let Some(r) = resolved.filter(|r| r.comparison == Comparison::Conflict) {
             let message = format!("declared Effect v{} but installed Effect v{}", major_text(r.declared_major.major), major_text(r.installed_major.major));
@@ -115,7 +115,7 @@ fn validate_native_dependency_boundaries(
         match reason {
             Some(reason) => {
                 let message = format!("nativeDependencyBoundaries {}:{}: {reason}", declaration.package, declaration.dependency);
-                findings.push(registry.finding("EFF900", ".effect-skill.json", 1, "", Some(&message), Some(&declaration.package)));
+                findings.push(registry.finding("EFF900", crate::manifest::MANIFEST_NAME, 1, "", Some(&message), Some(&declaration.package)));
             }
             None => {
                 admitted.insert((declaration.package.clone(), declaration.dependency.clone()));

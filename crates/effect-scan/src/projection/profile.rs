@@ -86,7 +86,7 @@ pub fn build(manifest: Option<&Manifest>, files: &[SourceFile], toolchain: &Tool
         })
         .unwrap_or_default();
     json!({
-        "manifestPath": manifest.map(|_| ".effect-skill.json"),
+        "manifestPath": manifest.map(|_| crate::manifest::MANIFEST_NAME),
         "activeProfiles": active_profiles,
         "effectVersion": effect_version,
         "effectSupport": effect_support(state, &effect_version),

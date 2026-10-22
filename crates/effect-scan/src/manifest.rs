@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const MANIFEST_NAME: &str = ".effect-skill.json";
+pub const MANIFEST_NAME: &str = manifest_name!();
 const MANIFEST_SCHEMA: &str = include_str!("../../../validator/manifest.schema.json");
 
 #[derive(Debug, Clone)]
