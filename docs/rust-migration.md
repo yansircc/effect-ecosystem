@@ -54,16 +54,28 @@ fixtures included.
 ## Ported so far
 
 CLI parsing and exit codes, file collection (git or walk), file classification, manifest load +
-schema validation, line/import/async-await rules (line-regex rules still use the contract's regex
-patterns on comment/string-masked code lines; they are replaced by AST facts when the rule contract
-moves to AST selectors), `eff-ignore` suppression and drift, finding sort and summary.
-Result: 108 non-strict fixtures identical to the oracle; Rust ~14x faster than TS on this syntactic
-slice (19 ms vs 268 ms on this repository).
+schema validation (EFF000/EFF900/EFF903), line/import/async-await rules, `eff-ignore` suppression and
+drift, sorting/summary, and the **module facts layer** (`facts.rs`):
+
+- import bindings and `const` aliases resolved on oxc scopes (no checker round trips; shadowing is
+  exact), derived to a fixpoint;
+- **runner references**: every maximal member path that resolves to `Effect.run*`, a `ManagedRuntime`
+  runner, or `*Runtime.runMain`, with `usage = Called | Value`. EFF400 consumes them, so a runner
+  passed as a value (`program.pipe(Effect.runFork)`, `items.map(Effect.runPromise)`,
+  `const run = Effect.runSync`) is reported exactly like a call (audit W2). EFF401 will consume the same
+  facts (B2: `program.pipe(NodeRuntime.runMain)` counts as the one `runMain` reference);
+- EFF403 from `import` declarations (comments/strings/multi-line/`import type *` now correct, W3);
+  EFF404 from `require()` and module-scope `import()`.
+
+Differential result: all 203 fixtures compared; 0 mismatches on the implemented rules, 4 pinned
+divergences (`rustFindings` in the fixture, documented fixes the TypeScript oracle lacks:
+aliases-as-values, runner values in `pipe`/`map`, AST-based EFF403). TS self-test excludes
+`rustOnly` fixtures.
 
 ## Next
 
-1. Runner facts (`Effect.run*` references incl. values passed to `pipe`/`map`) shared by EFF400/401.
-2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504 via tsgo CLI.
-3. Execution-contract (EFF401/402) on import bindings.
-4. Profile, signals, evidence, gate-summary, complianceHash.
-5. Single build artifact + install path; delete the TS scanner after parity.
+1. EFF401 execution contracts on runner references (B2), EFF402 platform constructors (no
+   `getTypeAtLocation`: unverifiable cases become `notProven`).
+2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
+3. Profile, signals, evidence, gate-summary, complianceHash.
+4. Single build artifact + install path; delete the TS scanner after parity.

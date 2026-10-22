@@ -1,5 +1,6 @@
 use crate::findings::{Finding, Registry};
 use crate::manifest::{self, Manifest};
+use crate::facts::{Contract, RunnerKind};
 use crate::source::{self, SourceFacts};
 use crate::util::{self, locale_compare, matches_any, rel};
 use regex::Regex;
@@ -17,7 +18,7 @@ pub struct Options {
 pub struct FileRoles {
     pub test: bool,
     pub generated: bool,
-    pub host_tooling: bool,
+    pub executable_edge: bool,
 }
 
 pub struct SourceFile {
@@ -37,21 +38,30 @@ pub struct ScanResult {
 pub const IMPLEMENTED_KINDS: [&str; 3] = ["line-regex", "source-import", "source-ast"];
 
 pub fn implemented_rules(registry: &Registry) -> Vec<String> {
-    let ids: Vec<String> = registry
+    let mut ids: Vec<String> = registry
         .rules
         .iter()
         .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
         .map(|r| r.id.clone())
         .collect();
+    ids.extend(MANIFEST_RULES.iter().map(|s| s.to_string()));
+    ids.extend(EDGE_RULES.iter().map(|s| s.to_string()));
     ids
 }
+
+const MANIFEST_RULES: [&str; 2] = ["EFF000", "EFF903"];
+const EDGE_RULES: [&str; 3] = ["EFF400", "EFF403", "EFF404"];
 
 pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanResult, String> {
     let loaded = manifest::load(root, options.strict, options.manifest_path.as_deref(), registry);
     let mut findings = loaded.findings;
     let manifest = loaded.manifest;
-    let files = collect_source_files(root, manifest.as_ref())?;
+    let contract = Contract::from_manifest_schema(&manifest::schema_value());
+    let files = collect_source_files(root, manifest.as_ref(), &contract)?;
     findings.extend(scan_line_rules(&files, registry));
+    if let Some(m) = manifest.as_ref() {
+        findings.extend(scan_edge_rules(&files, m, registry));
+    }
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);
     if options.fail_on_suppression_drift {
@@ -80,7 +90,7 @@ fn host_tooling_prune_dirs(manifest: Option<&Manifest>) -> Vec<String> {
     out
 }
 
-fn collect_source_files(root: &Path, manifest: Option<&Manifest>) -> Result<Vec<SourceFile>, String> {
+fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<Vec<SourceFile>, String> {
     let prune = host_tooling_prune_dirs(manifest);
     let paths: Vec<PathBuf> = util::collect_files(root, &prune)?;
     let default_tests = util::default_test_globs();
@@ -101,11 +111,15 @@ fn collect_source_files(root: &Path, manifest: Option<&Manifest>) -> Result<Vec<
             continue;
         }
         files.push(SourceFile {
-            facts: source::analyze(&relative, &text),
+            facts: source::analyze(&relative, &text, contract),
             lines: text.split('\n').map(|l| l.strip_suffix('\r').unwrap_or(l).to_string()).collect(),
             package: manifest.and_then(|m| m.package_for_file(&relative)).map(|p| p.path.clone()),
-            relative,
-            roles: FileRoles { test: is_test, generated: is_generated, host_tooling: is_host },
+            relative: relative.clone(),
+            roles: FileRoles {
+                test: is_test,
+                generated: is_generated,
+                executable_edge: manifest.is_some_and(|m| m.executable_edge_paths.iter().any(|p| *p == relative)),
+            },
         });
     }
     Ok(files)
@@ -293,4 +307,36 @@ pub fn summarize(findings: &[Finding]) -> Value {
         "warnings": findings.iter().filter(|f| f.severity == "warning").count(),
         "byRule": by_rule,
     })
+}
+
+/// Boundary rules computed from module facts: runner references (EFF400), namespace imports of
+/// effect packages (EFF403), `require()` / module-scope `import()` (EFF404).
+fn scan_edge_rules(files: &[SourceFile], _manifest: &Manifest, registry: &Registry) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for file in files {
+        let at = |line: u32| file.lines.get(line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+        let make = |rule: &str, offset: u32| {
+            let line = file.facts.line_of(offset);
+            registry.finding(rule, &file.relative, line, &at(line), None, file.package.as_deref())
+        };
+        if !file.roles.executable_edge {
+            for run in &file.facts.module.runner_refs {
+                if matches!(run.kind, RunnerKind::EffectRun | RunnerKind::ManagedRun) {
+                    findings.push(make("EFF400", run.offset));
+                }
+            }
+        }
+        for &offset in &file.facts.module.effect_namespace_imports {
+            findings.push(make("EFF403", offset));
+        }
+        if !file.roles.test && !file.roles.generated {
+            let mut lines: Vec<u32> = file.facts.module.dynamic_loads.iter().map(|&o| file.facts.line_of(o)).collect();
+            lines.sort();
+            lines.dedup();
+            for line in lines {
+                findings.push(registry.finding("EFF404", &file.relative, line, &at(line), None, file.package.as_deref()));
+            }
+        }
+    }
+    findings
 }

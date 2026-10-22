@@ -11,13 +11,14 @@ const bin = resolve(process.argv[2] ?? "target/debug/effect-scan")
 const implemented = new Set<string>(JSON.parse(spawnSync(bin, ["--list-implemented-rules"], { encoding: "utf8" }).stdout))
 const key = (finding) => `${finding.file}:${finding.line}:${finding.ruleId}:${finding.severity}`
 let compared = 0
-let skipped = 0
+let diverged = 0
 const mismatches: string[] = []
 
 forEachFixtureCase((testCase, scanRoot, rulesPath) => {
-  if (testCase.strict || testCase.profile || testCase.expectEvidenceHashAxes || testCase.rulesJsonl) { skipped++; return }
-  const oracle = runScan(scanRoot, { strict: false, failOnSuppressionDrift: Boolean(testCase.failOnSuppressionDrift) })
+  const strict = Boolean(testCase.strict)
   const args = ["--output", "raw-json", scanRoot]
+  if (strict) args.push("--strict")
+  if (rulesPath) args.push("--rules", rulesPath)
   if (testCase.failOnSuppressionDrift) args.push("--fail-on-suppression-drift")
   const run = spawnSync(bin, args, { encoding: "utf8", maxBuffer: 50_000_000 })
   if (run.status !== 0 && run.status !== 1) {
@@ -25,7 +26,11 @@ forEachFixtureCase((testCase, scanRoot, rulesPath) => {
     return
   }
   const rust = JSON.parse(run.stdout)
-  const expected = oracle.findings.filter((f) => implemented.has(f.ruleId)).map(key).sort()
+  // `rustFindings` pins fixtures where the Rust scanner deliberately differs from the oracle
+  // (a documented fix); otherwise the oracle's findings are the expectation.
+  const oracle = testCase.rustFindings ? null : runScan(scanRoot, { strict, rulesPath, failOnSuppressionDrift: Boolean(testCase.failOnSuppressionDrift) })
+  const expected = (oracle ? oracle.findings.filter((f) => implemented.has(f.ruleId)).map(key) : [...testCase.rustFindings]).sort()
+  if (testCase.rustFindings) diverged++
   const actual = rust.findings.filter((f) => implemented.has(f.ruleId)).map(key).sort()
   compared++
   if (JSON.stringify(expected) !== JSON.stringify(actual)) {
@@ -34,5 +39,5 @@ forEachFixtureCase((testCase, scanRoot, rulesPath) => {
 })
 
 for (const mismatch of mismatches) console.error(`[diff] ${mismatch}`)
-console.log(`diff-fixtures: ${compared} compared, ${skipped} skipped (strict/profile/evidence/custom rules), ${mismatches.length} mismatches`)
+console.log(`diff-fixtures: ${compared} compared, ${diverged} pinned to documented divergences, ${mismatches.length} mismatches`)
 process.exit(mismatches.length === 0 ? 0 : 1)

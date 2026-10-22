@@ -371,8 +371,11 @@ function valueAtPath(value, path) {
 }
 
 function selectedCases(config: any, options: any) {
-  if (!options.suite) return config.cases
-  return config.cases.filter((testCase) => testCase.suites.includes(options.suite))
+  // `rustOnly` fixtures pin documented fixes the TypeScript oracle does not have; only the
+  // differential harness (scripts/diff-fixtures.ts) runs them.
+  const cases = options.includeRustOnly ? config.cases : config.cases.filter((testCase) => !testCase.rustOnly)
+  if (!options.suite) return cases
+  return cases.filter((testCase) => testCase.suites.includes(options.suite))
 }
 
 function selectedInternalSuites(options: any) {
@@ -1010,7 +1013,7 @@ function factKeys(schema) {
 /** Materializes every fixture case into a temp dir for differential runs against another scanner build. */
 export function forEachFixtureCase(callback: (testCase: any, scanRoot: string, rulesPath: string | undefined) => void) {
   const config = JSON.parse(readFileSync(CONFIG_PATH, "utf8"))
-  for (const testCase of selectedCases(config, {})) {
+  for (const testCase of selectedCases(config, { includeRustOnly: true })) {
     const root = mkdtempSync(resolve(tmpdir(), "effect-skill-fixture-"))
     try {
       writeFiles(root, fixtureFiles(testCase))

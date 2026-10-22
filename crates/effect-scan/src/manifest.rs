@@ -77,8 +77,12 @@ pub fn load(root: &Path, strict: bool, manifest_path: Option<&str>, registry: &R
     LoadResult { manifest: Some(manifest), warnings: vec![], findings }
 }
 
+pub fn schema_value() -> Value {
+    serde_json::from_str(MANIFEST_SCHEMA).expect("manifest schema is valid JSON")
+}
+
 fn schema_errors(raw: &Value, relative: &str) -> Vec<String> {
-    let schema: Value = serde_json::from_str(MANIFEST_SCHEMA).expect("manifest schema is valid JSON");
+    let schema = schema_value();
     let validator = jsonschema::draft202012::new(&schema).expect("manifest schema compiles");
     validator
         .iter_errors(raw)

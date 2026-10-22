@@ -861,6 +861,12 @@
           "line": 7,
           "lineTextIncludes": "direct(c)"
         }
+      ],
+      "rustFindings": [
+        "src/a.ts:4:EFF400:error",
+        "src/a.ts:5:EFF400:error",
+        "src/a.ts:6:EFF400:error",
+        "src/a.ts:7:EFF400:error"
       ]
     },
     {
@@ -2025,6 +2031,10 @@
       ],
       "allowCompileErrors": [
         "TS2304"
+      ],
+      "rustFindings": [
+        "src/a.ts:2:EFF400:error",
+        "src/a.ts:3:EFF400:error"
       ]
     },
     {
@@ -4512,6 +4522,48 @@
         "EFF908"
       ],
       "exact": true
+    },
+    {
+      "name": "runner-value-pipe-and-map-red",
+      "suites": [
+        "runner-facts"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "import { Effect } from \"effect\"\ndeclare const program: Effect.Effect<void>\nprogram.pipe(Effect.runFork)\nexport const run = [program].map(Effect.runPromise)\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF400"
+      ],
+      "rustFindings": [
+        "src/a.ts:3:EFF400:error",
+        "src/a.ts:4:EFF400:error"
+      ]
+    },
+    {
+      "name": "namespace-import-ast-red",
+      "suites": [
+        "runner-facts"
+      ],
+      "strict": false,
+      "rustOnly": true,
+      "files": {
+        ".effect-skill.json": "{\"shape\":[\"node\"]}",
+        "package.json": "{}",
+        "src/a.ts": "// import * as E from \"effect\"\nconst s = 'import * as E from \"effect\"'\nimport type * as Eff from \"effect\"\nimport * as\n  Ef from \"effect\"\nexport const x = [s, Eff, Ef]\n"
+      },
+      "expectExit": 1,
+      "expectRules": [
+        "EFF403"
+      ],
+      "rustFindings": [
+        "src/a.ts:3:EFF403:error",
+        "src/a.ts:4:EFF403:error"
+      ]
     }
   ]
 }

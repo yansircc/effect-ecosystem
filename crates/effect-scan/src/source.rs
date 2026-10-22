@@ -3,6 +3,8 @@ use oxc_allocator::Allocator;
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
 use oxc_parser::Parser;
+use oxc_semantic::SemanticBuilder;
+use crate::facts::{self, Contract, ModuleFacts};
 use oxc_span::{GetSpan, SourceType, Span};
 use oxc_syntax::scope::ScopeFlags;
 
@@ -22,9 +24,19 @@ pub struct SourceFacts {
     pub imports: Vec<ImportFact>,
     /// Source lines with comments and string/template text blanked, so line patterns see code only.
     pub code_lines: Vec<String>,
+    pub module: ModuleFacts,
+    line_starts: Vec<u32>,
 }
 
 impl SourceFacts {
+    /// 1-based line of a byte offset in the analyzed source.
+    pub fn line_of(&self, offset: u32) -> u32 {
+        match self.line_starts.binary_search(&offset) {
+            Ok(i) => i as u32 + 1,
+            Err(i) => i as u32,
+        }
+    }
+
     pub fn selector(&self, name: &str) -> Option<&Vec<u32>> {
         match name {
             "async-function" => Some(&self.async_function),
@@ -35,10 +47,12 @@ impl SourceFacts {
     }
 }
 
-pub fn analyze(path: &str, source: &str) -> SourceFacts {
+pub fn analyze(path: &str, source: &str, contract: &Contract) -> SourceFacts {
     let allocator = Allocator::default();
     let source_type = SourceType::from_path(path).unwrap_or_else(|_| SourceType::ts());
     let parsed = Parser::new(&allocator, source, source_type).parse();
+    let semantic = SemanticBuilder::new().build(&parsed.program).semantic;
+    let module = facts::collect(&parsed.program, semantic.scoping(), contract);
     let lines = LineIndex::new(source);
     let mut collector = Collector { lines: &lines, facts: SourceFacts::default(), mask: Vec::new(), seen_imports: Vec::new() };
     collector.visit_program(&parsed.program);
@@ -47,6 +61,8 @@ pub fn analyze(path: &str, source: &str) -> SourceFacts {
         mask.push((comment.span.start, comment.span.end));
     }
     facts.imports.sort_by_key(|i| i.start);
+    facts.module = module;
+    facts.line_starts = lines.starts.clone();
     facts.code_lines = masked_lines(source, &mask);
     facts
 }

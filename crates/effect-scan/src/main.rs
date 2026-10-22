@@ -1,3 +1,4 @@
+mod facts;
 mod findings;
 mod manifest;
 mod scan;
@@ -88,10 +89,6 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     }
     let strict = args.iter().any(|a| a == "--strict");
-    if strict {
-        eprintln!("--strict is not implemented in the Rust scanner yet (use the TypeScript scanner)");
-        return ExitCode::from(2);
-    }
     let options = scan::Options {
         strict,
         manifest_path,
