@@ -34,7 +34,7 @@ Source of truth: `contracts/rules.json`.
 | EFF030 | import-prisma | error | db | 禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator |
 | EFF031 | import-moment-like | warning | core | 避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区) |
 | EFF032 | new-date | warning | core | 业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string |
-| EFF200 | effect-test-without-effect-vitest | error | core | Effect tests must import @effect/vitest. |
+| EFF200 | effect-test-without-effect-vitest | error | core | Effect test suites must import @effect/vitest. |
 | EFF300 | pg-without-effect-sql | error | core | shape db:pg requires @effect/sql-pg and forbids direct pg dependency. |
 | EFF301 | mysql-without-effect-sql | error | core | shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency. |
 | EFF302 | sqlite-without-effect-sql | error | core | shape db:sqlite requires one of @effect/sql-sqlite-node, @effect/sql-sqlite-bun, @effect/sql-sqlite-do, @effect/sql-sqlite-wasm or @effect/sql-libsql and forbids direct better-sqlite3 dependency. |
@@ -251,7 +251,7 @@ Rule: 业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTim
 
 Profiles: core
 
-Rule: Effect tests must import @effect/vitest.
+Rule: Effect test suites must import @effect/vitest.
 
 ## EFF300 pg-without-effect-sql
 

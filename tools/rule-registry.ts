@@ -51,6 +51,12 @@ export function validateRegistry(registry) {
       }
       if (rule.scanner?.testFixtures?.some((name) => !rule.scanner?.constructors?.includes(name))) errors.push(`${rule.id}.scanner.testFixtures must be a subset of constructors`)
     }
+    if (rule.id === "EFF200") {
+      for (const key of ["testFrameworks", "testDefinitions"]) {
+        const names = rule.scanner?.[key]
+        if (!Array.isArray(names) || names.length === 0 || names.some((name) => typeof name !== "string" || !name.trim()) || new Set(names).size !== names.length) errors.push(`${rule.id}.scanner.${key} must be a non-empty list of unique strings`)
+      }
+    }
     if (rule.scanner?.kind === "source-ast" && !SOURCE_AST_SELECTORS.includes(rule.scanner.selector)) errors.push(`${rule.id}.scanner.selector is invalid`)
     if (rule.scanner?.kind === "source-import") {
       for (const key of ["packages", "packagePrefixes"]) {

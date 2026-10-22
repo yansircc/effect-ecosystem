@@ -1,0 +1,10 @@
+{
+  "description": "test-support-module-not-suite-green: a test-scope module that builds an Effect layer for suites but defines no tests is test code, not a suite; EFF200 does not apply to it",
+  "suites": [
+    "test-scope-rules",
+    "effect-vitest",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

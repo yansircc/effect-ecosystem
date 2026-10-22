@@ -517,7 +517,17 @@ version-gated rules pause until they agree.
 
 ### EFF200 effect-test-without-effect-vitest
 
-Effect tests must use `@effect/vitest`.
+Effect test suites must use `@effect/vitest`. Test scope (`testGlobs` or the
+default globs) decides what is test code; a file in test scope is a *suite* only
+when it defines tests: it calls `describe` / `it` / `suite` / `test` (or a member
+or derivative such as `it.effect`, `describe.each(...)`, `it.extend(...)`)
+exported by a test framework listed in the rule's `scanner.testFrameworks`
+(`vitest`, `@effect/vitest`, `vite-plus/test`, `bun:test`, `node:test`,
+`@jest/globals`), in any import form, or as an unbound global. A test-support
+module in test scope that defines no tests (a shared fixture building an Effect
+layer, imported by suites) is not a suite: it needs no `@effect/vitest` import and
+stays test code for every other rule. Do not narrow `testGlobs` to exempt such a
+module; that reclassifies it as production code.
 
 ### EFF400 run-outside-executable-edge
 

@@ -82,6 +82,16 @@ impl RunnerRef {
     }
 }
 
+/// The root a called reference resolves to: the first exported name of its `ExportRef`
+/// (`it.effect(...)`, `V.describe.each(...)(...)`, `const test = it.extend(...); test(...)` are all
+/// `it` / `describe` of their module), or an unbound global identifier (`describe(...)` under test
+/// framework globals). Locally bound non-import names are neither.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CallHead {
+    Export { module: String, name: String },
+    Global(String),
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ModuleFacts {
     pub runner_refs: Vec<RunnerRef>,
@@ -93,6 +103,8 @@ pub struct ModuleFacts {
     pub effect_namespace_imports: Vec<u32>,
     /// CommonJS `require()` calls and module-scope dynamic `import()` offsets.
     pub dynamic_loads: Vec<u32>,
+    /// What every call's callee is rooted in (`CallHead`), import form independent.
+    pub call_heads: HashSet<CallHead>,
     /// Re-export forwarding of this module (see `exports`).
     pub exports: crate::exports::ExportTable,
 }
@@ -602,6 +614,14 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
         self.applied.insert(expr_key(&call.callee));
         self.mark_arguments(&call.arguments);
+        if let Some(path) = self.resolver.path_of(&call.callee) {
+            let head = match path.export_ref() {
+                Some(export) => export.path.first().map(|name| CallHead::Export { module: export.module.clone(), name: name.clone() }),
+                None if path.origin.kind == OriginKind::Unresolved => Some(CallHead::Global(path.origin.root.clone())),
+                None => None,
+            };
+            self.facts.call_heads.extend(head);
+        }
         if let Expression::Identifier(ident) = &call.callee {
             // The CommonJS global only: a locally bound `require` is not a module load.
             if ident.name == "require" && self.resolver.symbol_of(ident).is_none() {

@@ -1,0 +1,17 @@
+{
+  "description": "suite-namespace-and-global-definitions-red: a suite is a test-scope file that defines tests, whatever the import form (namespace member, describe.each, it.extend derivative) or framework globals",
+  "suites": [
+    "test-scope-rules",
+    "effect-vitest",
+    "red-green-fixtures"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF200"
+  ],
+  "expectFindingKeys": [
+    "src/extended.test.ts:1:EFF200:error",
+    "src/globals.test.ts:1:EFF200:error",
+    "src/namespace.test.ts:1:EFF200:error"
+  ]
+}

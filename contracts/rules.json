@@ -840,7 +840,7 @@
       "profiles": [
         "core"
       ],
-      "message": "Effect tests must import @effect/vitest.",
+      "message": "Effect test suites must import @effect/vitest.",
       "references": [
         "references/scanner-manifest.md §EFF200 effect-test-without-effect-vitest"
       ],
@@ -848,12 +848,27 @@
         "source.imports"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "testFrameworks": [
+          "vitest",
+          "@effect/vitest",
+          "vite-plus/test",
+          "bun:test",
+          "node:test",
+          "@jest/globals"
+        ],
+        "testDefinitions": [
+          "describe",
+          "it",
+          "suite",
+          "test"
+        ]
       },
       "coverage": {
-        "proves": "识别为 Effect 测试的文件导入了 @effect/vitest",
+        "proves": "测试范围内(testGlobs/默认 glob)导入 Effect 且定义测试的文件(调用测试框架导出或未绑定全局的 describe/it/suite/test,含成员与派生如 it.effect、describe.each、it.extend)导入了 @effect/vitest;只被套件引用、不定义测试的测试支持模块不是套件,但仍是测试代码",
         "blindSpots": [
-          "测试文件只按 manifest testGlobs/默认 glob 识别;经辅助模块间接使用 Effect 的测试不被标记"
+          "测试范围只按 manifest testGlobs/默认 glob 识别;经辅助模块间接使用 Effect 的测试不被标记",
+          "测试定义只按 scanner.testFrameworks 的导出与未绑定全局名识别;经函数参数、动态属性或非列出框架定义的测试不可见"
         ]
       }
     },
