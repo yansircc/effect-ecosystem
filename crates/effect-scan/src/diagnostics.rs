@@ -3,7 +3,7 @@
 //!
 //! The whole stage runs on its own thread from `start` (before the other analyses) to `finish`
 //! (after them), so the compiler pass overlaps with everything else the scanner does.
-mod toolchain;
+pub(crate) mod toolchain;
 mod tsc;
 
 use crate::findings::{Finding, Registry};

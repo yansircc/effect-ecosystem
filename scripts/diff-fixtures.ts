@@ -44,6 +44,14 @@ let humanCompared = 0
 let counter = 0
 const mismatches: string[] = []
 
+// `unproven-fact` notProven items exist only in the Rust scanner (the oracle has no unprovable-constructor
+// verdicts); they do not enter any hash, so the oracle comparison ignores them.
+function withoutUnproven(text: string): string {
+  const doc = tryParse(text)
+  if (!doc || !Array.isArray(doc.notProven)) return text
+  return `${stableJson({ ...doc, notProven: doc.notProven.filter((item) => item.source !== "unproven-fact") })}\n`
+}
+
 forEachFixtureCase((testCase, inputScanRoot, rulesPath) => {
   // The compiler fingerprint hashes absolute paths: compare both scanners on the canonical root.
   const scanRoot = realpathSync(inputScanRoot)
@@ -111,7 +119,7 @@ forEachFixtureCase((testCase, inputScanRoot, rulesPath) => {
   diffJson(fail, "raw-json", oracleDoc, rustDoc)
   for (const file of BUNDLE_FILES) {
     const want = readFileSync(resolve(oracleDir, file), "utf8")
-    const got = readFileSync(resolve(rustDir, file), "utf8")
+    const got = file === "gate-summary.json" ? withoutUnproven(readFileSync(resolve(rustDir, file), "utf8")) : readFileSync(resolve(rustDir, file), "utf8")
     if (want === got) continue
     if (file === "scan-result.json" && oracleDiagnostics) diffJson(fail, `bundle ${file}`, withoutKey(JSON.parse(want), "compilerDiagnostics"), JSON.parse(got))
     else diffJson(fail, `bundle ${file}`, tryParse(want), tryParse(got), want, got)
@@ -119,8 +127,10 @@ forEachFixtureCase((testCase, inputScanRoot, rulesPath) => {
   const gateNoEvidence = `${stableJson({ ...gateSummary, artifacts: null })}\n`
   const gateWithEvidence = `${stableJson(gateSummary)}\n`
   const rustGate = rustRun(["--output", "gate-json"])
+  rustGate.stdout = withoutUnproven(rustGate.stdout)
   if (rustGate.stdout !== gateNoEvidence) diffJson(fail, "gate-json (no evidence)", tryParse(gateNoEvidence), tryParse(rustGate.stdout), gateNoEvidence, rustGate.stdout)
   const rustGateEvidence = rustRun(["--output", "gate-json", "--evidence", resolve(caseDir, "rust-gate")])
+  rustGateEvidence.stdout = withoutUnproven(rustGateEvidence.stdout)
   if (rustGateEvidence.stdout !== gateWithEvidence) diffJson(fail, "gate-json (evidence)", tryParse(gateWithEvidence), tryParse(rustGateEvidence.stdout), gateWithEvidence, rustGateEvidence.stdout)
   if (rustGate.status !== exit || rustGateEvidence.status !== exit) fail(`exit code ${rustGate.status}/${rustGateEvidence.status}, expected ${exit}`)
 

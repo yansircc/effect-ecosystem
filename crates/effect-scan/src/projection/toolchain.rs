@@ -20,7 +20,8 @@ pub struct CompilerMeta {
 pub struct ToolchainMeta {
     pub available: bool,
     pub tsc_version: Option<String>,
-    pub tsgo_version: String,
+    /// Provider version from the compiler's `+effect-tsgo.` marker; `None` for an unpatched compiler.
+    pub tsgo_version: Option<String>,
     pub compiler: CompilerMeta,
 }
 
@@ -29,8 +30,8 @@ impl ToolchainMeta {
         let tsc = run_local_tsc(workspace_root, &["--version"]);
         Self {
             available: tsc.is_some(),
-            tsc_version: tsc,
-            tsgo_version: supported_diagnostics_version(),
+            tsc_version: tsc.clone(),
+            tsgo_version: provider_version(tsc.as_deref()),
             compiler: injected.unwrap_or_else(|| default_compiler_meta(scan_root, files)),
         }
     }
@@ -49,6 +50,12 @@ fn default_compiler_meta(scan_root: &Path, files: &[SourceFile]) -> CompilerMeta
     CompilerMeta { fingerprint: sha256(&paths.join("\0")), transaction_count: 1 }
 }
 
+fn provider_version(tsc_stdout: Option<&str>) -> Option<String> {
+    let marker = capabilities::contract().pointer("/support/diagnostics/compilerMarker").and_then(|v| v.as_str())?;
+    crate::diagnostics::toolchain::parse_compiler_version(tsc_stdout?, marker)?.provider_version
+}
+
+#[allow(dead_code)]
 pub fn supported_diagnostics_version() -> String {
     capabilities::contract().pointer("/support/diagnostics/version").and_then(|v| v.as_str()).expect("support.diagnostics.version").to_string()
 }
