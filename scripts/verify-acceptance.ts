@@ -33,7 +33,7 @@ assertIncludes(bun.stdout, "node-ok", "bun runtime")
 runBin("tsc", ["--noEmit", "--pretty", "false", "-p", "tsconfig.valid.json"])
 runBin("tsc", ["--noEmit", "--pretty", "false", "-p", "tsconfig.worker.json"])
 
-const scan = run("node", [resolve(__dirname, "..", "validator", "scan.js"), root, "--strict", "--output", "raw-json", "--profile"], {
+const scan = run(requiredEnv("EFFECT_SCAN_BIN"), [root, "--strict", "--output", "raw-json", "--profile"], {
   allowFailure: true,
   timeout: 120_000,
 })
@@ -226,4 +226,10 @@ function assertIncludes(value: string, needle: string, label: string) {
   if (!value.includes(needle)) {
     throw new Error(`${label} did not include ${needle}; output:\n${value}`)
   }
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} must name the effect-scan binary under test (make verify-acceptance sets it)`)
+  return value
 }

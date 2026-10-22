@@ -1,7 +1,0 @@
-{
-  "name": "typescript",
-  "type": "module",
-  "bin": {
-    "tsc": "./bin/tsc"
-  }
-}

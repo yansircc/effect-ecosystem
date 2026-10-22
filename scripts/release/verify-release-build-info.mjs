@@ -8,7 +8,7 @@ if (!archive || !sourceCommit || !releaseFiles) {
   throw new Error("usage: verify-release-build-info.mjs <archive> <source-commit> <release-files>")
 }
 
-const buildInfo = JSON.parse(execFileSync("tar", ["-xOf", archive, "package/dist/build-info.json"], { encoding: "utf8" }))
+const buildInfo = JSON.parse(execFileSync("tar", ["-xOf", archive, "package/build-info.json"], { encoding: "utf8" }))
 const files = releaseFiles.split(",").filter(Boolean).sort()
 const releasePatch = buildInfo.releasePatch
 

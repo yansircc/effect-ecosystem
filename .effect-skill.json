@@ -17,6 +17,11 @@
       "path": "scripts/**",
       "owner": "@effect-ecosystem-skill",
       "reason": "Registry generation and verification scripts for the skill itself."
+    },
+    {
+      "path": "packaging/**",
+      "owner": "@effect-ecosystem-skill",
+      "reason": "Delivery shims (npm bin shim, skill launcher) that locate and exec the native scanner; not Effect application code."
     }
   ]
 }

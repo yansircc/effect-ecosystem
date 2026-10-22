@@ -12,13 +12,17 @@ const SOURCE_PATHS = [
   "package-lock.json",
   "package.json",
   "tsconfig.json",
+  "Cargo.toml",
+  "Cargo.lock",
+  "crates",
+  "packaging",
   "contracts",
   "references",
   "scripts",
   "validator",
 ]
 
-const outDir = resolve(process.argv[2] ?? "dist-dev")
+const outDir = resolve(process.argv[2] ?? "dist/tools")
 const sourceRoot = process.cwd()
 const gitRoot = git(["rev-parse", "--show-toplevel"]) ?? sourceRoot
 const gitCommit = git(["rev-parse", "HEAD"]) ?? "unknown"

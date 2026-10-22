@@ -17,17 +17,10 @@
   "engines": {
     "node": ">=22"
   },
-  "files": [
-    "dist"
-  ],
-  "bin": {
-    "effect-scan": "dist/validator/scan.js"
-  },
   "scripts": {
-    "build": "make build BUILD_DIR=dist",
+    "build": "make build",
     "verify": "make verify",
-    "verify:package": "node scripts/verify-package.mjs",
-    "prepack": "npm run build"
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",
@@ -72,6 +65,7 @@
     "effect": "4.0.5",
     "react": "19.3.1"
   },
+  "private": true,
   "publishConfig": {
     "access": "public"
   }

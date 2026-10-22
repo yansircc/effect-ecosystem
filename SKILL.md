@@ -3,7 +3,7 @@ name: effect-ecosystem
 description: Use when a task directly changes or reviews Effect v4 code, Effect configuration, Layers, runtimes, Schema, or Effect ecosystem APIs, or explicitly requests an Effect compliance scan. Do not trigger merely because a repository depends on Effect or for unrelated UI, prose, CSS, or ordinary TypeScript changes.
 executables:
   effect-scan:
-    any: runtime/validator/scan.js
+    any: runtime/effect-scan
 ---
 
 # Effect Ecosystem Executor
@@ -33,7 +33,7 @@ compatibility guess.
    Effect failure; it is not a mandatory opening step:
 
    ```bash
-   node <skill-root>/runtime/validator/scan.js <repo> --strict --output gate-json --evidence <dir>
+   <skill-root>/runtime/effect-scan <repo> --strict --output gate-json --evidence <dir>
    ```
 
 3. Record `<dir>/gate-summary.json` as the Effect mechanical compliance gate.
@@ -74,9 +74,12 @@ For this skill repository:
 make verify
 ```
 
-`make install` publishes an immutable `dist-installed/<buildId>/` scanner
-artifact and updates the local bin symlink. Do not run it during development
-unless releasing the scanner.
+`make install` installs the native scanner as an immutable
+`$(INSTALL_ROOT)/<buildId>/effect-scan` (default `~/.local/lib/effect-scan`) and
+points `$(PREFIX)/bin/effect-scan` at it. Do not run it during development
+unless releasing the scanner. `make skill` assembles this skill (`dist/skill/`)
+with `runtime/effect-scan` and the per-platform binaries; consumers install via
+`npm i -g @yansircc/effect-scan` or use that skill directory.
 
 The Effect v4 / TypeScript 7 acceptance and repository-owned deterministic
 performance gate are part of default `make verify`. They are also available
@@ -93,7 +96,8 @@ For a target project, run its normal tests plus
 
 ## Host Tooling Boundary
 
-This repository contains a Node-based scanner under `validator/**`. That code is
-host tooling for the skill, not target application code. The target-project
+The scanner is a native Rust binary (`crates/effect-scan`); the TypeScript under
+`validator/**` and `scripts/**` is development tooling (fixture harness, checks) that is
+never shipped. That code is host tooling for the skill, not target application code. The target-project
 Effect rules apply to repositories being scanned; host tooling compliance is
 tracked separately by this repo's own registry and verification scripts.

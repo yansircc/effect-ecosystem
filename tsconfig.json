@@ -5,7 +5,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rootDir": ".",
-    "outDir": "dist-dev",
+    "outDir": "dist/tools",
     "strict": false,
     "noImplicitAny": false,
     "skipLibCheck": true,

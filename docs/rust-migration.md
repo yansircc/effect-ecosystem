@@ -171,8 +171,8 @@ enum and `packages`/`packagePrefixes`. The custom-rule fixture uses `selector`.
 ## Differential harness
 
 ```
-cargo build --release -p effect-scan
-node dist-dev/scripts/diff-fixtures.js target/release/effect-scan
+make build
+node dist/tools/scripts/diff-fixtures.js dist/platforms/<platform>/effect-scan   # i.e. make diff-fixtures
 ```
 
 Runs every fixture through both scanners and compares `(file, line, ruleId, severity)` for the rules
@@ -284,3 +284,86 @@ output instead of comparing with the oracle.
 2. Package/capability rules (EFF3xx), toolchain checks (EFF9xx), EFF504/EFF50x via the tsgo CLI.
 3. ~~Profile, signals, evidence, gate-summary, complianceHash~~ (done: projection stage).
 4. Single build artifact + install path; delete the TS scanner after parity.
+
+## Distribution and installation
+
+Invariant: one build produces one native binary per platform; every consumer path (npm, skill,
+local install) ships those same bytes and the same `build-info.json` (one build id per release).
+
+### Layout and targets
+
+| path | content |
+|---|---|
+| `dist/platforms/<platform>/effect-scan` + `build-info.json` | the only build output; `<platform>` is `darwin-arm64`, `linux-x64`, `linux-arm64` (`scripts/release/platforms.mjs` is the one list) |
+| `dist/tools/` | TypeScript development tools (self-test, checks, oracle, `build-info.json`); never shipped |
+| `dist/skill/` | assembled skill (`make skill`) |
+| `dist/npm/*.tgz` | npm release set (`make npm-package`) |
+| `$(INSTALL_ROOT)/<buildId>/effect-scan` | installed binary (default `~/.local/lib/effect-scan`) |
+| `$(PREFIX)/bin/effect-scan` | symlink to the installed binary (default `~/.local/bin`) |
+
+`dist-dev/`, `dist-installed/`, `dist/build/`, `dist/validator/` no longer exist.
+`target/release/effect-scan` is cargo's scratch output and is NOT the artifact: a plain
+`cargo build` embeds the "unknown build" record; `make build` builds with
+`EFFECT_SCAN_BUILD_INFO=dist/tools/build-info.json` (written by `scripts/write-build-info.ts`, source set now
+includes `crates/`, `Cargo.*`, `packaging/`) and then asserts the binary's `--build-info` equals it
+(`scripts/release/check-binary.mjs`).
+
+| target | does |
+|---|---|
+| `make tools` | TS dev tools into `dist/tools` and `build-info.json` |
+| `make build` | `tools` + `cargo build --release --locked` with embedded provenance -> `dist/platforms/<host>/` |
+| `make install [PREFIX= INSTALL_ROOT=]` | build, copy to `$(INSTALL_ROOT)/<buildId>/effect-scan` (immutable per build id), point `$(BIN)` at it |
+| `make skill` | build, assemble `dist/skill`, run `scripts/check-skill-entry.mjs` |
+| `make npm-package` | build, `scripts/release/pack.mjs` -> `dist/npm` (missing platforms become marked placeholders locally; `PACK_FLAGS=` requires all) |
+| `make verify-offline` | everything without network: provenance, registry/contract checks, TS self-tests, Rust self-scan, skill entry, `verify-package` |
+| `make verify-online` | networked acceptance + benchmark |
+| `make verify` | offline + online, and the installed binary must not change meanwhile |
+
+### npm
+
+`@yansircc/effect-scan` is a JS shim (`bin/effect-scan.js`) with `optionalDependencies` on
+`@yansircc/effect-scan-darwin-arm64|linux-x64|linux-arm64` (each: the binary, `os`/`cpu`, `libc: glibc` on Linux).
+The shim resolves the platform package, runs the binary with the same argv and stdio, and returns its exit
+status. The repository `package.json` is private and is the single version source (CI-owned, bumped by
+`scripts/release/prepare.mjs` from the `Release-Bump:` trailer); `pack.mjs` generates the published manifests,
+all at that version. Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39; a musl/older-glibc
+target is a new platform entry, not a patch. Consumers still need `node` on `PATH` (the scanner runs the
+project's own `tsc`).
+
+### Skill
+
+`dist/skill/`: `SKILL.md`, `agents/`, `references/`, `contracts/` (reading material; the scanner embeds its
+own rules and schemas), `build-info.json`, `runtime/effect-scan` (POSIX launcher, SKILL.md's command) and
+`runtime/<platform>/effect-scan`. `scripts/check-skill-entry.mjs` asserts every `<skill-root>/...` path in
+SKILL.md exists and is executable, runs the entry when the host binary is present, and with
+`--require-all-platforms` demands all three.
+
+### CI and release
+
+`.github/workflows/ci.yml`: `identity` (release version, as before) -> `build` matrix (macos-14,
+ubuntu-24.04, ubuntu-24.04-arm; rustup stable, `make verify-offline`; `make verify-online` on linux-x64;
+uploads `dist/platforms`) -> `package` (collects the three binaries, `pack.mjs`, `verify-package.mjs --packages`,
+release build-info check, skill assembly, `publish.mjs --dry-run`, uploads) -> `commit_release` (unchanged
+bump/tag semantics) -> `publish` (`scripts/release/publish.mjs`: platform packages first, shim last, idempotent
+by integrity, `--provenance`) -> `verify-public`. Every job that builds reproduces the release patch
+(`prepare.mjs`) and must equal `identity`, so all platforms embed one build id.
+
+Dry run, locally: `make npm-package && node scripts/verify-package.mjs`; with all platform binaries present
+(`PACK_FLAGS=` and binaries in `dist/platforms`), `node scripts/release/publish.mjs dist/npm --dry-run`
+(`npm publish --dry-run` per tarball; placeholders are refused; an already-published version is reported, not
+an error). Nothing in the repository publishes outside `publish.mjs`.
+
+### Migration notes for users
+
+Command name, arguments, exit codes (0/1/2/64) and the output contracts are unchanged.
+- Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`) -> a shim that execs the
+  native binary: `npm i -g @yansircc/effect-scan` keeps working; `npx`/`node_modules/.bin/effect-scan` too.
+  Do not call `dist/validator/scan.js`; it no longer exists. Self-test flags are maintainer-only.
+- Old local install `make install` -> `<repo>/dist-installed/<buildId>/validator/scan.js` symlinked at
+  `~/.local/bin/effect-scan`; now `~/.local/lib/effect-scan/<buildId>/effect-scan` (a real binary) behind the same
+  `~/.local/bin/effect-scan`. Delete the old `dist-installed/`.
+- SKILL.md: the command was `node <skill-root>/runtime/validator/scan.js` (which the old package did not
+  actually contain); it is `<skill-root>/runtime/effect-scan`. The skill no longer bundles `node_modules`
+  or the TypeScript runtime packages.
+- Hashes: `scanner.buildId` (and so `complianceHash`) changes with every build as before; it now also
+  covers Rust sources, so the first release of this layout re-baselines.

@@ -1,6 +1,4 @@
 /dist/
-/dist-dev/
-/dist-installed/
 /node_modules/
 /*.bun-build
 /.cst/events.lock

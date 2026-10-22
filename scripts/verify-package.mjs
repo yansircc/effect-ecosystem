@@ -1,61 +1,111 @@
 #!/usr/bin/env node
-
+// Structure and install check of the npm release set.
+//   default            packs the host's real build; platforms without a build in dist/platforms are
+//                      PLACEHOLDER stubs (structure only, never installed or run).
+//   --packages <dir>   checks tarballs produced by pack.mjs (CI: all three real builds).
 import assert from "node:assert/strict"
-import { execFileSync } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs"
+import { execFileSync, spawnSync } from "node:child_process"
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { PLATFORMS, hostPlatform } from "./release/platforms.mjs"
 
 const root = resolve(import.meta.dirname, "..")
-const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"))
+const args = process.argv.slice(2)
+const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+const host = hostPlatform()
 const temporary = mkdtempSync(join(tmpdir(), "effect-scan-package-"))
-const npmEnvironment = {
-  ...process.env,
-  npm_config_fetch_retries: "1",
-  npm_config_fetch_retry_mintimeout: "1000",
-  npm_config_fetch_retry_maxtimeout: "10000",
-}
+const listing = (archive) => execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n").filter(Boolean).sort()
+const manifestOf = (archive) => JSON.parse(execFileSync("tar", ["-xOf", archive, "package/package.json"], { encoding: "utf8" }))
 
 try {
-  execFileSync("npm", ["pack", "--ignore-scripts", "--pack-destination", temporary], {
-    cwd: root,
-    stdio: "pipe",
-  })
-  const archives = readdirSync(temporary).filter((file) => file.endsWith(".tgz"))
-  assert.equal(archives.length, 1, "npm pack must produce exactly one archive")
-  const archive = resolve(temporary, archives[0])
-  const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" })
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-  assert.ok(files.includes("package/package.json"), "archive is missing package.json")
-  assert.ok(files.includes("package/LICENSE"), "archive is missing LICENSE")
-  assert.ok(files.includes("package/dist/validator/scan.js"), "archive is missing the CLI entry")
-  assert.equal(files.some((file) => file.includes("dist-dev") || file.includes("dist-installed")), false)
-  assert.equal(files.some((file) => file.startsWith("package/validator/")), false)
+  let packagesDir
+  if (args.includes("--packages")) packagesDir = resolve(args[args.indexOf("--packages") + 1])
+  else {
+    packagesDir = join(temporary, "npm")
+    execFileSync(process.execPath, [join(root, "scripts/release/pack.mjs"), "--out", packagesDir, "--placeholder-missing"], { stdio: "pipe" })
+  }
+  const archives = readdirSync(packagesDir).filter((file) => file.endsWith(".tgz")).map((file) => join(packagesDir, file))
+  assert.equal(archives.length, PLATFORMS.length + 1, "expected one shim and one archive per platform")
+  const byName = new Map(archives.map((archive) => [manifestOf(archive).name, archive]))
 
-  const consumer = resolve(temporary, "consumer")
-  execFileSync(
-    "npm",
-    ["install", "--prefix", consumer, "--prefer-offline", "--no-audit", "--no-fund", archive],
-    { env: npmEnvironment, stdio: "pipe", timeout: 120_000 },
+  // One version, exact optionalDependencies, and the file lists below: nothing else ships.
+  const rootArchive = byName.get(manifest.name)
+  assert.ok(rootArchive, `no archive for ${manifest.name}`)
+  const rootManifest = manifestOf(rootArchive)
+  assert.equal(rootManifest.version, manifest.version)
+  assert.equal(rootManifest.private, undefined)
+  assert.deepEqual(rootManifest.bin, { "effect-scan": "bin/effect-scan.js" })
+  assert.deepEqual(rootManifest.dependencies, undefined, "the shim has no runtime dependencies")
+  assert.deepEqual(
+    rootManifest.optionalDependencies,
+    Object.fromEntries(PLATFORMS.map((platform) => [`${manifest.name}-${platform.key}`, manifest.version])),
   )
-  const binary = resolve(consumer, "node_modules", ".bin", "effect-scan")
+  assert.deepEqual(listing(rootArchive).filter((file) => !file.endsWith("/")), [
+    "package/LICENSE",
+    "package/bin/effect-scan.js",
+    "package/build-info.json",
+    "package/package.json",
+  ])
+  const buildInfoPath = join(temporary, "build-info.json")
+  writeFileSync(buildInfoPath, execFileSync("tar", ["-xOf", rootArchive, "package/build-info.json"]))
+
+  const placeholders = []
+  const overrides = {}
+  for (const platform of PLATFORMS) {
+    const name = `${manifest.name}-${platform.key}`
+    const archive = byName.get(name)
+    assert.ok(archive, `no archive for ${name}`)
+    const platformManifest = manifestOf(archive)
+    assert.equal(platformManifest.version, manifest.version)
+    assert.deepEqual(platformManifest.os, [platform.os])
+    assert.deepEqual(platformManifest.cpu, [platform.cpu])
+    assert.deepEqual(listing(archive).filter((file) => !file.endsWith("/")), [
+      "package/LICENSE",
+      "package/bin/effect-scan",
+      "package/package.json",
+    ])
+    if (platformManifest.effectScanPlaceholder) placeholders.push(platform.key)
+    overrides[name] = `file:${archive}`
+  }
+  assert.ok(!placeholders.includes(host.key), `the host platform ${host.key} has no real build; run make build`)
+
+  // The CI matrix is derived from the same list.
+  const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8")
+  assert.deepEqual(
+    [...ci.matchAll(/^\s+-\s+platform:\s*(\S+)\s*$/gm)].map((match) => match[1]).sort(),
+    PLATFORMS.map((platform) => platform.key).sort(),
+    "ci.yml matrix platforms differ from scripts/release/platforms.mjs",
+  )
+
+  // Install the shim exactly as a consumer would; the platform packages come from the local archives.
+  const consumer = join(temporary, "consumer")
+  execFileSync("mkdir", ["-p", consumer])
+  writeFileSync(
+    join(consumer, "package.json"),
+    JSON.stringify({ private: true, dependencies: { [manifest.name]: `file:${rootArchive}` }, overrides }, null, 2),
+  )
+  execFileSync("npm", ["install", "--prefix", consumer, "--no-audit", "--no-fund", "--prefer-offline"], {
+    stdio: "pipe",
+    timeout: 120_000,
+  })
+  const scope = join(consumer, "node_modules", ...manifest.name.split("/").slice(0, -1))
+  const installed = readdirSync(scope).filter((entry) => entry.startsWith("effect-scan")).sort()
+  assert.deepEqual(installed, ["effect-scan", `effect-scan-${host.key}`], "npm must install only the host platform package")
+
+  const binary = join(consumer, "node_modules", ".bin", "effect-scan")
   assert.ok(existsSync(binary), "installed package did not expose effect-scan")
+  execFileSync(process.execPath, [join(root, "scripts/release/check-binary.mjs"), binary, buildInfoPath])
+
+  // The shim is transparent: exit status (usage error 64) and output contract pass through.
+  const usage = spawnSync(binary, ["--exact"], { encoding: "utf8" })
+  assert.equal(usage.status, 64, "shim must pass the scanner's exit status through")
   const scan = JSON.parse(
-    execFileSync(binary, [root, "--strict", "--output", "gate-json"], {
-      cwd: consumer,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }),
+    execFileSync(binary, [root, "--strict", "--output", "gate-json"], { cwd: consumer, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
   )
   assert.equal(scan.kind, "effect-mechanical-compliance-gate")
   assert.equal(scan.ok, true, "installed effect-scan did not pass against its source package")
-
-  const installedManifest = JSON.parse(
-    readFileSync(resolve(consumer, "node_modules", manifest.name, "package.json"), "utf8"),
-  )
-  assert.deepEqual(installedManifest.bin, { "effect-scan": "dist/validator/scan.js" })
+  console.log(`package ok (real: ${PLATFORMS.filter((p) => !placeholders.includes(p.key)).map((p) => p.key).join(", ")}; placeholder: ${placeholders.join(", ") || "none"})`)
 } finally {
   rmSync(temporary, { recursive: true, force: true })
 }
