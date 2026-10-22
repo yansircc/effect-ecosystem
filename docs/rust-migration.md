@@ -191,7 +191,7 @@ drift, sorting/summary, and the **module facts layer** (`facts.rs`):
 - import bindings and `const` aliases resolved on oxc scopes (no checker round trips; shadowing is
   exact), derived to a fixpoint;
 - **runner references**: every maximal member path that resolves to `Effect.run*`, a `ManagedRuntime`
-  runner, or `*Runtime.runMain`, with `usage = Called | Value`. EFF400 consumes them, so a runner
+  runner, or `*Runtime.runMain`. EFF400 consumes them, so a runner
   passed as a value (`program.pipe(Effect.runFork)`, `items.map(Effect.runPromise)`,
   `const run = Effect.runSync`) is reported exactly like a call (audit W2). EFF401 will consume the same
   facts (B2: `program.pipe(NodeRuntime.runMain)` counts as the one `runMain` reference);

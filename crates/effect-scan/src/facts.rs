@@ -48,20 +48,11 @@ pub enum RunnerKind {
     RuntimeMain,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Usage {
-    /// `Effect.runPromise(...)`
-    Called,
-    /// `pipe(Effect.runFork)`, `.map(Effect.runPromise)`, `const run = Effect.runSync`, ...
-    Value,
-}
-
 #[derive(Debug, Clone)]
 pub struct RunnerRef {
     pub kind: RunnerKind,
     pub runner: String,
     pub binding_verified: bool,
-    pub usage: Usage,
     pub offset: u32,
     /// Inside a function/arrow body (as opposed to module scope).
     pub nested: bool,
@@ -135,7 +126,6 @@ pub fn collect(program: &Program, resolver: &Resolver, contract: &Contract) -> M
         resolver,
         contract,
         facts: ModuleFacts::default(),
-        callee_spans: Vec::new(),
         function_depth: 0,
         used_alias_inits: Vec::new(),
     };
@@ -429,7 +419,6 @@ struct Collector<'r, 's> {
     resolver: &'r Resolver<'s>,
     contract: &'r Contract,
     facts: ModuleFacts,
-    callee_spans: Vec<Span>,
     function_depth: u32,
     /// Spans of `const alias = <expr>` initializers whose alias has uses.
     used_alias_inits: Vec<Span>,
@@ -458,8 +447,6 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     }
 
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
-        let callee = unwrap(&call.callee);
-        self.callee_spans.push(callee.span());
         if let Expression::Identifier(ident) = &call.callee {
             // The CommonJS global only: a locally bound `require` is not a module load.
             if ident.name == "require" && self.resolver.symbol_of(ident).is_none() {
@@ -467,7 +454,6 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
             }
         }
         walk::walk_call_expression(self, call);
-        self.callee_spans.pop();
     }
 
     fn visit_import_expression(&mut self, expr: &ImportExpression<'a>) {
@@ -492,12 +478,10 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         let expr_span = ident.span;
         if let Some(path) = self.resolver.identifier_path(ident) {
             if let Some((kind, runner, binding_verified)) = classify(&path, self.contract) {
-                let called = self.callee_spans.iter().any(|s| *s == expr_span);
                 self.facts.runner_refs.push(RunnerRef {
                     kind,
                     runner,
                     binding_verified,
-                    usage: if called { Usage::Called } else { Usage::Value },
                     offset: expr_span.start,
                     nested: self.function_depth > 0,
                     alias_binding_used: self.used_alias_inits.contains(&expr_span),
@@ -510,12 +494,10 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         let span = member.span();
         if let Some(path) = self.resolver.member_path(member) {
             if let Some((kind, runner, binding_verified)) = classify(&path, self.contract) {
-                let called = self.callee_spans.iter().any(|s| *s == span);
                 self.facts.runner_refs.push(RunnerRef {
                     kind,
                     runner,
                     binding_verified,
-                    usage: if called { Usage::Called } else { Usage::Value },
                     offset: span.start,
                     nested: self.function_depth > 0,
                     alias_binding_used: self.used_alias_inits.contains(&span),

@@ -10,7 +10,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 const CAPABILITIES: &str = include_str!("../../../../contracts/effect-capabilities.json");
 
@@ -50,15 +49,7 @@ pub fn parse_compiler_version(stdout: &str, marker: &str) -> Option<CompilerVers
 
 /// `tsc --version`, run at the tooling root; `None` when the compiler is missing or fails.
 pub fn installed_compiler(tooling_root: &Path, marker: &str) -> Option<CompilerVersion> {
-    let tsc = local_tsc(tooling_root);
-    if !tsc.exists() {
-        return None;
-    }
-    let out = Command::new("node").arg(&tsc).arg("--version").current_dir(tooling_root).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    parse_compiler_version(&String::from_utf8_lossy(&out.stdout), marker)
+    parse_compiler_version(&crate::util::local_tsc_version(tooling_root)?, marker)
 }
 
 /// `major.minor` of a declared range (`1.2.3`, `^1.2.3`, `~1.2.3`, `>=1.2.3 ...`); `None` otherwise.

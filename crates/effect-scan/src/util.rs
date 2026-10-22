@@ -185,3 +185,21 @@ pub fn locale_compare(a: &str, b: &str) -> Ordering {
     // lowercase sorts before uppercase at the tertiary level
     b.cmp(a)
 }
+
+/// Trimmed stdout of `node <root>/node_modules/typescript/bin/tsc --version`, or `None` when the
+/// compiler is missing or fails. One subprocess per root per scan: the diagnostics stage and the
+/// projection both need it, and a Node start costs more than the rest of a small scan.
+pub fn local_tsc_version(root: &Path) -> Option<String> {
+    static CACHE: LazyLock<Mutex<HashMap<PathBuf, Option<String>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+    let mut cache = CACHE.lock().unwrap();
+    if let Some(hit) = cache.get(root) {
+        return hit.clone();
+    }
+    let tsc = root.join("node_modules").join("typescript").join("bin").join("tsc");
+    let version = tsc.exists().then(|| {
+        let out = Command::new("node").arg(&tsc).arg("--version").current_dir(root).output().ok()?;
+        out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    }).flatten();
+    cache.insert(root.to_path_buf(), version.clone());
+    version
+}

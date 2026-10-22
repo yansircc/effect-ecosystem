@@ -13,7 +13,7 @@ use crate::facts::CtorOrigin;
 use crate::findings::{Finding, Registry};
 use crate::manifest::{ExecutableEdge, Manifest};
 use crate::scan::{ScanContext, SourceFile};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,9 +30,6 @@ pub struct NotProven {
 }
 
 impl NotProven {
-    pub fn to_json(&self) -> Value {
-        json!({ "ruleId": self.rule_id, "file": self.file, "line": self.line, "reason": self.reason })
-    }
 }
 
 /// rules.json EFF402 `scanner.constructors`: the one place the platform constructor list lives.
