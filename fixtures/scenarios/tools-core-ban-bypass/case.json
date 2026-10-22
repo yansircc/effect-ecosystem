@@ -1,0 +1,16 @@
+{
+  "description": "tools-core-ban-bypass",
+  "suites": [
+    "library-node-tool-contract",
+    "evil-tools-bypass",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001",
+    "EFF400"
+  ]
+}

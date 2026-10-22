@@ -1,0 +1,10 @@
+{
+  "description": "effect-vitest-test-double-green",
+  "suites": [
+    "manifest-schema",
+    "edge-rules",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": []
+}

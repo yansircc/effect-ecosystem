@@ -1,0 +1,21 @@
+{
+  "description": "v4-rpc-boundary-tokens-are-rpc-group",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalCount": 1,
+  "expectSignalFacts": [
+    {
+      "kind": "rpc-boundary-file",
+      "facts": {
+        "containsRpcToken": true,
+        "importsSchema": false
+      }
+    }
+  ]
+}

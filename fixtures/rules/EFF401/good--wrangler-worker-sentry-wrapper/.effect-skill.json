@@ -1,0 +1,25 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "executableEdges": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler Sentry-wrapped dispatch",
+      "execution": {
+        "lifecycle": "wrangler-worker",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "worker": {
+          "methods": [
+            "scheduled",
+            "queue"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "effect": "4.0.5",
+    "@effect/atom-react": "4.0.5",
+    "@tanstack/react-form": "1.33.2",
+    "react-hook-form": "7.0.0",
+    "formik": "2.0.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}

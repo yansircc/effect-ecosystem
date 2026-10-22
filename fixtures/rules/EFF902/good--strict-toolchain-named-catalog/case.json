@@ -1,0 +1,12 @@
+{
+  "description": "strict-toolchain-named-catalog-green",
+  "suites": [
+    "toolchain-hard-cut",
+    "monorepo-dependency-resolution",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

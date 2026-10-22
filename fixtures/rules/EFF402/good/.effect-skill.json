@@ -1,0 +1,15 @@
+{
+  "shape": [
+    "library"
+  ],
+  "allowedAdapters": [
+    {
+      "path": "src/index.ts",
+      "rules": [
+        "EFF402"
+      ],
+      "owner": "@fixture",
+      "reason": "HTTP adapter constructs responses"
+    }
+  ]
+}

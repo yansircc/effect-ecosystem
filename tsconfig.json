@@ -22,5 +22,5 @@
       }
     ]
   },
-  "include": ["scripts/**/*.ts", "validator/**/*.ts"]
+  "include": ["scripts/**/*.ts", "tools/**/*.ts"]
 }

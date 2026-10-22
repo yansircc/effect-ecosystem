@@ -1,0 +1,23 @@
+{
+  "description": "source-import-all-hits-and-require",
+  "suites": [
+    "legacy-line-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF007",
+    "EFF014",
+    "EFF020",
+    "EFF404"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF007:error",
+    "src/a.ts:2:EFF007:error",
+    "src/a.ts:3:EFF007:error",
+    "src/a.ts:3:EFF404:error",
+    "src/a.ts:4:EFF020:error",
+    "src/a.ts:5:EFF020:error",
+    "src/a.ts:6:EFF014:error"
+  ]
+}

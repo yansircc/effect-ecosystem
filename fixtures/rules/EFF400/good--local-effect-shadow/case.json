@@ -1,0 +1,11 @@
+{
+  "description": "local-effect-shadow-green",
+  "suites": [
+    "edge-rules",
+    "red-green-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 0,
+  "expectRules": []
+}

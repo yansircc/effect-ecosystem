@@ -1,0 +1,14 @@
+{
+  "description": "call-result-alias-single-hit",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF005"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:2:EFF005:error"
+  ]
+}

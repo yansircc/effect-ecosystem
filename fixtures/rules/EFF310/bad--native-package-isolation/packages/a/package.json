@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "effect": "4.0.5",
+    "hono": "1"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5"
+  }
+}

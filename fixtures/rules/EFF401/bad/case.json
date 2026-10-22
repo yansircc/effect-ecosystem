@@ -1,0 +1,12 @@
+{
+  "description": "EFF401 bad: declared process-main edge without NodeRuntime.runMain",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "exact": true
+}

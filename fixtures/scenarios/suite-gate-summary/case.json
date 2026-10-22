@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the gate-summary suite",
+  "suites": [
+    "gate-summary"
+  ],
+  "suite": "gate-summary"
+}

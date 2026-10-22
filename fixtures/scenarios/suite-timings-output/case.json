@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the timings-output suite",
+  "suites": [
+    "timings-output"
+  ],
+  "suite": "timings-output"
+}

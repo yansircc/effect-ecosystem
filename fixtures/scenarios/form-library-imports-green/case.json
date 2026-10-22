@@ -1,0 +1,13 @@
+{
+  "description": "form-library-imports-green",
+  "suites": [
+    "form-library-neutrality",
+    "red-green-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

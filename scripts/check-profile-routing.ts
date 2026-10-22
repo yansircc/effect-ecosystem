@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs"
-import { readRegistry } from "./rule-registry.js"
+import { readRegistry } from "../tools/rule-registry.js"
 
 const registry = readRegistry()
 const profiles = new Set(registry.rules.flatMap((rule) => rule.profiles))

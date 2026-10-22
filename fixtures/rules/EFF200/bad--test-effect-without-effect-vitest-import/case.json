@@ -1,0 +1,14 @@
+{
+  "description": "test-effect-without-effect-vitest-import",
+  "suites": [
+    "scoped-rule-applicability",
+    "test-scope-rules",
+    "effect-vitest",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF200"
+  ]
+}

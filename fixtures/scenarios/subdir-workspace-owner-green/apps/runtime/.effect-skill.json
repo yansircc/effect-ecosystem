@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "path": ".",
+      "shape": [
+        "library"
+      ],
+      "dependencyOwner": "workspace-root",
+      "dependencyOwnerReason": "workspace owns Effect tooling"
+    }
+  ]
+}

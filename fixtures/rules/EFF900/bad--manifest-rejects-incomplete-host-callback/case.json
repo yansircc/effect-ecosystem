@@ -1,0 +1,11 @@
+{
+  "description": "manifest-rejects-incomplete-host-callback",
+  "suites": [
+    "manifest-schema",
+    "evil-fixtures"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ]
+}

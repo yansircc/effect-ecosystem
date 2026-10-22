@@ -1,0 +1,37 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/local.ts",
+      "owner": "@runtime",
+      "reason": "public package facade",
+      "execution": {
+        "lifecycle": "package-facade",
+        "runners": [
+          "Effect.runFork",
+          "Effect.runPromise"
+        ],
+        "package": {
+          "name": "@scope/runtime",
+          "subpath": "./local",
+          "export": "createRuntime",
+          "members": [
+            {
+              "kind": "factory"
+            },
+            {
+              "kind": "factory-local",
+              "name": "commit"
+            },
+            {
+              "kind": "returned",
+              "path": "runtime.submit"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

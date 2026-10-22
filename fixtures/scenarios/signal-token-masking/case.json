@@ -1,0 +1,17 @@
+{
+  "description": "signal-token-masking",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalCount": 3,
+  "allowCompileErrors": [
+    "TS1202",
+    "TS2664"
+  ],
+  "allowCompileErrorsReason": "adversarial token fixture: it uses `import x = require()` and a module augmentation of a module that does not exist so that the text `HttpApiGroup` inside syntax that is not a token source must not count; the syntax is the subject, not its validity"
+}

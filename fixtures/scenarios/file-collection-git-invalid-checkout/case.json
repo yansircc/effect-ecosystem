@@ -1,0 +1,13 @@
+{
+  "description": "an invalid .git directory fails closed (scan failure, exit 2) instead of falling back to a walk",
+  "suites": [
+    "candidate-source"
+  ],
+  "mkdirs": [
+    ".git"
+  ],
+  "expectExit": 2,
+  "expectStderrIncludes": [
+    "git file enumeration failed"
+  ]
+}

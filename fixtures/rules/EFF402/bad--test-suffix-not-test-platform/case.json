@@ -1,0 +1,16 @@
+{
+  "description": "test-suffix-not-test-platform-red",
+  "suites": [
+    "platform-constructor-identity",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF402"
+  ],
+  "expectRuleCounts": {
+    "EFF402": 1
+  },
+  "exact": true
+}

@@ -1,0 +1,1 @@
+import {Effect} from "effect"; function observe() { Effect.runFork(Effect.succeed(1)); }

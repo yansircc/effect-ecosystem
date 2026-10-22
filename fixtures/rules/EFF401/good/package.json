@@ -1,0 +1,12 @@
+{
+  "type": "module",
+  "dependencies": {
+    "effect": "4.0.5",
+    "@effect/platform-node": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "@effect/tsgo": "0.56.0",
+    "typescript": "7.0.2"
+  }
+}

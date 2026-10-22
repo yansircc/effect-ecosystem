@@ -1,0 +1,19 @@
+{
+  "description": "strings, comments and template text are masked, template expressions and regex/division are code, CRLF counts as one line break",
+  "suites": [
+    "source-facts-grammar"
+  ],
+  "crlf": [
+    "src/source.ts"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400",
+    "EFF404"
+  ],
+  "exact": true,
+  "expectFindingKeys": [
+    "src/source.ts:8:EFF400:error",
+    "src/source.ts:9:EFF404:error"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "description": "package-facade-unused-runner-red",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "expectFindings": [
+    {
+      "ruleId": "EFF401",
+      "count": 1,
+      "file": "src/local.ts",
+      "line": 1,
+      "messageIncludes": "declared runner Effect.runPromiseExit has no terminal call"
+    }
+  ]
+}

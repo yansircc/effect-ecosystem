@@ -1,0 +1,1 @@
+{"main":"./src/worker.ts","durable_objects":{"bindings":[{"name":"TEST","class_name":"WorkerDO","script_name":"other-worker"}]}}

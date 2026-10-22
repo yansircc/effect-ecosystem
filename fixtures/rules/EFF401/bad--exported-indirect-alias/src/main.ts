@@ -1,0 +1,1 @@
+import {Effect} from "effect"; const inner = () => Effect.runFork(Effect.succeed(1)); export const observe = inner;

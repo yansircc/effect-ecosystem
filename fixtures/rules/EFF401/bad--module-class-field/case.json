@@ -1,0 +1,13 @@
+{
+  "description": "module-class-field-red",
+  "suites": [
+    "module-singleton-ownership",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "exact": true
+}

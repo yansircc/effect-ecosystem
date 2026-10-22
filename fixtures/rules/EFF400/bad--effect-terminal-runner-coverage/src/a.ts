@@ -1,0 +1,13 @@
+import { Effect } from "effect"
+Effect.runCallback(a)
+Effect.runCallbackWith(aWith)
+Effect.runFork(b)
+Effect.runForkWith(bWith)
+Effect.runPromise(c)
+Effect.runPromiseWith(cWith)
+Effect.runPromiseExit(d)
+Effect.runPromiseExitWith(dWith)
+Effect.runSync(e)
+Effect.runSyncWith(eWith)
+Effect.runSyncExit(f)
+Effect.runSyncExitWith(fWith)

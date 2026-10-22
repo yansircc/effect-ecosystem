@@ -1,0 +1,12 @@
+{
+  "description": "EFF504 bad: TypeScript compile error",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ],
+  "exact": true
+}

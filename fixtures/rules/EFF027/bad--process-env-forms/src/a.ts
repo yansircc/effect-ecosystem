@@ -1,0 +1,9 @@
+const a = process.env["A"]
+const { B } = process.env
+const { env } = process
+const c = env.C
+const e = globalThis.process.env
+const d = e.D
+const m = import.meta.env.VITE_X
+const bun = Bun.env.Z
+export const facts = [a, B, c, d, m, bun]

@@ -3,28 +3,25 @@ BIN ?= $(PREFIX)/bin/effect-scan
 BUILD_DIR ?= dist-dev
 INSTALL_ROOT ?= dist-installed
 
-.PHONY: rust-build diff-fixtures build install package skill verify verify-acceptance verify-performance verify-performance-realworld
+.PHONY: rust-build fixtures build install package skill verify verify-acceptance verify-performance verify-performance-realworld
 
 rust-build:
 	cargo build --release -p effect-scan
 
-# The Rust build embeds the TypeScript build's provenance so `scanner.*` and `complianceHash` are comparable.
-diff-fixtures: build
-	EFFECT_SCAN_BUILD_INFO="$(abspath $(BUILD_DIR))/build-info.json" cargo build --release -p effect-scan
-	node "$(BUILD_DIR)/scripts/diff-fixtures.js" target/release/effect-scan
+# Runs every fixture under fixtures/ (rules/<RULE_ID>/{good,bad}, scenarios/) through the Rust binary and the internal suites.
+fixtures: build rust-build
+	node "$(BUILD_DIR)/scripts/run-fixtures.js" --bin target/release/effect-scan
 
 build:
 	rm -rf "$(BUILD_DIR)"
 	node scripts/prepare-effect-tsgo.mjs
 	./node_modules/.bin/tsc -p tsconfig.json --outDir "$(BUILD_DIR)"
 	node "$(BUILD_DIR)/scripts/write-build-info.js" "$(BUILD_DIR)"
-	mkdir -p "$(BUILD_DIR)/validator/fixtures" "$(BUILD_DIR)/references" "$(BUILD_DIR)/contracts/evidence"
+	mkdir -p "$(BUILD_DIR)/validator" "$(BUILD_DIR)/references" "$(BUILD_DIR)/contracts/evidence"
 	cp validator/manifest.schema.json "$(BUILD_DIR)/validator/"
-	cp validator/fixtures/fixtures.config.json "$(BUILD_DIR)/validator/fixtures/"
 	cp -R references/. "$(BUILD_DIR)/references/"
 	cp contracts/*.json "$(BUILD_DIR)/contracts/"
 	cp contracts/evidence/*.json "$(BUILD_DIR)/contracts/evidence/"
-	chmod +x "$(BUILD_DIR)/validator/scan.js"
 
 install:
 	@set -eu; \
@@ -83,9 +80,9 @@ verify:
 	node "$(BUILD_DIR)/scripts/check-api-catalog.js" && \
 	node "$(BUILD_DIR)/scripts/check-reference-routing.js" && \
 	node "$(BUILD_DIR)/scripts/typecheck-references.js" && \
-	node "$(BUILD_DIR)/scripts/self-test.js" --exact && \
-	node "$(BUILD_DIR)/scripts/self-test.js" --contract && \
-	node "$(BUILD_DIR)/validator/scan.js" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json && \
+	$(MAKE) rust-build && \
+	node "$(BUILD_DIR)/scripts/run-fixtures.js" --bin target/release/effect-scan --exact && \
+	target/release/effect-scan . --strict --output gate-json >/tmp/effect-skill-verify-profile.json && \
 	node "$(BUILD_DIR)/scripts/verify-acceptance.js" && \
 	node "$(BUILD_DIR)/scripts/benchmark-scan.js"; \
 	} || status=$$?; \
@@ -93,11 +90,11 @@ verify:
 	if [ "$$before" != "$$after" ]; then echo "installed scanner changed during make verify: $$before -> $$after" >&2; exit 1; fi; \
 	exit "$$status"
 
-verify-acceptance: build
+verify-acceptance: build rust-build
 	node "$(BUILD_DIR)/scripts/verify-acceptance.js"
 
-verify-performance: build
+verify-performance: build rust-build
 	node "$(BUILD_DIR)/scripts/benchmark-scan.js"
 
-verify-performance-realworld: build
+verify-performance-realworld: build rust-build
 	node "$(BUILD_DIR)/scripts/benchmark-scan.js" --github

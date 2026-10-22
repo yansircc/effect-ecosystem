@@ -1,0 +1,24 @@
+{
+  "description": "effect-boundary-callbacks-red",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001",
+    "EFF003",
+    "EFF004"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:12:EFF003:error",
+    "src/a.ts:12:EFF004:error",
+    "src/a.ts:13:EFF003:error",
+    "src/a.ts:13:EFF004:error",
+    "src/a.ts:14:EFF003:error",
+    "src/a.ts:14:EFF004:error",
+    "src/a.ts:17:EFF001:error",
+    "src/a.ts:5:EFF003:error",
+    "src/a.ts:5:EFF004:error"
+  ]
+}

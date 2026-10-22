@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the library-exported-effect-rollup suite",
+  "suites": [
+    "library-exported-effect-rollup"
+  ],
+  "suite": "library-exported-effect-rollup"
+}

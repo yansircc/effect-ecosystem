@@ -1,0 +1,11 @@
+{
+  "description": "process-main-pipe-run-main-green",
+  "suites": [
+    "runner-facts",
+    "edge-rules"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": []
+}

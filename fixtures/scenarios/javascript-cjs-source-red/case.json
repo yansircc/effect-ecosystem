@@ -1,0 +1,15 @@
+{
+  "description": "javascript-cjs-source-red",
+  "suites": [
+    "javascript-source-ownership",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004",
+    "EFF400"
+  ],
+  "exact": true
+}

@@ -1,0 +1,12 @@
+{
+  "description": "EFF029 bad: imports @trpc/server",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF029"
+  ],
+  "exact": true
+}

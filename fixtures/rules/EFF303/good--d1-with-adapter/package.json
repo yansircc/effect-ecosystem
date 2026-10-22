@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@effect/sql-d1": "4.0.5",
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}

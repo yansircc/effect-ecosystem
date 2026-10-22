@@ -1,0 +1,14 @@
+{
+  "description": "effect-before-floor-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF908"
+  ],
+  "exact": true
+}

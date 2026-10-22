@@ -1,0 +1,29 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/bridge.ts",
+      "owner": "@runtime",
+      "reason": "claimed package facade",
+      "execution": {
+        "lifecycle": "package-facade",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "package": {
+          "name": "@scope/runtime",
+          "subpath": "./local",
+          "export": "createRuntime",
+          "members": [
+            {
+              "kind": "factory-local",
+              "name": "commit"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

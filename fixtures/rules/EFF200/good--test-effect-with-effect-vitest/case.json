@@ -1,0 +1,10 @@
+{
+  "description": "test-effect-with-effect-vitest-green",
+  "suites": [
+    "test-scope-rules",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

@@ -1,0 +1,13 @@
+{
+  "description": "javascript-mjs-forged-main-red",
+  "suites": [
+    "javascript-source-ownership",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "exact": true
+}

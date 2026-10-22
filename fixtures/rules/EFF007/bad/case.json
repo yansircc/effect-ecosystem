@@ -1,0 +1,12 @@
+{
+  "description": "EFF007 bad: imports zod",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF007"
+  ],
+  "exact": true
+}

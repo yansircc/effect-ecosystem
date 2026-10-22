@@ -1,0 +1,12 @@
+{
+  "description": "effect-stable-patch-green",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

@@ -1,0 +1,1 @@
+import {Effect} from "effect"; export function other() { Effect.runFork(Effect.succeed(1)); }

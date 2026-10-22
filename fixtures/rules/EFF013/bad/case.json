@@ -1,0 +1,12 @@
+{
+  "description": "EFF013 bad: imports ts-pattern",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF013"
+  ],
+  "exact": true
+}

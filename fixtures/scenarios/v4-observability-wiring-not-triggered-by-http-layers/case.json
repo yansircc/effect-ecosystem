@@ -1,0 +1,12 @@
+{
+  "description": "v4-observability-wiring-not-triggered-by-http-layers",
+  "suites": [
+    "otel-signal-boundary",
+    "atomic-signals"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalCount": 0
+}

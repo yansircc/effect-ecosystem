@@ -1,0 +1,10 @@
+{
+  "description": "otel-app-optional-green",
+  "suites": [
+    "otel-presence",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

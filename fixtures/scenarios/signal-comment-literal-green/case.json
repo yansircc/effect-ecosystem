@@ -1,0 +1,13 @@
+{
+  "description": "signal-comment-literal-green",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalCount": 0
+}

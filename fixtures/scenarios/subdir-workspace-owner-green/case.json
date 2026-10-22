@@ -1,0 +1,11 @@
+{
+  "description": "subdir-workspace-owner-green",
+  "suites": [
+    "monorepo-dependency-resolution",
+    "red-green-fixtures"
+  ],
+  "scanPath": "apps/runtime",
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

@@ -1,0 +1,12 @@
+{
+  "description": "EFF032 bad: new Date() (warning)",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [
+    "EFF032"
+  ],
+  "exact": true
+}

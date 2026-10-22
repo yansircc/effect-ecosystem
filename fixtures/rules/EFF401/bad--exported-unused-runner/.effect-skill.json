@@ -1,0 +1,22 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.ts",
+      "owner": "@fixture",
+      "reason": "Caller owns this lifecycle execution and cleanup.",
+      "execution": {
+        "lifecycle": "exported-function",
+        "runners": [
+          "Effect.runFork",
+          "Effect.runSync"
+        ],
+        "function": {
+          "export": "observe"
+        }
+      }
+    }
+  ]
+}

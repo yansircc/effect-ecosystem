@@ -1,0 +1,24 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "executableEdges": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "Wrangler dispatch must reject a spoofed Sentry wrapper",
+      "execution": {
+        "lifecycle": "wrangler-worker",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "worker": {
+          "methods": [
+            "scheduled"
+          ]
+        }
+      }
+    }
+  ]
+}

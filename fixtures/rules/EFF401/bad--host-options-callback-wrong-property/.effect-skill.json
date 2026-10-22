@@ -1,0 +1,24 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/auth.ts",
+      "owner": "@auth-tests",
+      "reason": "magic-link callback",
+      "execution": {
+        "lifecycle": "host-options-callback",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "host": {
+          "module": "better-auth/plugins/magic-link",
+          "export": "magicLink",
+          "optionsArgument": 0,
+          "property": "sendMagicLink"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "description": "EFF030 bad: imports @prisma/client",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF030"
+  ],
+  "exact": true
+}

@@ -1,0 +1,13 @@
+{
+  "description": "evidence-hash-axes-green",
+  "suites": [
+    "scan-evidence",
+    "version-resolver",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectEvidenceHashAxes": true
+}

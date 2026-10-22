@@ -1,0 +1,15 @@
+{
+  "description": "profile-exit-clean",
+  "suites": [
+    "profile-output",
+    "profile-exit-code",
+    "profile-facts",
+    "profile-manifest-one-truth"
+  ],
+  "strict": true,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectProfile": true,
+  "expectRequiredReferenceCount": 0
+}

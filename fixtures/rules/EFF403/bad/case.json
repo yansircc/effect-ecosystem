@@ -1,0 +1,12 @@
+{
+  "description": "EFF403 bad: namespace import of effect",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ],
+  "exact": true
+}

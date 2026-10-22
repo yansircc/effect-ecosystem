@@ -2,7 +2,7 @@
 // Regenerates contracts/api-catalog.json from installed packages + the npm registry.
 // Run after changing the pinned effect version: `node dist-dev/scripts/generate-api-catalog.js`.
 import { readFileSync, writeFileSync } from "node:fs"
-import { buildCatalog, CATALOG_PATH, effectImportRoots } from "./api-catalog.js"
+import { buildCatalog, CATALOG_PATH, effectImportRoots } from "../tools/api-catalog.js"
 
 const capabilities = JSON.parse(readFileSync("contracts/effect-capabilities.json", "utf8"))
 const catalog = buildCatalog(process.cwd(), { v3LineNames: capabilities.v3LinePackages })

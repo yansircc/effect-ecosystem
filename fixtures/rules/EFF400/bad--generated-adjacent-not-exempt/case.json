@@ -1,0 +1,15 @@
+{
+  "description": "generated-adjacent-not-exempt",
+  "suites": [
+    "edge-rules",
+    "evil-edge-bypass",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ]
+}

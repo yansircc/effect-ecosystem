@@ -1,0 +1,15 @@
+{
+  "description": "v4-otel-missing-peer-red",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage",
+    "evil-fixtures"
+  ],
+  "antiCheat": true,
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF323"
+  ]
+}

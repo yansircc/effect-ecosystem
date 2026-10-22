@@ -1,0 +1,12 @@
+{
+  "description": "EFF014 bad: imports @tanstack/react-query",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF014"
+  ],
+  "exact": true
+}

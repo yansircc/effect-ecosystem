@@ -1,0 +1,12 @@
+{
+  "description": "EFF016 bad: imports jotai",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF016"
+  ],
+  "exact": true
+}

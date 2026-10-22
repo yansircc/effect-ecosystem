@@ -1,0 +1,23 @@
+{
+  "description": "v4-effect-fn-span-recognition",
+  "suites": [
+    "atomic-signals",
+    "signal-token-view"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalCount": 3,
+  "expectSignalFacts": [
+    {
+      "kind": "library-exported-effect-package",
+      "package": ".",
+      "facts": {
+        "exportedEffectFiles": 4,
+        "withSpanFiles": 2,
+        "withoutSpanFiles": 2
+      }
+    }
+  ]
+}

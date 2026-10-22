@@ -1,0 +1,15 @@
+{
+  "description": "process-main-pipe-run-main-duplicate-red",
+  "suites": [
+    "runner-facts",
+    "edge-rules"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401"
+  ],
+  "expectFindingKeys": [
+    "src/main.ts:5:EFF401:error"
+  ]
+}

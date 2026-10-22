@@ -1,0 +1,21 @@
+{
+  "shape": [
+    "library"
+  ],
+  "testGlobs": [
+    "**/*.test.ts"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/a.test.ts",
+      "owner": "@tests",
+      "reason": "Effect test Promise double",
+      "execution": {
+        "lifecycle": "effect-vitest",
+        "runners": [
+          "Effect.runPromise"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "description": "EFF900 bad: manifest with a property the schema does not allow",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ],
+  "exact": true
+}

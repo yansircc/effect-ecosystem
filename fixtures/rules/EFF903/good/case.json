@@ -1,0 +1,10 @@
+{
+  "description": "EFF903 good: the compliant form of the same code",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

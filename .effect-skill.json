@@ -1,5 +1,7 @@
 {
-  "shape": ["library"],
+  "shape": [
+    "library"
+  ],
   "generatedPaths": [
     {
       "glob": "references/snippets/**",
@@ -9,14 +11,19 @@
   ],
   "hostTooling": [
     {
-      "path": "validator/**",
+      "path": "tools/**",
       "owner": "@effect-ecosystem-skill",
-      "reason": "Node scanner implementation for target repositories; target Effect application rules do not claim this host tooling."
+      "reason": "Development tooling for the skill itself (fixture runner, contract validation, rule registry); target Effect application rules do not claim this host tooling."
     },
     {
       "path": "scripts/**",
       "owner": "@effect-ecosystem-skill",
       "reason": "Registry generation and verification scripts for the skill itself."
+    },
+    {
+      "path": "fixtures/**",
+      "owner": "@effect-ecosystem-skill",
+      "reason": "Scanner fixtures: deliberately violating and compliant scan targets, not source of this repository."
     }
   ]
 }

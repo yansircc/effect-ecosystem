@@ -1,0 +1,12 @@
+{
+  "description": "EFF324 bad: declared Effect v4, installed Effect v3 (lockfile)",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF324"
+  ],
+  "exact": true
+}

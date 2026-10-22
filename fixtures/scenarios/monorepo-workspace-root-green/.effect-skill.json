@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "path": "apps/web",
+      "shape": [
+        "ai"
+      ],
+      "dependencyOwner": "workspace-root",
+      "dependencyOwnerReason": "workspace deps"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "test-http-fixture-does-not-admit-runner-red",
+  "suites": [
+    "platform-constructor-identity",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectRuleCounts": {
+    "EFF402": 0
+  },
+  "exact": true
+}

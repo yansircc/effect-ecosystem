@@ -1,0 +1,28 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/local.ts",
+      "owner": "@runtime",
+      "reason": "bare promise is not a facade",
+      "execution": {
+        "lifecycle": "package-facade",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "package": {
+          "name": "@scope/runtime",
+          "subpath": "./local",
+          "export": "createRuntime",
+          "members": [
+            {
+              "kind": "factory"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

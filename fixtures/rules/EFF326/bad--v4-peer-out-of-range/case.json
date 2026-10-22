@@ -1,0 +1,14 @@
+{
+  "description": "v4-peer-out-of-range-red",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF326"
+  ],
+  "exact": true
+}

@@ -1,0 +1,15 @@
+{
+  "description": "workspace-owner-outside-workspace-red",
+  "suites": [
+    "monorepo-dependency-resolution",
+    "evil-monorepo-root-leak",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "scanPath": "apps/runtime",
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF907"
+  ]
+}

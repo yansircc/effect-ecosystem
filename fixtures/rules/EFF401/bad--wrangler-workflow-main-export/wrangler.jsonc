@@ -1,0 +1,1 @@
+{"main":"./src/worker.ts","workflows":[{"name":"test","binding":"TEST_WORKFLOW","class_name":"TestWorkflow"}]}

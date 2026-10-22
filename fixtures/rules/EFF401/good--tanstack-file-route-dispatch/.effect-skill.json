@@ -1,0 +1,18 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/route.ts",
+      "owner": "@tanstack-file-route-tests",
+      "reason": "TanStack file-route HTTP handler",
+      "execution": {
+        "lifecycle": "tanstack-file-route",
+        "runners": [
+          "Effect.runPromise"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/registrar.ts",
+      "owner": "@tests",
+      "reason": "nested registrar callbacks",
+      "execution": {
+        "lifecycle": "host-callback",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "hosts": [
+          {
+            "module": "vite-plus/test",
+            "export": "it",
+            "callbackArgument": 1
+          }
+        ]
+      }
+    }
+  ]
+}

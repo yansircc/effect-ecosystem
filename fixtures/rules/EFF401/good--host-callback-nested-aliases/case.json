@@ -1,0 +1,12 @@
+{
+  "description": "host-callback-nested-aliases-green",
+  "suites": [
+    "edge-rules",
+    "red-green-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": []
+}

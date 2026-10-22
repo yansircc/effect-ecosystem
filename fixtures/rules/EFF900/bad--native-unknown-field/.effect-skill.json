@@ -1,0 +1,16 @@
+{
+  "shape": [
+    "http-server"
+  ],
+  "nativeDependencyBoundaries": [
+    {
+      "package": ".",
+      "dependency": "hono",
+      "owner": "@host-runtime",
+      "reason": "Retained framework router uses Hono objects.",
+      "rules": [
+        "EFF310"
+      ]
+    }
+  ]
+}

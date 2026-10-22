@@ -1,0 +1,8 @@
+{
+  "shape": [
+    "library"
+  ],
+  "testGlobs": [
+    "**/custom-check.ts"
+  ]
+}

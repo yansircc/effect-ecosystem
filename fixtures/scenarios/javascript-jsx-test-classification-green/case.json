@@ -1,0 +1,11 @@
+{
+  "description": "javascript-jsx-test-classification-green",
+  "suites": [
+    "javascript-source-ownership",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

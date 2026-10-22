@@ -1,0 +1,26 @@
+{
+  "shape": [
+    "worker"
+  ],
+  "wranglerPath": "wrangler.jsonc",
+  "executableEdges": [
+    {
+      "path": "src/worker.ts",
+      "owner": "@worker-tests",
+      "reason": "method set must be complete",
+      "execution": {
+        "lifecycle": "wrangler-do",
+        "runners": [
+          "Effect.runPromise",
+          "Effect.runPromiseExit"
+        ],
+        "durableObject": {
+          "className": "WorkerDO",
+          "methods": [
+            "project"
+          ]
+        }
+      }
+    }
+  ]
+}

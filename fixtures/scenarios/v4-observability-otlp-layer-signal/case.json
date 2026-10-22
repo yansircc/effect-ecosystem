@@ -1,0 +1,29 @@
+{
+  "description": "v4-observability-otlp-layer-signal",
+  "suites": [
+    "otel-signal-boundary",
+    "atomic-signals"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "observability-wiring-facts"
+  ],
+  "expectSignalFacts": [
+    {
+      "kind": "observability-wiring-facts",
+      "facts": {
+        "containsOtlpLayer": true,
+        "containsNodeSdkLayer": false,
+        "containsWebSdkLayer": false,
+        "opentelemetryImportedModules": [],
+        "opentelemetryLayerFactories": [
+          "OtlpTracer.layer",
+          "observability.Otlp.layer"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "packages": [
+    {
+      "path": "apps/edge",
+      "shape": [
+        "worker"
+      ],
+      "wranglerPath": "wrangler.jsonc"
+    },
+    {
+      "path": "apps/runtime",
+      "shape": [
+        "worker"
+      ],
+      "wranglerPath": "wrangler.jsonc"
+    }
+  ]
+}

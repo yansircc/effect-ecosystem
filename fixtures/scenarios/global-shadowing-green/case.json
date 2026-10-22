@@ -1,0 +1,10 @@
+{
+  "description": "global-shadowing-green",
+  "suites": [
+    "async-ast-rules"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": []
+}

@@ -1,0 +1,5 @@
+packages:
+  - 'apps/*'
+catalog:
+  typescript: 7.0.2
+  '@effect/tsgo': 0.56.0

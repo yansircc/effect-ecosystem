@@ -1,0 +1,12 @@
+{
+  "description": "EFF402 bad: platform constructor outside a declared adapter",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF402"
+  ],
+  "exact": true
+}

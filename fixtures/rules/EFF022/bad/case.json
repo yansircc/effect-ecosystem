@@ -1,0 +1,12 @@
+{
+  "description": "EFF022 bad: setTimeout",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF022"
+  ],
+  "exact": true
+}

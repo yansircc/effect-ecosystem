@@ -1,0 +1,15 @@
+{
+  "description": "outside a Git repository the walk scans build/ and out/ (user source directory names) and finds each file",
+  "suites": [
+    "candidate-source"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "build/a.ts",
+    "out/a.ts",
+    "src/a.ts"
+  ]
+}

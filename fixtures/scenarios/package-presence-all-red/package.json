@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "pg": "1.0.0",
+    "mysql2": "1.0.0",
+    "better-sqlite3": "1.0.0",
+    "@clickhouse/client": "1.0.0",
+    "express": "1.0.0",
+    "axios": "1.0.0",
+    "openai": "1.0.0",
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "@effect/tsgo": "0.56.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "v4-http-platform-is-effect-http-import",
+  "suites": [
+    "otel-signal-boundary",
+    "atomic-signals"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignalFacts": [
+    {
+      "kind": "observability-wiring-facts",
+      "facts": {
+        "hasEffectOpenTelemetryDependency": true,
+        "hasEffectPlatformDependency": true,
+        "containsHttpClientToken": true,
+        "containsOtlpLayer": false
+      }
+    }
+  ]
+}

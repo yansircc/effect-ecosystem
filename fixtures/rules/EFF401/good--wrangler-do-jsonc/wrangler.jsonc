@@ -1,0 +1,5 @@
+{
+  // exact runtime entry
+  "main": "./src/worker.ts",
+  "durable_objects": { "bindings": [{ "name": "TEST", "class_name": "WorkerDO" }] }
+}

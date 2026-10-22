@@ -1,0 +1,11 @@
+{
+  "description": "suppression-missing-reason-red",
+  "suites": [
+    "suppression",
+    "evil-fixtures"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "test-import-spelling-not-import-green",
+  "suites": [
+    "test-import-identity",
+    "red-green-fixtures"
+  ],
+  "expectExit": 0,
+  "expectRules": [],
+  "expectRuleCounts": {
+    "EFF200": 0
+  },
+  "exact": true
+}

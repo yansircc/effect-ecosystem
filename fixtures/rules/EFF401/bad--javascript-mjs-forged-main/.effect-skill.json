@@ -1,0 +1,16 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/main.mjs",
+      "owner": "@runtime",
+      "reason": "Node CLI lifecycle",
+      "execution": {
+        "lifecycle": "process-main",
+        "runner": "NodeRuntime.runMain"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "description": "effect-prerelease-rejected",
+  "suites": [
+    "toolchain-hard-cut",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF908"
+  ],
+  "exact": true
+}

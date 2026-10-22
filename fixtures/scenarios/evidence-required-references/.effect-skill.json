@@ -1,0 +1,18 @@
+{
+  "shape": [
+    "http-server",
+    "db:pg",
+    "ai",
+    "rpc",
+    "frontend",
+    "workflow",
+    "node"
+  ],
+  "aiProviderTransports": [
+    {
+      "path": "src/ai-transport.ts",
+      "owner": "@ai-transport",
+      "reason": "terminal provider transport"
+    }
+  ]
+}

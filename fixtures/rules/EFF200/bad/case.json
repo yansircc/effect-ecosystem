@@ -1,0 +1,12 @@
+{
+  "description": "EFF200 bad: Effect test without @effect/vitest",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF200"
+  ],
+  "exact": true
+}

@@ -1,0 +1,12 @@
+{
+  "description": "owned-native-dependency-green",
+  "suites": [
+    "native-dependency-boundaries",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectRuleCounts": {},
+  "exact": true
+}

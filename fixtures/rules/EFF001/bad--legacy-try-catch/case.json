@@ -1,0 +1,11 @@
+{
+  "description": "legacy-try-catch-red",
+  "suites": [
+    "legacy-line-rules",
+    "red-green-fixtures"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ]
+}

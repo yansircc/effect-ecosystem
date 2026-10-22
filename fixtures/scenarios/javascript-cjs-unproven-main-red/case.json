@@ -1,0 +1,14 @@
+{
+  "description": "javascript-cjs-unproven-main-red",
+  "suites": [
+    "javascript-source-ownership",
+    "red-green-fixtures"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF401",
+    "EFF404"
+  ],
+  "exact": true
+}

@@ -1,0 +1,12 @@
+{
+  "description": "d1-with-adapter-green",
+  "suites": [
+    "v4-package-rules",
+    "package-presence",
+    "fixture-coverage"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

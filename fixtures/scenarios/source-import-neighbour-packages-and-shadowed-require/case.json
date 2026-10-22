@@ -1,0 +1,10 @@
+{
+  "description": "source-import-neighbour-packages-and-shadowed-require",
+  "suites": [
+    "legacy-line-rules"
+  ],
+  "strict": false,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectFindingKeys": []
+}

@@ -1,0 +1,15 @@
+{
+  "description": "run-suppression-cannot-admit-red",
+  "suites": [
+    "edge-rules",
+    "suppression",
+    "evil-edge-bypass",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ]
+}

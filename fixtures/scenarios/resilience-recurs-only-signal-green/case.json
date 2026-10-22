@@ -1,0 +1,28 @@
+{
+  "description": "resilience-recurs-only-signal-green",
+  "suites": [
+    "resilience-signals",
+    "atomic-signals",
+    "red-green-fixtures"
+  ],
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "resilience-boundary-file"
+  ],
+  "expectSignalFacts": [
+    {
+      "kind": "resilience-boundary-file",
+      "facts": {
+        "calls": [
+          "Effect.retry",
+          "Schedule.recurs"
+        ],
+        "scheduleMembers": [
+          "Schedule.recurs"
+        ]
+      }
+    }
+  ]
+}

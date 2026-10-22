@@ -1,0 +1,30 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/hooks.ts",
+      "owner": "@tests",
+      "reason": "two exact host hooks",
+      "execution": {
+        "lifecycle": "host-callback",
+        "runners": [
+          "Effect.runPromise"
+        ],
+        "hosts": [
+          {
+            "module": "vite-plus/test",
+            "export": "beforeAll",
+            "callbackArgument": 0
+          },
+          {
+            "module": "vite-plus/test",
+            "export": "afterAll",
+            "callbackArgument": 0
+          }
+        ]
+      }
+    }
+  ]
+}

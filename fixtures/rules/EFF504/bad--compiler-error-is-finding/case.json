@@ -1,0 +1,11 @@
+{
+  "description": "compiler-error-is-finding",
+  "suites": [
+    "compiler-diagnostics-boundary"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF504"
+  ]
+}

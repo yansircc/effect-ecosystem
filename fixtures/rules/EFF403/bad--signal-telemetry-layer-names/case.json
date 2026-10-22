@@ -1,0 +1,14 @@
+{
+  "description": "signal-telemetry-layer-names",
+  "suites": [
+    "otel-signal-boundary",
+    "atomic-signals"
+  ],
+  "strict": false,
+  "profile": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF403"
+  ],
+  "expectSignalCount": 1
+}

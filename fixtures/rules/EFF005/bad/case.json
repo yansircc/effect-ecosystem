@@ -1,0 +1,12 @@
+{
+  "description": "EFF005 bad: Promise combinator",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF005"
+  ],
+  "exact": true
+}

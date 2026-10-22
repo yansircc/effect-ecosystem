@@ -1,0 +1,15 @@
+{
+  "description": "runner-value-pipe-and-map-red",
+  "suites": [
+    "runner-facts"
+  ],
+  "strict": false,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF400"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:3:EFF400:error",
+    "src/a.ts:4:EFF400:error"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "description": "without testGlobs, files under __tests__/, test/ and tests/ (any depth) are test files; neighbouring names are source",
+  "suites": [
+    "file-classifier"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "src/contest.ts",
+    "src/latest/a.ts",
+    "src/testing/a.ts"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "typed-constructor-origin-unknown-red",
+  "suites": [
+    "platform-constructor-identity",
+    "red-green-fixtures"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF402"
+  ],
+  "expectRuleCounts": {
+    "EFF402": 5
+  },
+  "exact": true
+}

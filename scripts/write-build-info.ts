@@ -15,6 +15,7 @@ const SOURCE_PATHS = [
   "contracts",
   "references",
   "scripts",
+  "tools",
   "validator",
 ]
 

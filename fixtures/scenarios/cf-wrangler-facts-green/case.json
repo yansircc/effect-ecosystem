@@ -1,0 +1,45 @@
+{
+  "description": "cf-wrangler-facts-green",
+  "suites": [
+    "cloudflare-runtime-facts",
+    "atomic-signals",
+    "red-green-fixtures"
+  ],
+  "profile": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "expectSignals": [
+    "cloudflare-runtime-facts"
+  ],
+  "expectRequiredReferences": [
+    "references/observability.md §4. 导出 telemetry",
+    "references/runtime-boundaries.md §Cloudflare Facet"
+  ],
+  "expectRequiredReferenceCount": 2,
+  "expectSignalFacts": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "errors": []
+      }
+    }
+  ],
+  "expectSignalFactPaths": [
+    {
+      "kind": "cloudflare-runtime-facts",
+      "facts": {
+        "platform.value": "cloudflare-worker",
+        "platform.source.path": "wrangler.jsonc",
+        "compatDate.value": "2025-12-17",
+        "compatFlags.0.value": "nodejs_compat",
+        "entryPoint.value": "src/index.ts",
+        "bindings.0.type": "d1_database",
+        "bindings.0.name": "DB",
+        "bindings.1.type": "kv_namespace",
+        "bindings.1.name": "EDGE_KV",
+        "limits.0.name": "cpu_ms",
+        "limits.0.value": 30
+      }
+    }
+  ]
+}

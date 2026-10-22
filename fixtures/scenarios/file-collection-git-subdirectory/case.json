@@ -1,0 +1,15 @@
+{
+  "description": "a scan of a subdirectory of a Git repository never reaches outside its root",
+  "suites": [
+    "candidate-source"
+  ],
+  "git": {},
+  "scanPath": "packages/app",
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001"
+  ],
+  "expectFindingFiles": [
+    "in.ts"
+  ]
+}

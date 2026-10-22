@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readRegistry } from "./rule-registry.js"
+import { readRegistry } from "../tools/rule-registry.js"
 
 const registry = readRegistry()
 const ids = registry.rules.map((rule) => rule.id)

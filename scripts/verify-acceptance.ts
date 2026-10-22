@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { supportedToolchain } from "../validator/lib/effect-capabilities.js"
+import { supportedToolchain } from "../tools/lib/effect-capabilities.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = mkdtempSync("/tmp/effect-skill-v4-acceptance-")
@@ -33,7 +33,9 @@ assertIncludes(bun.stdout, "node-ok", "bun runtime")
 runBin("tsc", ["--noEmit", "--pretty", "false", "-p", "tsconfig.valid.json"])
 runBin("tsc", ["--noEmit", "--pretty", "false", "-p", "tsconfig.worker.json"])
 
-const scan = run("node", [resolve(__dirname, "..", "validator", "scan.js"), root, "--strict", "--output", "raw-json", "--profile"], {
+// The scanner under acceptance is the Rust binary of this checkout (`EFFECT_SCAN_BIN` overrides the path).
+const scanner = resolve(process.env.EFFECT_SCAN_BIN ?? resolve(__dirname, "..", "..", "target", "release", "effect-scan"))
+const scan = run(scanner, [root, "--strict", "--output", "raw-json", "--profile"], {
   allowFailure: true,
   timeout: 120_000,
 })

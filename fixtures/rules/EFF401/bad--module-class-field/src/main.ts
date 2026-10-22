@@ -1,0 +1,1 @@
+import { Effect } from "effect"; export class Deferred { value = Effect.runSync(Effect.succeed(1)); }

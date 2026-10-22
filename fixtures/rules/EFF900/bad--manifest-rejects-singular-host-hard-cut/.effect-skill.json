@@ -1,0 +1,21 @@
+{
+  "shape": [
+    "library"
+  ],
+  "executableEdges": [
+    {
+      "path": "src/registrar.ts",
+      "owner": "@tests",
+      "reason": "legacy singular host",
+      "execution": {
+        "lifecycle": "host-callback",
+        "runner": "Effect.runPromise",
+        "host": {
+          "module": "vite-plus/test",
+          "export": "it",
+          "callbackArgument": 1
+        }
+      }
+    }
+  ]
+}

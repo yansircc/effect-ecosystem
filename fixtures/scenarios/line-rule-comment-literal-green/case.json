@@ -1,0 +1,12 @@
+{
+  "description": "line-rule-comment-literal-green",
+  "suites": [
+    "legacy-line-rules",
+    "red-green-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

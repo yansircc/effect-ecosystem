@@ -1,0 +1,13 @@
+{
+  "description": "manifest-rejects-legacy-executable-edge",
+  "suites": [
+    "manifest-schema",
+    "evil-fixtures",
+    "cheapest-plausible-lies"
+  ],
+  "antiCheat": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF900"
+  ]
+}

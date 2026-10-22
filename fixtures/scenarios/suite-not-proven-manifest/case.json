@@ -1,0 +1,7 @@
+{
+  "description": "base tree of the not-proven-manifest suite",
+  "suites": [
+    "notProven-manifest"
+  ],
+  "suite": "notProven-manifest"
+}

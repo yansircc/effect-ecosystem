@@ -1,0 +1,12 @@
+{
+  "description": "EFF024 bad: new Error",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF024"
+  ],
+  "exact": true
+}

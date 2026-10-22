@@ -1,0 +1,12 @@
+{
+  "shape": [
+    "library"
+  ],
+  "generatedPaths": [
+    {
+      "glob": "src/generated/**",
+      "owner": "@codegen",
+      "reason": "generated"
+    }
+  ]
+}

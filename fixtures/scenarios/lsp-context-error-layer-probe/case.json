@@ -1,0 +1,19 @@
+{
+  "description": "lsp-context-error-layer-probe",
+  "suites": [
+    "lsp-diagnostics",
+    "strict-lsp-full",
+    "fixture-coverage"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF501",
+    "EFF502",
+    "EFF503"
+  ],
+  "allowCompileErrors": [
+    "TS2322"
+  ],
+  "allowCompileErrorsReason": "the Effect language service reports EFF501-503 on the same assignments that fail as TS2322; the compile error is the diagnostic under test"
+}
