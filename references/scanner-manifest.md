@@ -23,7 +23,15 @@ Source discovery covers `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, an
 a JavaScript extension does not bypass source rules or terminal ownership.
 Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are not executable source. Default
 test classification recognizes `.test` and `.spec` before every supported
-extension; explicit `testGlobs` still replaces that default.
+extension, and every file under a `__tests__/`, `test/` or `tests/` directory at any
+depth; explicit `testGlobs` still replaces that default.
+
+Discovery: inside a Git repository the file list is `git ls-files --cached --others
+--exclude-standard`, so `.gitignore` decides what is source (an unignored `build/` or a
+tracked `dist/` is scanned). Outside a repository the scanner walks the directory and skips
+only `dist`, `coverage` and `.next`; `build` and `out` are scanned. In both modes `.git`,
+`.cst`, `node_modules`, `dist-dev` and `dist-installed` are never source. Exclude generated
+code explicitly with `generatedPaths` or `hostTooling`.
 
 CommonJS source is inspected, but `require()` is not proof of an approved ESM
 runtime import and remains subject to EFF404. Unsupported or unresolved bindings

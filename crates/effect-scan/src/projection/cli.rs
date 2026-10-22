@@ -108,3 +108,19 @@ fn human(doc: &Map<String, Value>) {
     let summary = &doc["summary"];
     println!("\n{} errors, {} warnings, total {}", text(&summary["errors"]), text(&summary["warnings"]), text(&summary["total"]));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|a| a.to_string()).collect()
+    }
+
+    #[test]
+    fn default_output_is_human_on_a_tty_and_gate_json_otherwise() {
+        assert!(matches!(resolve_output_mode(&args(&[]), true), Ok(OutputMode::Human)));
+        assert!(matches!(resolve_output_mode(&args(&[]), false), Ok(OutputMode::GateJson)));
+        assert!(matches!(resolve_output_mode(&args(&["--output", "raw-json"]), true), Ok(OutputMode::RawJson)));
+    }
+}
