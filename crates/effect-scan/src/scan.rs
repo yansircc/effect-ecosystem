@@ -9,7 +9,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 pub struct Options {
@@ -92,7 +92,6 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
     let (files, skipped_symlinks) = collect_source_files(root, manifest.as_ref(), &contract)?;
-    let mut warnings = loaded.warnings;
     warnings.extend(skipped_symlinks.iter().map(|link| format!("{link} is a symlink and was not scanned (symlinks are not followed; its target is scanned at its own path)")));
     timings.mark("collectSourceFiles");
     let ctx = ScanContext { root, options, registry, manifest: manifest.as_ref(), files: &files, contract: &contract };
