@@ -52,6 +52,7 @@ Source of truth: `contracts/rules.json`.
 - [ ] EFF501 The Effect diagnostics provider reported an unprovided service dependency.
 - [ ] EFF502 The Effect diagnostics provider reported an unhandled error channel.
 - [ ] EFF503 The Effect diagnostics provider reported an unclosed Layer dependency/error channel.
+- [ ] EFF504 TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant.
 - [ ] EFF900 .effect-skill.json failed schema validation.
 - [ ] EFF901 --strict requires a project-local TypeScript compiler.
 - [ ] EFF902 --strict requires the Effect diagnostics provider matching the installed TypeScript major.

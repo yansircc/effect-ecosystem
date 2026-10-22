@@ -93,9 +93,9 @@ Effect 默认**fail-fast**（任一错误立即中断）。表单验证、批量
 import { Effect } from "effect"
 
 // 收集成功/失败两侧
-const [failures, successes] = yield* Effect.partition(items, processOne)
-// failures: ReadonlyArray<ProcessError>
+const [successes, failures] = yield* Effect.partition(items, processOne) // 返回 [passes, fails]：成功在前、失败在后
 // successes: ReadonlyArray<Processed>
+// failures: ReadonlyArray<ProcessError>
 
 // 全部并行验证，累积错误
 const result = yield* Effect.validateAll(items, validate, { concurrency: 10 })

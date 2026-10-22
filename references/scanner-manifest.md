@@ -527,6 +527,13 @@ workspace root or matches its declared `pnpm-workspace.yaml` package globs.
 `EFF500`-`EFF503` are emitted only from the major-matched Effect diagnostics provider; the scanner
 does not reimplement Effect typeflow.
 
+### EFF504 typescript-compile-error
+
+Every TypeScript error-category diagnostic from the same compiler transaction is an `EFF504`
+finding in `--strict` mode. Code that does not compile against the installed Effect version
+(for example a removed v3 API) therefore fails the gate; `compilerDiagnostics` in the scan
+result keeps the raw rendering. Suppress only with a reasoned `eff-ignore EFF504`.
+
 ## Agent Workflow
 
 1. Run `effect-scan <repo> --strict --output gate-json --evidence <dir>`

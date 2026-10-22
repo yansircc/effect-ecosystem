@@ -289,7 +289,7 @@ yield* Effect.forEach(ids, (id) => fetchUser(id), { concurrency: 10 })
 const results = yield* Effect.all(tasks, { mode: "validate" }) // Effect<A[], E[]>
 
 // partition：成功/失败分桶
-const [failures, successes] = yield* Effect.partition(items, processOne)
+const [successes, failures] = yield* Effect.partition(items, processOne) // 返回 [passes, fails]：成功在前、失败在后
 ```
 
 ## 13. 禁忌

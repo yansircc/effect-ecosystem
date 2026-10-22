@@ -54,6 +54,7 @@ Source of truth: `contracts/rules.json`.
 | EFF501 | missing-effect-context | error | core | The Effect diagnostics provider reported an unprovided service dependency. |
 | EFF502 | missing-effect-error | error | core | The Effect diagnostics provider reported an unhandled error channel. |
 | EFF503 | unclosed-layer | error | core | The Effect diagnostics provider reported an unclosed Layer dependency/error channel. |
+| EFF504 | typescript-compile-error | error | core | TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant. |
 | EFF900 | invalid-manifest | error | core | .effect-skill.json failed schema validation. |
 | EFF901 | missing-tsc | error | core | --strict requires a project-local TypeScript compiler. |
 | EFF902 | missing-effect-diagnostics-provider | error | core | --strict requires the Effect diagnostics provider matching the installed TypeScript major. |
@@ -362,6 +363,12 @@ Rule: The Effect diagnostics provider reported an unhandled error channel.
 Profiles: core
 
 Rule: The Effect diagnostics provider reported an unclosed Layer dependency/error channel.
+
+## EFF504 typescript-compile-error
+
+Profiles: core
+
+Rule: TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant.
 
 ## EFF900 invalid-manifest
 

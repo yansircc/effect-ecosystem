@@ -181,7 +181,7 @@ Effect 默认 fail-fast。表单 / 批量 / 健康检查需要**累积全部错�
 
 ```typescript
 // 分桶
-const [failures, successes] = yield* Effect.partition(items, processOne)
+const [successes, failures] = yield* Effect.partition(items, processOne) // 返回 [passes, fails]：成功在前、失败在后
 
 // 并行验证累积错误
 const all = yield* Effect.validateAll(items, validate, { concurrency: 10 })

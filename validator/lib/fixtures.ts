@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { mkdtempSync } from "node:fs"
-import { runScan } from "./scanner.js"
+import { runScan, summarize } from "./scanner.js"
 import { RULES } from "./findings.js"
 import { compileContractValidators } from "./contract-validation.js"
 import { validateReferenceRouting } from "./reference-routing.js"
@@ -75,6 +75,7 @@ function runCases(config: any, options: any) {
         rulesPath,
         evidenceDir,
       })
+      applyAllowedCompileErrors(result, testCase)
       const exit = result.summary.errors > 0 ? 1 : 0
       if (exit !== testCase.expectExit) {
         failures.push(`${testCase.name}: expected exit ${testCase.expectExit}, got ${exit}`)
@@ -110,7 +111,10 @@ function runCases(config: any, options: any) {
       if (options.exact || testCase.exact) {
         const actualKey = actualRules.join(",")
         const expectedKey = expectedRules.join(",")
-        if (actualKey !== expectedKey) failures.push(`${testCase.name}: exact expected [${expectedKey}], got [${actualKey}]`)
+        if (actualKey !== expectedKey) {
+          const compileErrors = result.findings.filter((finding) => finding.ruleId === "EFF504").map((finding) => `${finding.file}:${finding.line} ${finding.lineText}`)
+          failures.push(`${testCase.name}: exact expected [${expectedKey}], got [${actualKey}]${compileErrors.length ? ` :: ${compileErrors.join(" | ")}` : ""}`)
+        }
       }
       if (testCase.expectProfile && !result.profile) failures.push(`${testCase.name}: expected profile output`)
       for (const profile of testCase.expectActiveProfiles ?? []) {
@@ -247,6 +251,17 @@ function validateEvidenceHashAxes(testCase, root, result, rulesPath) {
   if (repeat.evidence?.inputHash !== result.evidence?.inputHash) failures.push(`${testCase.name}: repeated evidence inputHash changed`)
   if (repeat.evidence?.complianceHash !== result.evidence?.complianceHash) failures.push(`${testCase.name}: repeated evidence complianceHash changed`)
   return failures
+}
+
+// A strict fixture must compile on the target Effect version (EFF504 is a real finding).
+// `allowCompileErrors` lists TS codes a fixture is declared to violate; it is migration
+// debt, removed once the fixture is rewritten as a compiling good/bad pair.
+function applyAllowedCompileErrors(result, testCase) {
+  const allowed = new Set(testCase.allowCompileErrors ?? [])
+  if (allowed.size === 0) return
+  result.findings = result.findings.filter((finding) =>
+    !(finding.ruleId === "EFF504" && allowed.has(finding.lineText.match(/^(TS\d+):/)?.[1])))
+  result.summary = summarize(result.findings)
 }
 
 function linkFixtureNodeModules(root) {

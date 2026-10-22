@@ -978,6 +978,25 @@
       }
     },
     {
+      "id": "EFF504",
+      "name": "typescript-compile-error",
+      "family": "lsp",
+      "severity": "error",
+      "profiles": [
+        "core"
+      ],
+      "message": "TypeScript reported a compile error; code that does not compile against the installed Effect version is not compliant.",
+      "references": [
+        "references/scanner-manifest.md §EFF504 typescript-compile-error"
+      ],
+      "facts": [
+        "compiler.diagnostics"
+      ],
+      "scanner": {
+        "kind": "projection"
+      }
+    },
+    {
       "id": "EFF900",
       "name": "invalid-manifest",
       "family": "infra",

@@ -87,6 +87,7 @@
     "EFF501",
     "EFF502",
     "EFF503",
+    "EFF504",
     "EFF900",
     "EFF902",
     "EFF903",
@@ -276,7 +277,10 @@
       },
       "expectExit": 0,
       "expectRules": [],
-      "exact": true
+      "exact": true,
+      "allowCompileErrors": [
+        "TS2307"
+      ]
     },
     {
       "name": "include-exclude-custom-rule",
@@ -312,6 +316,9 @@
       "expectExit": 1,
       "expectRules": [
         "EFF200"
+      ],
+      "allowCompileErrors": [
+        "TS2593"
       ]
     },
     {
@@ -507,6 +514,10 @@
       "expectExit": 1,
       "expectRules": [
         "EFF400"
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -523,7 +534,11 @@
         "src/main.ts": "import { NodeRuntime as Runtime } from \"@effect/platform-node\"\nRuntime.runMain(program)\n"
       },
       "expectExit": 0,
-      "expectRules": []
+      "expectRules": [],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
+      ]
     },
     {
       "name": "process-main-comment-string-red",
@@ -550,6 +565,9 @@
           "line": 1,
           "messageIncludes": "requires exactly one top-level NodeRuntime.runMain call; found 0"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2307"
       ]
     },
     {
@@ -577,6 +595,10 @@
           "line": 2,
           "messageIncludes": "declared NodeRuntime.runMain, found BunRuntime.runMain"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -604,6 +626,9 @@
           "line": 1,
           "messageIncludes": "not bound to its declared Effect runtime import"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -631,6 +656,10 @@
           "line": 2,
           "messageIncludes": "must be called at module scope"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -659,6 +688,10 @@
           "messageIncludes": "requires exactly one top-level NodeRuntime.runMain call; found 2",
           "lineTextIncludes": "second"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -675,7 +708,11 @@
         "src/registrar.ts": "import { Effect as Fx } from \"effect\"\nimport { it as test } from \"vite-plus/test\"\ntest(\"law\", () => Fx.runPromise(program))\n"
       },
       "expectExit": 0,
-      "expectRules": []
+      "expectRules": [],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
+      ]
     },
     {
       "name": "host-callback-plural-green",
@@ -692,7 +729,12 @@
         "src/hooks.ts": "import { Effect } from \"effect\"\nimport { beforeAll, afterAll } from \"vite-plus/test\"\nbeforeAll(() => Effect.runPromise(start))\nafterAll(() => Effect.runPromise(stop))\n"
       },
       "expectExit": 0,
-      "expectRules": []
+      "expectRules": [],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307",
+        "TS2345"
+      ]
     },
     {
       "name": "host-callback-unused-registration-red",
@@ -734,7 +776,11 @@
         "src/registrar.ts": "import { Effect } from \"effect\"\nimport { it } from \"vite-plus/test\"\nconst Fx = Effect\nconst { runPromise } = Effect\nconst direct = Effect.runPromise\nexport function register(effect) {\n  it(\"object alias\", () => Fx.runPromise(effect()))\n  it(\"destructured alias\", () => runPromise(effect()))\n  it(\"direct member alias\", () => direct(effect()))\n}\n"
       },
       "expectExit": 0,
-      "expectRules": []
+      "expectRules": [],
+      "allowCompileErrors": [
+        "TS2307",
+        "TS7006"
+      ]
     },
     {
       "name": "local-effect-shadow-green",
@@ -843,6 +889,10 @@
           "messageIncludes": "is not owned by the declared host callback",
           "lineTextIncludes": "uncovered"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -871,6 +921,10 @@
           "messageIncludes": "exactly once; found 2",
           "lineTextIncludes": "Effect.runPromise"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -898,6 +952,9 @@
           "line": 3,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -925,6 +982,10 @@
           "line": 3,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -952,6 +1013,10 @@
           "line": 4,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -979,6 +1044,10 @@
           "line": 3,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -1007,6 +1076,10 @@
           "messageIncludes": "is not owned by the declared host callback",
           "lineTextIncludes": "other"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -1034,6 +1107,11 @@
           "line": 3,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307",
+        "TS7006"
       ]
     },
     {
@@ -1061,6 +1139,10 @@
           "line": 3,
           "messageIncludes": "is not owned by the declared host callback"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
@@ -1682,6 +1764,9 @@
       "expectExit": 1,
       "expectRules": [
         "EFF400"
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -1710,6 +1795,9 @@
           "line": 1,
           "messageIncludes": "not bound to its declared Effect runtime import"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -1902,6 +1990,10 @@
         "EFF004",
         "EFF020",
         "EFF404"
+      ],
+      "allowCompileErrors": [
+        "TS1375",
+        "TS2591"
       ]
     },
     {
@@ -1930,6 +2022,9 @@
           "line": 3,
           "lineTextIncludes": "run(program)"
         }
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -1949,6 +2044,9 @@
       "expectExit": 1,
       "expectRules": [
         "EFF400"
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -1989,8 +2087,8 @@
         "observability-wiring-facts"
       ],
       "expectRequiredReferences": [
-        "references/effect-ai.md \u00a7Provider ownership",
-        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5"
+        "references/effect-ai.md §Provider ownership",
+        "references/observability.md §4. OpenTelemetry 桥接"
       ],
       "expectRequiredReferenceCount": 2,
       "expectSignalFacts": [
@@ -2326,8 +2424,8 @@
         "cloudflare-runtime-facts"
       ],
       "expectRequiredReferences": [
-        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5",
-        "references/runtime-boundaries.md \u00a7Cloudflare Facet"
+        "references/observability.md §4. OpenTelemetry 桥接",
+        "references/runtime-boundaries.md §Cloudflare Facet"
       ],
       "expectRequiredReferenceCount": 2,
       "expectSignalFacts": [
@@ -2488,6 +2586,9 @@
       "expectRules": [
         "EFF001",
         "EFF400"
+      ],
+      "allowCompileErrors": [
+        "TS2304"
       ]
     },
     {
@@ -2542,17 +2643,20 @@
         ".effect-skill.json": "{\"shape\":[\"library\"]}",
         "package.json": "{\"type\":\"module\"}",
         "tsconfig.json": "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"strict\":true,\"noEmit\":true,\"skipLibCheck\":true},\"include\":[\"src/**/*.ts\"]}",
-        "src/lsp.ts": "import { Context, Effect, Layer } from \"effect\"\n\nclass Needs extends Context.Tag(\"Needs\")<Needs, { readonly value: string }>() {}\nclass Out extends Context.Tag(\"Out\")<Out, { readonly value: string }>() {}\n\nconst needsService: Effect.Effect<void, never, Needs> = Effect.flatMap(Needs, () => Effect.void)\nexport const missingContext: Effect.Effect<void, never, never> = needsService\n\nconst fails: Effect.Effect<void, \"bad\", never> = Effect.fail(\"bad\" as const)\nexport const missingError: Effect.Effect<void, never, never> = fails\n\nconst needsLayer: Layer.Layer<Out, never, Needs> = Layer.effect(Out, Effect.map(Needs, (service) => service))\nexport const missingLayer: Layer.Layer<Out, never, never> = needsLayer\n"
+        "src/lsp.ts": "import { Context, Effect, Layer } from \"effect\"\n\nclass Needs extends Context.Service<Needs, { readonly value: string }>()(\"Needs\") {}\nclass Out extends Context.Service<Out, { readonly value: string }>()(\"Out\") {}\n\nconst needsService: Effect.Effect<void, never, Needs> = Effect.flatMap(Needs, () => Effect.void)\nexport const missingContext: Effect.Effect<void, never, never> = needsService\n\nconst fails: Effect.Effect<void, \"bad\", never> = Effect.fail(\"bad\" as const)\nexport const missingError: Effect.Effect<void, never, never> = fails\n\nconst needsLayer: Layer.Layer<Out, never, Needs> = Layer.effect(Out, Effect.map(Needs, (service) => service))\nexport const missingLayer: Layer.Layer<Out, never, never> = needsLayer\n"
       },
       "expectExit": 1,
       "expectRules": [
         "EFF501",
         "EFF502",
         "EFF503"
+      ],
+      "allowCompileErrors": [
+        "TS2322"
       ]
     },
     {
-      "name": "compiler-diagnostic-not-effect-finding",
+      "name": "compiler-error-is-finding",
       "suites": [
         "compiler-diagnostics-boundary"
       ],
@@ -2563,8 +2667,10 @@
         "tsconfig.json": "{\"compilerOptions\":{\"strict\":true,\"noEmit\":true},\"include\":[\"src/**/*.ts\"]}",
         "src/a.ts": "const x: string = 1\n"
       },
-      "expectExit": 0,
-      "expectRules": [],
+      "expectExit": 1,
+      "expectRules": [
+        "EFF504"
+      ],
       "expectCompilerDiagnostics": true
     },
     {
@@ -2615,8 +2721,8 @@
         "workflow"
       ],
       "expectRequiredReferences": [
-        "references/effect-ai.md \u00a7Provider ownership",
-        "references/observability.md \u00a74. OpenTelemetry \u6865\u63a5"
+        "references/effect-ai.md §Provider ownership",
+        "references/observability.md §4. OpenTelemetry 桥接"
       ],
       "expectRequiredReferenceCount": 2,
       "expectEffectVersion": "4.0.0-beta.97"
@@ -2640,7 +2746,10 @@
       "expectRules": [
         "EFF001"
       ],
-      "expectProfile": true
+      "expectProfile": true,
+      "allowCompileErrors": [
+        "TS2304"
+      ]
     },
     {
       "name": "atomic-signals-no-verdict",
@@ -2662,6 +2771,10 @@
         "http-api-boundary-file",
         "library-exported-effect-file",
         "library-exported-effect-package"
+      ],
+      "allowCompileErrors": [
+        "TS2304",
+        "TS2307"
       ]
     },
     {
