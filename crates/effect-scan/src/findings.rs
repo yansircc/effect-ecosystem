@@ -13,6 +13,8 @@ pub struct RuleMeta {
     pub scanner: Value,
     /// A minimal before/after rewrite (`help` in rules.json), shown where the finding is acted on.
     pub help: Option<Help>,
+    /// Effect diagnostics provider names this rule reports under `--strict` (`scanner.upstream`).
+    pub upstream: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -172,6 +174,7 @@ impl Registry {
                 message: required("message")?,
                 reference: strings("references")?.into_iter().next(),
                 facts: strings("facts")?,
+                upstream: scanner.get("upstream").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default(),
                 scanner: scanner.clone(),
                 help,
                 severity,
@@ -208,8 +211,22 @@ impl Registry {
         if let Some(stray) = baseline_excluded_families.iter().find(|f| !action_order.contains(f)) {
             return Err(format!("rules.json baseline.excludedFamilies names no rule family: {stray}"));
         }
+        let mut upstream = std::collections::HashSet::new();
+        if let Some(name) = rules.iter().flat_map(|r| &r.upstream).find(|n| !upstream.insert(n.as_str())) {
+            return Err(format!("rules.json scanner.upstream name {name} is claimed by more than one rule"));
+        }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
         Ok(Self { rules, scope, action_order, contexts, baseline_excluded_families, by_id })
+    }
+
+    /// Every provider name the contract maps, in rule order.
+    pub fn upstream_names(&self) -> Vec<String> {
+        self.rules.iter().flat_map(|r| r.upstream.iter().cloned()).collect()
+    }
+
+    /// The rule a provider name reports as.
+    pub fn upstream_rule(&self, name: &str) -> Option<&RuleMeta> {
+        self.rules.iter().find(|r| r.upstream.iter().any(|n| n == name))
     }
 
     pub fn meta(&self, id: &str) -> Option<&RuleMeta> {
@@ -247,6 +264,11 @@ const SCANNER_KINDS: [&str; 3] = ["projection", "source-import", "source-ast"];
 
 fn validate_scanner(scanner: &Value) -> Result<(), String> {
     let kind = scanner.get("kind").and_then(Value::as_str).ok_or("`kind` must be a string")?;
+    if let Some(upstream) = scanner.get("upstream") {
+        if !upstream.as_array().is_some_and(|a| !a.is_empty() && a.iter().all(|n| n.as_str().is_some_and(|s| !s.trim().is_empty()))) {
+            return Err("`upstream` must be a non-empty array of Effect diagnostic names".into());
+        }
+    }
     match kind {
         "source-import" => {
             for key in ["packages", "packagePrefixes"] {

@@ -57,7 +57,9 @@ npx effect-tsgo patch --typescript-package typescript
 0.56 默认严重程度复核（以 schema 为准）：与本仓库 EFF403（禁止 namespace import）、EFF001（TaggedError 建模）立场可能冲突的诊断
 `preferNamespaceImport`、`preferSchemaTaggedError` 默认均为 `off`，所以升级 0.45 → 0.56 不需要在
 `diagnosticSeverity` 里额外关闭任何诊断；若将来某版本把它们默认打开并与 EFF403/EFF001 冲突，必须在 tsconfig 插件
-配置里显式设为 `off` 并在此处记录原因。未映射到 EFF500–503 的 Effect 诊断（含默认 `warning` 的）不产生 finding。
+配置里显式设为 `off` 并在此处记录原因。
+
+扫描器的 strict gate 不读取项目 tsconfig 里的这些设置：它用 `effect-tsgo diagnostics --lspconfig` 以 rules.json `scanner.upstream` 推出的配置自行运行 provider（见 scanner-manifest.md §LSP Rules）。这里的 tsconfig 配置只决定编辑器里看到什么；未映射到规则的 Effect 诊断不产生 finding。
 
 ## 4. Floating Effect — 最常见反模式
 

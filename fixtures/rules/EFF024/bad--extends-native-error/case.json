@@ -1,0 +1,15 @@
+{
+  "description": "EFF024 bad: class extends Error is reported under --strict (provider extendsNativeError, scanner-configured); the same class in test-role code is out of the rule's scope",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF024"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:1:EFF024:error"
+  ],
+  "exact": true
+}

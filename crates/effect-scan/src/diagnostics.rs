@@ -5,6 +5,7 @@
 //! (after them), so the compiler pass overlaps with everything else the scanner does.
 pub(crate) mod toolchain;
 mod tsc;
+mod upstream;
 
 use crate::findings::{Finding, Registry};
 use crate::scan::ScanContext;
@@ -14,15 +15,6 @@ use std::path::PathBuf;
 use std::thread::JoinHandle;
 
 pub const RULES: &[&str] = &["EFF500", "EFF501", "EFF502", "EFF503", "EFF504", "EFF901", "EFF902"];
-
-/// Effect diagnostic name (the `effect(<name>)` message tail) -> rule.
-const EFFECT_DIAGNOSTIC_RULES: [(&str, &str); 5] = [
-    ("floatingEffect", "EFF500"),
-    ("missingEffectContext", "EFF501"),
-    ("missingEffectError", "EFF502"),
-    ("missingLayerContext", "EFF503"),
-    ("unclosedLayer", "EFF503"),
-];
 
 /// Rules declare the facts they consume; compiler diagnostics are computed only when one asks.
 const DIAGNOSTICS_FACT: &str = "compiler.diagnostics";
@@ -54,15 +46,35 @@ fn run(registry: &Registry, root: &std::path::Path, files: &[(String, PathBuf)])
     let absolute: Vec<PathBuf> = files.iter().map(|(_, p)| tsc::normalize(p)).collect();
     // `tsc --version` and the project runs are independent processes: run them side by side. A missing
     // compiler is EFF901 from the version check, and there is then nothing to run.
-    let (compiler, diagnostics) = std::thread::scope(|scope| {
+    // The provider pass starts with tsc, on each file's nearest tsconfig (its owner unless that program
+    // does not contain it); its results are kept only where tsc confirms the owner (`owned_upstream`).
+    let names = registry.upstream_names();
+    let mut nearest: std::collections::BTreeMap<PathBuf, std::collections::BTreeSet<PathBuf>> = Default::default();
+    for file in &absolute {
+        if let Some(config) = tsc::ancestor_tsconfigs(file).into_iter().next() {
+            nearest.entry(config).or_default().insert(file.clone());
+        }
+    }
+    let ready = planned && toolchain::local_tsc(&tooling_root).exists();
+    let (compiler, diagnostics, early) = std::thread::scope(|scope| {
         let version = scope.spawn(|| toolchain::installed_compiler(&tooling_root, &support.compiler_marker));
-        let diagnostics = (planned && toolchain::local_tsc(&tooling_root).exists()).then(|| tsc::diagnostics_for(&tooling_root, root, &absolute));
-        (version.join().unwrap_or_else(|p| std::panic::resume_unwind(p)), diagnostics)
+        let early = ready.then(|| scope.spawn(|| upstream::run(&tooling_root, &nearest, &names)));
+        let diagnostics = ready.then(|| tsc::diagnostics_for(&tooling_root, root, &absolute));
+        let version = version.join().unwrap_or_else(|p| std::panic::resume_unwind(p));
+        let early = early.map(|h| h.join().unwrap_or_else(|p| std::panic::resume_unwind(p)));
+        (version, diagnostics, early)
     });
     let mut findings = toolchain::strict_prerequisites(registry, &tooling_root, compiler.as_ref());
     if compiler.is_some() {
         match diagnostics {
-            Some(Ok(diagnostics)) => findings.extend(findings_from(registry, &diagnostics, files)),
+            Some(Ok(projects)) => {
+                findings.extend(findings_from(registry, &projects.diagnostics, files));
+                // Effect diagnostics under the scanner's configuration, kept for the owners tsc resolved.
+                match owned_upstream(&tooling_root, &projects.owners, early.unwrap_or_default(), &names) {
+                    Ok(upstream) => findings.extend(upstream_findings(registry, &upstream, files)),
+                    Err(message) => findings.push(registry.finding("EFF902", "package.json", 1, "", Some(&message), None)),
+                }
+            }
             Some(Err(message)) => findings.push(registry.finding("EFF901", "package.json", 1, "", Some(&message), None)),
             None => {}
         }
@@ -70,26 +82,51 @@ fn run(registry: &Registry, root: &std::path::Path, files: &[(String, PathBuf)])
     findings
 }
 
-/// Scope: diagnostics attributed to a scanned source file (`diagnostics_for` already drops the rest).
+/// Compile errors (EFF504) of scanned source files (`diagnostics_for` already drops the rest).
 /// Declaration files in node_modules are the dependency's contract (skipLibCheck semantics) and
-/// file-less option diagnostics have no file.
+/// file-less option diagnostics have no file. Effect diagnostics in this output follow the target's
+/// editor config and are not read: `upstream` reports them under the scanner's own.
 fn findings_from(registry: &Registry, diagnostics: &[tsc::Diagnostic], files: &[(String, PathBuf)]) -> Vec<Finding> {
     let by_path: HashMap<PathBuf, &str> = files.iter().map(|(r, p)| (tsc::normalize(p), r.as_str())).collect();
     let effect_tail = Regex::new(r"\seffect\(([^)]+)\)$").unwrap();
-    let mut compile_errors = Vec::new();
-    let mut effect = Vec::new();
-    for d in diagnostics {
-        let Some(&file) = by_path.get(&d.file) else { continue };
-        if let Some(tail) = effect_tail.captures(&d.message) {
-            // Effect diagnostics count at any severity; only the mapped names are rules.
-            let message = effect_tail.replace(&d.message, "").to_string();
-            if let Some((_, rule)) = EFFECT_DIAGNOSTIC_RULES.iter().find(|(name, _)| *name == &tail[1]) {
-                effect.push(registry.finding(rule, file, d.line, &message, None, None));
-            }
-        } else if !d.warning {
-            compile_errors.push(registry.finding("EFF504", file, d.line, &format!("TS{}: {}", d.code, d.message), None, None));
-        }
+    diagnostics
+        .iter()
+        .filter(|d| !d.warning && !effect_tail.is_match(&d.message))
+        .filter_map(|d| by_path.get(&d.file).map(|file| registry.finding("EFF504", file, d.line, &format!("TS{}: {}", d.code, d.message), None, None)))
+        .collect()
+}
+
+/// For every project tsc confirmed as an owner: the early run's result (its failure counts only here),
+/// or a run now for an owner the early run did not start (a file whose nearest tsconfig does not
+/// contain it falls back to an ancestor). Diagnostics count only for files their project owns.
+fn owned_upstream(
+    tooling_root: &std::path::Path,
+    owners: &std::collections::BTreeMap<PathBuf, std::collections::BTreeSet<PathBuf>>,
+    mut early: std::collections::BTreeMap<PathBuf, Result<Vec<upstream::UpstreamDiagnostic>, String>>,
+    names: &[String],
+) -> Result<Vec<upstream::UpstreamDiagnostic>, String> {
+    let missing: std::collections::BTreeMap<PathBuf, std::collections::BTreeSet<PathBuf>> = owners.iter().filter(|(c, _)| !early.contains_key(*c)).map(|(c, f)| (c.clone(), f.clone())).collect();
+    early.extend(upstream::run(tooling_root, &missing, names));
+    let mut kept = Vec::new();
+    for (config, files) in owners {
+        let result = early.remove(config).expect("every owner was run");
+        kept.extend(result?.into_iter().filter(|d| files.contains(&d.file)));
     }
-    compile_errors.extend(effect);
-    compile_errors
+    Ok(kept)
+}
+
+/// Provider diagnostics as findings of the rule that claims their name (`scanner.upstream`).
+fn upstream_findings(registry: &Registry, diagnostics: &[upstream::UpstreamDiagnostic], files: &[(String, PathBuf)]) -> Vec<Finding> {
+    let by_path: HashMap<PathBuf, &str> = files.iter().map(|(r, p)| (tsc::normalize(p), r.as_str())).collect();
+    diagnostics
+        .iter()
+        .filter_map(|d| {
+            let file = by_path.get(&d.file)?;
+            let rule = registry.upstream_rule(&d.name)?;
+            let text = std::fs::read_to_string(&d.file).ok().and_then(|t| t.lines().nth(d.line as usize - 1).map(|l| l.trim().to_string())).unwrap_or_default();
+            // A syntax rule keeps its own message; a projection rule reports the provider's.
+            let message = (rule.scanner["kind"] == "projection").then(|| format!("{} ({})", d.message, d.name));
+            Some(registry.finding(&rule.id, file, d.line, &text, message.as_deref(), None).with_span(d.span))
+        })
+        .collect()
 }

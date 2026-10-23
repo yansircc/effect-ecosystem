@@ -1,0 +1,15 @@
+{
+  "description": "EFF500 bad: the project's own editor config turns floatingEffect off; the strict gate configures the provider itself and still reports it",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF500"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:2:EFF500:error"
+  ],
+  "exact": true
+}

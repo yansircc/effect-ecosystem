@@ -677,7 +677,10 @@
       "references": [],
       "scanner": {
         "kind": "source-ast",
-        "selector": "new-error"
+        "selector": "new-error",
+        "upstream": [
+          "extendsNativeError"
+        ]
       },
       "family": "source",
       "message": "new Error is forbidden. Declare every domain error as a Schema.TaggedError class.",
@@ -687,12 +690,13 @@
         "in": "effect"
       },
       "facts": [
-        "source.code"
+        "source.code",
+        "compiler.diagnostics"
       ],
       "coverage": {
         "proves": "No new Error(...) expression in the scanned files",
         "blindSpots": [
-          "class X extends Error, Error(...) without new, and errors constructed inside libraries are not recognized",
+          "Error(...) without new and errors constructed inside libraries are not recognized; class X extends Error is recognized only under --strict (upstream extendsNativeError), and not in files of the inferred project",
           "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
@@ -1458,12 +1462,16 @@
         "compiler.diagnostics"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "upstream": [
+          "floatingEffect"
+        ]
       },
       "coverage": {
         "proves": "The diagnostics provider reports no floating Effect for files in the program",
         "blindSpots": [
-          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and ts-ignore'd or suppressed code are not visible, and the Effect type flow is not reimplemented"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and ts-ignore'd or suppressed code are not visible, and the Effect type flow is not reimplemented",
+          "Files outside every tsconfig (the inferred project) get no Effect diagnostics"
         ]
       }
     },
@@ -1483,12 +1491,16 @@
         "compiler.diagnostics"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "upstream": [
+          "missingEffectContext"
+        ]
       },
       "coverage": {
         "proves": "The diagnostics provider reports no missing Effect context for files in the program",
         "blindSpots": [
-          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible",
+          "Files outside every tsconfig (the inferred project) get no Effect diagnostics"
         ]
       }
     },
@@ -1508,12 +1520,16 @@
         "compiler.diagnostics"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "upstream": [
+          "missingEffectError"
+        ]
       },
       "coverage": {
         "proves": "The diagnostics provider reports no unhandled error channel for files in the program",
         "blindSpots": [
-          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible",
+          "Files outside every tsconfig (the inferred project) get no Effect diagnostics"
         ]
       }
     },
@@ -1533,12 +1549,16 @@
         "compiler.diagnostics"
       ],
       "scanner": {
-        "kind": "projection"
+        "kind": "projection",
+        "upstream": [
+          "missingLayerContext"
+        ]
       },
       "coverage": {
         "proves": "The diagnostics provider reports no unclosed Layer dependency for files in the program",
         "blindSpots": [
-          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible",
+          "Files outside every tsconfig (the inferred project) get no Effect diagnostics"
         ]
       }
     },

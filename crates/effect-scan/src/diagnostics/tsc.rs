@@ -26,11 +26,11 @@ fn env_number(name: &str) -> Option<u64> {
     std::env::var(name).ok()?.trim().parse::<u64>().ok().filter(|n| *n > 0)
 }
 
-fn timeout() -> Duration {
+pub(super) fn timeout() -> Duration {
     Duration::from_secs(env_number(TIMEOUT_ENV).unwrap_or(DEFAULT_TIMEOUT_SECS))
 }
 
-fn max_jobs() -> usize {
+pub(super) fn max_jobs() -> usize {
     env_number(JOBS_ENV).map_or_else(|| std::thread::available_parallelism().map_or(1, |n| n.get()).min(DEFAULT_MAX_JOBS), |n| n as usize)
 }
 
@@ -102,11 +102,12 @@ fn node_tsc(tooling_root: &Path, cwd: &Path) -> Command {
 
 /// Runs the compiler to completion or to the deadline. The compiler is a process tree (`node` launches the
 /// native binary), so on unix it leads its own process group and a timeout kills the whole group.
-fn run_with_deadline(mut command: Command, label: &str, limit: Duration) -> Result<Output, String> {
+/// `label` names the run (`tsc for <tsconfig>`, `effect-tsgo diagnostics for <tsconfig>`).
+pub(super) fn run_with_deadline(mut command: Command, label: &str, limit: Duration) -> Result<Output, String> {
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
-    let mut child = command.spawn().map_err(|e| format!("cannot run tsc for {label}: {e}"))?;
+    let mut child = command.spawn().map_err(|e| format!("cannot run {label}: {e}"))?;
     let drain = |stream: Option<Box<dyn Read + Send>>| {
         std::thread::spawn(move || {
             let mut bytes = Vec::new();
@@ -128,10 +129,10 @@ fn run_with_deadline(mut command: Command, label: &str, limit: Duration) -> Resu
                 let _ = child.kill();
                 let _ = child.wait();
                 // The readers end when the pipes close; do not wait for a grandchild that outlived the kill.
-                return Err(format!("tsc for {label} timed out after {}s ({TIMEOUT_ENV} raises the limit)", limit.as_secs()));
+                return Err(format!("{label} timed out after {}s ({TIMEOUT_ENV} raises the limit)", limit.as_secs()));
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-            Err(e) => return Err(format!("cannot wait for tsc for {label}: {e}")),
+            Err(e) => return Err(format!("cannot wait for {label}: {e}")),
         }
     };
     let collect = |handle: std::thread::JoinHandle<Vec<u8>>| handle.join().unwrap_or_default();
@@ -145,7 +146,7 @@ fn finish(label: &str, out: Result<Output, String>, cwd: &Path) -> Result<Run, S
     let run = parse_output(&String::from_utf8_lossy(&out.stdout), cwd);
     if !out.status.success() && !run.reported {
         let stderr = String::from_utf8_lossy(&out.stderr);
-        return Err(format!("tsc for {label} exited {} without diagnostics: {}", out.status, stderr.trim().lines().next().unwrap_or("")));
+        return Err(format!("{label} exited {} without diagnostics: {}", out.status, stderr.trim().lines().next().unwrap_or("")));
     }
     Ok(run)
 }
@@ -163,7 +164,7 @@ fn project_args(tsconfig: &Path) -> Vec<std::ffi::OsString> {
 
 fn run_project(tooling_root: &Path, tsconfig: &Path) -> Result<Run, String> {
     let cwd = tsconfig.parent().ok_or("tsconfig has no directory")?;
-    let label = tsconfig.display().to_string();
+    let label = format!("tsc for {}", tsconfig.display());
     let mut command = node_tsc(tooling_root, cwd);
     command.args(project_args(tsconfig));
     let out = run_with_deadline(command, &label, timeout());
@@ -244,9 +245,9 @@ fn run_inferred(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Result<Ru
     let response = ResponseFile::create(&contents).map_err(|e| format!("cannot write a tsc response file: {e}"))?;
     let mut command = node_tsc(tooling_root, cwd);
     command.arg(format!("@{}", response.path.display())).args(&direct);
-    let out = run_with_deadline(command, "the inferred project", timeout());
+    let out = run_with_deadline(command, "tsc for the inferred project", timeout());
     drop(response);
-    let run = finish("the inferred project", out, cwd)?;
+    let run = finish("tsc for the inferred project", out, cwd)?;
     let missing: Vec<&PathBuf> = files.iter().filter(|f| !run.listed.contains(*f)).collect();
     if let Some(first) = missing.first() {
         return Err(format!(
@@ -259,7 +260,7 @@ fn run_inferred(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Result<Ru
     Ok(run)
 }
 
-fn ancestor_tsconfigs(file: &Path) -> Vec<PathBuf> {
+pub(super) fn ancestor_tsconfigs(file: &Path) -> Vec<PathBuf> {
     file.parent().into_iter().flat_map(Path::ancestors).map(|dir| dir.join("tsconfig.json")).filter(|p| p.is_file()).collect()
 }
 
@@ -289,9 +290,17 @@ fn run_bounded(tooling_root: &Path, configs: Vec<&PathBuf>) -> Result<BTreeMap<P
 
 /// Diagnostics for `files` (absolute, normalised), attributed to the project that owns each file.
 /// `cwd` is the scan root, used for the inferred project.
-pub fn diagnostics_for(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Result<Vec<Diagnostic>, String> {
+/// Compiler diagnostics of the scanned files, and which tsconfig owns which of them (files of the
+/// inferred project have no owner here: no config names their program).
+pub struct Projects {
+    pub diagnostics: Vec<Diagnostic>,
+    pub owners: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+}
+
+pub fn diagnostics_for(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Result<Projects, String> {
     let mut candidates: BTreeMap<&PathBuf, Vec<PathBuf>> = files.iter().map(|f| (f, ancestor_tsconfigs(f))).collect();
     let mut owned: Vec<Diagnostic> = Vec::new();
+    let mut owners: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
     let mut unresolved: Vec<&PathBuf> = files.iter().collect();
     let mut inferred: Vec<&PathBuf> = Vec::new();
     // Rounds: every unresolved file tries its next-nearest tsconfig; configs run concurrently.
@@ -311,6 +320,7 @@ pub fn diagnostics_for(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Re
             let run = &runs[&config];
             if run.listed.contains(file) {
                 owned.extend(run.diagnostics.iter().filter(|d| &d.file == file).cloned());
+                owners.entry(config.clone()).or_default().insert((*file).clone());
             } else {
                 next.push(file);
             }
@@ -322,7 +332,7 @@ pub fn diagnostics_for(tooling_root: &Path, cwd: &Path, files: &[PathBuf]) -> Re
         let list: Vec<PathBuf> = inferred.iter().map(|f| (*f).clone()).collect();
         owned.extend(run_inferred(tooling_root, cwd, &list)?.diagnostics.into_iter().filter(|d| own.contains(&d.file)));
     }
-    Ok(owned)
+    Ok(Projects { diagnostics: owned, owners })
 }
 
 #[cfg(test)]

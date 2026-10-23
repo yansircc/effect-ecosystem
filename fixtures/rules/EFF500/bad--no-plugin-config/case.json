@@ -1,0 +1,15 @@
+{
+  "description": "EFF500 bad: the project's tsconfig has no Effect plugin entry; the strict gate still reports floating Effects",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF500"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:2:EFF500:error"
+  ],
+  "exact": true
+}

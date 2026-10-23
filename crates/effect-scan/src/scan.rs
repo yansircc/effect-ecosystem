@@ -7,7 +7,7 @@ use crate::source::{self, SourceFacts};
 use crate::util::{self, locale_compare, matches_any, rel};
 use regex::Regex;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -133,6 +133,16 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     let compiler_reported: std::collections::HashSet<&str> = compiled.iter().filter(|f| f.rule_id == "EFF504").map(|f| f.file.as_str()).collect();
     findings.extend(parse_failures.into_iter().filter(|f| !compiler_reported.contains(f.file.as_str())));
     findings.extend(compiled.iter().cloned());
+    // A source rule's upstream findings take the rule's scope (test files, include/exclude) exactly as its
+    // syntax findings do; the scope is applied here, where both paths meet. Then one finding per line: the
+    // syntax finding (added first, it carries the hit's context) is kept. Projection rules may report
+    // several instances on one line (EFF900 selectors) and are untouched.
+    let by_file: HashMap<&str, &SourceFile> = files.iter().map(|f| (f.relative.as_str(), f)).collect();
+    let in_scope = |f: &Finding| {
+        f.family != "source" || registry.meta(&f.rule_id).zip(by_file.get(f.file.as_str())).is_some_and(|(rule, file)| !skip_file(file, &rule.scanner))
+    };
+    let mut seen = std::collections::HashSet::new();
+    findings.retain(|f| in_scope(f) && (f.family != "source" || seen.insert((f.rule_id.clone(), f.file.clone(), f.line))));
     timings.mark("diagnostics");
     let raw = findings.clone();
     findings = apply_suppressions(findings, manifest.as_ref(), registry);

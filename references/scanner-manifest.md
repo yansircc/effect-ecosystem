@@ -670,7 +670,14 @@ workspace root or matches its declared `pnpm-workspace.yaml` package globs.
 ## LSP Rules
 
 `EFF500`-`EFF503` are emitted only from the major-matched Effect diagnostics provider; the scanner
-does not reimplement Effect typeflow.
+does not reimplement Effect typeflow. A rule names the provider diagnostics it reports in
+`scanner.upstream` (rules.json). The strict pass runs the provider's own command,
+`effect-tsgo diagnostics --project <tsconfig> --format json --lspconfig <config>`, with a configuration
+derived from those names, for every tsconfig that owns a scanned file: what the gate proves does not
+depend on the project's editor settings (a project that turned `floatingEffect` off, or has no plugin
+entry, still gets EFF500), and nothing is written into the target. A source rule with upstream names
+(EFF024: `extendsNativeError`) reports the union of its syntax and provider findings, one per line,
+in the rule's own file scope. Files outside every tsconfig get no provider diagnostics.
 
 ### EFF504 typescript-compile-error
 
@@ -798,10 +805,10 @@ lockfile content, repo-relative program paths, and program file content. It must
 not use mtime as a cache correctness input. Cache provenance is scanner
 provenance: it can affect `full.sha256`, but it must not affect `input.sha256`.
 
-The diagnostics mapping proof guards rename drift for diagnostics the scanner maps into
-EFF500-EFF503. It does not claim full coverage of every diagnostic currently
-emitted by the selected provider; unmapped diagnostics are signal candidates
-for future rule graduation, not current scanner failures.
+The upstream-name proof (`scripts/check-registry.ts`) reads the verified provider's own schema and
+fails when a `scanner.upstream` name is not one of its diagnostics (rename drift, or a name copied from
+an older provider). It does not claim full coverage of every diagnostic the provider emits; unmapped
+diagnostics are candidates for future rule graduation, not current scanner failures.
 
 ## Baseline
 
