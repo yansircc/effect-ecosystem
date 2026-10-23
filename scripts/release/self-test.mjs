@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Pure-logic self-test of glibc symbol-version parsing (used by check-glibc.mjs in CI). No network.
-// Run by verify-install.mjs (make verify-offline).
+// Run by verify-skill-runtime.mjs (make verify-offline).
 import assert from "node:assert/strict"
 import { compareVersions, maxGlibcVersion } from "./glibc.mjs"
 

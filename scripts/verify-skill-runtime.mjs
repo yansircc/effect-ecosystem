@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-// Verifies the local-install path: `make install` into a temporary PREFIX, then the installed binary.
+// Verifies the one delivery path: the assembled skill's entrypoint (`$(DIST)/skill/runtime/effect-scan`),
+// which sm publishes and whose launcher is `effect-scan` on PATH. The generator installs nothing.
 // Also asserts that ci.yml still matches scripts/release/platforms.mjs and holds no write permission.
-// Needs a prior `make build` (make verify-offline). Touches nothing outside the temporary directory.
+// Needs a prior `make build` and skill assembly (make verify-offline). Touches nothing outside the temporary directory.
 import assert from "node:assert/strict"
 import { execFileSync, spawnSync } from "node:child_process"
-import { existsSync, lstatSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { PLATFORMS } from "./release/platforms.mjs"
+import { PLATFORMS, hostPlatform } from "./release/platforms.mjs"
 
 const root = resolve(import.meta.dirname, "..")
 const dist = process.env.DIST ?? "dist"
@@ -30,23 +31,18 @@ try {
 
   execFileSync(process.execPath, [join(root, "scripts/release/self-test.mjs")], { stdio: "inherit" })
 
-  // Install exactly as a user does (the build already exists), into a throwaway prefix.
-  const prefix = join(temporary, "prefix")
-  execFileSync("make", ["install-built", `PREFIX=${prefix}`, `DIST=${dist}`], { cwd: root, stdio: "pipe" })
-  const bin = join(prefix, "bin", "effect-scan")
-  assert.ok(lstatSync(bin).isSymbolicLink(), "installed entry must be a symlink to the immutable per-build binary")
-  const target = readlinkSync(bin)
+  // The entrypoint exactly as published: the skill's dispatching wrapper and the host's binary under it.
+  const skill = join(root, dist, "skill")
+  const bin = join(skill, "runtime", "effect-scan")
   const buildId = JSON.parse(readFileSync(buildInfoPath, "utf8")).buildId
-  assert.equal(target, join(prefix, "lib", "effect-scan", buildId, "effect-scan"))
-  assert.ok(existsSync(target), "symlink target is missing")
-
-  execFileSync(process.execPath, [join(root, "scripts/release/check-binary.mjs"), bin, buildInfoPath])
+  execFileSync(process.execPath, [join(root, "scripts/release/check-binary.mjs"), join(skill, "runtime", hostPlatform().key, "effect-scan"), buildInfoPath])
+  assert.equal(JSON.parse(execFileSync(bin, ["--build-info"], { encoding: "utf8" })).buildId, buildId, "the skill entrypoint runs another build")
   const usage = spawnSync(bin, ["--exact"], { encoding: "utf8" })
   assert.equal(usage.status, 64, "usage errors exit 64")
   const scan = JSON.parse(execFileSync(bin, [root, "--strict", "--output", "gate-json"], { cwd: temporary, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }))
   assert.equal(scan.kind, "effect-mechanical-compliance-gate")
-  assert.equal(scan.ok, true, "installed effect-scan did not pass against its own source")
-  console.log(`install ok (${buildId})`)
+  assert.equal(scan.ok, true, "the skill's effect-scan did not pass against its own source")
+  console.log(`skill runtime ok (${buildId})`)
 } finally {
   rmSync(temporary, { recursive: true, force: true })
 }

@@ -2,17 +2,16 @@
 #   $(DIST)/platforms/<platform>/effect-scan   the native binary (+ build-info.json it embeds)
 #   $(DIST)/tools/                             TypeScript development tools (self-test, checks, oracle); never shipped
 #   $(DIST)/skill/                             the assembled skill        (make skill)
-# One install path: $(BIN) -> $(INSTALL_ROOT)/<buildId>/effect-scan   (make install)
-PREFIX ?= $(HOME)/.local
-BIN ?= $(PREFIX)/bin/effect-scan
-INSTALL_ROOT ?= $(PREFIX)/lib/effect-scan
+# Nothing is installed from here: the generator writes only under $(DIST). `effect-scan` on PATH is the
+# launcher sm manages for a consumer's `executablesTarget`, resolving to the published skill's runtime;
+# a second installer writing the same path would make that path two-owner (`sm apply` refuses it).
 DIST ?= dist
 TOOLS := $(DIST)/tools
 HOST := $(shell node scripts/release/platforms.mjs host)
 BINARY := $(DIST)/platforms/$(HOST)/effect-scan
 BUILD_INFO := $(TOOLS)/build-info.json
 
-.PHONY: tools build fixtures install install-built skill verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
+.PHONY: tools build fixtures skill verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
 
 tools:
 	rm -rf "$(TOOLS)"
@@ -37,38 +36,14 @@ build: tools
 fixtures: build
 	node "$(TOOLS)/scripts/run-fixtures.js" --bin "$(BINARY)" --exact
 
-install: build
-	$(MAKE) install-built
-
-# Installs the existing build (no rebuild); verify-install.mjs runs it against a temporary PREFIX.
-install-built:
-	@set -eu; \
-	build_id=$$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).buildId' "$(BUILD_INFO)"); \
-	target="$(abspath $(INSTALL_ROOT))/$$build_id/effect-scan"; \
-	mkdir -p "$$(dirname "$$target")" "$(dir $(BIN))"; \
-	if [ ! -e "$$target" ]; then \
-		tmp="$$target.tmp-$$$$"; cp "$(BINARY)" "$$tmp"; chmod 755 "$$tmp"; mv "$$tmp" "$$target"; \
-	fi; \
-	ln -sfn "$$target" "$(BIN)"; \
-	echo "$(BIN) -> $$target"
-
 skill: build
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
 	node scripts/check-skill-entry.mjs "$(DIST)/skill"
 
 # Local gate: offline parts, then the networked acceptance and performance gates.
-# The installed scanner must not change while it runs.
-verify:
-	@set -eu; \
-	snapshot() { target=$$(readlink "$(BIN)" 2>/dev/null || true); if [ -n "$$target" ] && [ -f "$$target" ]; then hash=$$(shasum -a 256 "$$target" | awk '{print $$1}'); else hash="missing"; fi; printf "%s|%s" "$$target" "$$hash"; }; \
-	before=$$(snapshot); \
-	status=0; \
-	$(MAKE) verify-offline verify-online || status=$$?; \
-	after=$$(snapshot); \
-	if [ "$$before" != "$$after" ]; then echo "installed scanner changed during make verify: $$before -> $$after" >&2; exit 1; fi; \
-	exit "$$status"
+verify: verify-offline verify-online
 
-# Everything that needs no network (including a `make install` into a temporary PREFIX). CI runs this on every platform.
+# Everything that needs no network (including the assembled skill's entrypoint run against this repository). CI runs this on every platform.
 verify-offline: build
 	node "$(TOOLS)/scripts/verify-build-provenance.js"
 	node "$(TOOLS)/scripts/check-registry.js"
@@ -85,7 +60,7 @@ verify-offline: build
 	"$(BINARY)" . --strict --output gate-json >/tmp/effect-skill-verify-profile.json
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
 	node scripts/check-skill-entry.mjs "$(DIST)/skill"
-	node scripts/verify-install.mjs
+	node scripts/verify-skill-runtime.mjs
 
 # Networked gates (npm install, wrangler, benchmark): one CI job runs them.
 verify-online:

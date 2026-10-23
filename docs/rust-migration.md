@@ -392,9 +392,10 @@ No other `extras` key exists besides the projection's own outputs (`signals`, `p
 
 ## Distribution and installation
 
-Invariant: one build produces one native binary per platform, with one `build-info.json`; the local install and the
-skill ship those same bytes. Nothing is published: the Rust scanner is used from a local `make install` (or the skill
-directory). The old npm package `@yansircc/effect-scan` is no longer maintained: no new versions will be published
+Invariant: one build produces one native binary per platform, with one `build-info.json`; the skill ships those
+bytes. The generator installs nothing: sm publishes the assembled skill, and `effect-scan` on PATH is the launcher sm
+manages for a consumer's `executablesTarget`. (`make install` once also symlinked `~/.local/bin/effect-scan`; two
+installers then owned one path and `sm apply` refused it, so the target was removed.) The old npm package `@yansircc/effect-scan` is no longer maintained: no new versions will be published
 (it is not deprecated either).
 
 ### Layout and targets
@@ -404,8 +405,6 @@ directory). The old npm package `@yansircc/effect-scan` is no longer maintained:
 | `dist/platforms/<platform>/effect-scan` + `build-info.json` | the only build output; `<platform>` is `darwin-arm64`, `linux-x64`, `linux-arm64` (`scripts/release/platforms.mjs` is the one list) |
 | `dist/tools/` | TypeScript development tools (fixture runner, checks, `build-info.json`); never shipped |
 | `dist/skill/` | assembled skill (`make skill`) |
-| `$(INSTALL_ROOT)/<buildId>/effect-scan` | installed binary (default `~/.local/lib/effect-scan`) |
-| `$(PREFIX)/bin/effect-scan` | symlink to the installed binary (default `~/.local/bin`) |
 
 `target/release/effect-scan` is cargo's scratch output and is NOT the artifact: a plain
 `cargo build` embeds the "unknown build" record; `make build` builds with
@@ -417,11 +416,10 @@ asserts the binary's `--build-info` equals it (`scripts/release/check-binary.mjs
 |---|---|
 | `make tools` | TS dev tools into `dist/tools` and `build-info.json` |
 | `make build` | `tools` + `cargo build --release --locked` with embedded provenance -> `dist/platforms/<host>/` |
-| `make install [PREFIX= INSTALL_ROOT=]` | build, copy to `$(INSTALL_ROOT)/<buildId>/effect-scan` (immutable per build id), point `$(BIN)` (`$(PREFIX)/bin/effect-scan`) at it |
 | `make skill` | build, assemble `dist/skill`, run `scripts/check-skill-entry.mjs` |
-| `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `scripts/verify-install.mjs` (install into a temporary `PREFIX`, run the installed binary on this repository) |
+| `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `scripts/verify-skill-runtime.mjs` (the assembled skill's `runtime/effect-scan`: provenance, usage exit code, a strict scan of this repository) |
 | `make verify-online` | networked acceptance + benchmark |
-| `make verify` | offline + online, and the installed binary must not change meanwhile |
+| `make verify` | offline + online |
 
 Linux binaries are built on ubuntu-24.04 and need glibc >= 2.39 (`minGlibc` in `platforms.mjs`, the one record). CI
 fails a Linux build whose `objdump -T` shows a higher `GLIBC_x.y` (`scripts/release/check-glibc.mjs`). A
@@ -446,7 +444,7 @@ modes; the tarball keeps `runtime/**/effect-scan` executable). Unpack with
 no secrets, no tags, no commits): `build` matrix (macos-14, ubuntu-24.04, ubuntu-24.04-arm; rustup stable,
 `make verify-offline`; glibc check on Linux; `make verify-online` on linux-x64; uploads `dist/platforms`) -> `skill`
 (collects the three binaries, `assemble-skill.mjs --require-all-platforms`, `check-skill-entry.mjs`, uploads the skill
-tarball). Artifacts are kept 30 days. `verify-install.mjs` asserts the matrix matches `platforms.mjs`, that Linux builds
+tarball). Artifacts are kept 30 days. `verify-skill-runtime.mjs` asserts the matrix matches `platforms.mjs`, that Linux builds
 run the glibc check, and that the workflow has no `pull_request_target`, OIDC token or write permission.
 
 What cannot be verified locally: the workflow running on GitHub and the Linux builds.
@@ -458,11 +456,11 @@ tool has to know.
 
 **Installation**
 - Old `effect-scan` (a `#!/usr/bin/env node` script, `dist/validator/scan.js`, npm package `@yansircc/effect-scan`):
-  the npm entry is retired. The package is no longer maintained and no new version will be published. Use `make install`
-  from this repository. `dist/validator/scan.js` no longer exists. Self-test flags are maintainer-only.
-- Old local install `make install` -> `<repo>/dist-installed/<buildId>/validator/scan.js` symlinked at
-  `~/.local/bin/effect-scan`; now `~/.local/lib/effect-scan/<buildId>/effect-scan` (a real binary) behind the same
-  `~/.local/bin/effect-scan`. Delete the old `dist-installed/`.
+  the npm entry is retired. The package is no longer maintained and no new version will be published. Use the
+  published skill (sm). `dist/validator/scan.js` no longer exists. Self-test flags are maintainer-only.
+- Old local installs (`make install` -> `<repo>/dist-installed/...`, later `~/.local/lib/effect-scan/<buildId>/`
+  behind a `~/.local/bin/effect-scan` symlink) are retired with the target: remove the symlink so sm can own
+  `~/.local/bin/effect-scan`; the `dist-installed/` and `~/.local/lib/effect-scan/` directories are unused.
 - SKILL.md: the command was `node <skill-root>/runtime/validator/scan.js` (which the old package did not actually
   contain); it is `<skill-root>/runtime/effect-scan`. The skill no longer bundles `node_modules` or the TypeScript
   runtime packages.

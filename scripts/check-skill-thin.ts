@@ -19,14 +19,14 @@ for (const required of [
   "references/generated/rules-summary.md",
   "references/generated/checklist.md",
   "effect-scan",
-  "make install",
+  "make skill",
   "make verify",
   "--strict --output gate-json",
 ]) {
   if (!skill.includes(required)) failures.push(`SKILL.md missing executor pointer: ${required}`)
 }
 if (skill.includes("npm i -g")) {
-  failures.push("SKILL.md must not point at the retired npm package; install with make install")
+  failures.push("SKILL.md must not point at the retired npm package; use the skill directory")
 }
 if (skill.includes("node validator/scan")) {
   failures.push("SKILL.md must use the installed effect-scan entrypoint, not the source path")

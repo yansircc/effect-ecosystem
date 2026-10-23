@@ -76,12 +76,12 @@ For this skill repository:
 make verify
 ```
 
-`make install` installs the native scanner as an immutable
-`$(INSTALL_ROOT)/<buildId>/effect-scan` (default `~/.local/lib/effect-scan`) and
-points `$(PREFIX)/bin/effect-scan` at it. Do not run it during development
-unless installing the scanner locally. `make skill` assembles this skill (`dist/skill/`)
-with `runtime/effect-scan` and the per-platform binaries. The npm package
-`@yansircc/effect-scan` is retired: use `make install` or that skill directory.
+The generator installs nothing. `make skill` assembles this skill (`dist/skill/`)
+with `runtime/effect-scan` and the per-platform binaries; sm publishes it, and
+`effect-scan` on PATH is the launcher sm manages for a consumer's
+`executablesTarget`, resolving to the published skill. A local, unpublished
+build runs as `dist/skill/runtime/effect-scan`. The npm package
+`@yansircc/effect-scan` is retired: use the skill directory.
 
 The Effect v4 / TypeScript 7 acceptance and repository-owned deterministic
 performance gate are part of default `make verify`. They are also available
