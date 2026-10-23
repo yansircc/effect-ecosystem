@@ -105,7 +105,7 @@
         "selector": "try-statement"
       },
       "family": "source",
-      "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
+      "message": "Native try/catch is forbidden. Wrap the side effect in Effect.try / Effect.tryPromise; type the failure channel with a Schema.TaggedError.",
       "help": {
         "before": "try { return JSON.parse(text) } catch { return null }",
         "after": "Effect.try({ try: () => JSON.parse(text), catch: (cause) => new ParseError({ cause }) })",
@@ -115,12 +115,12 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 try 语句(Effect.promise/tryPromise 回调内与非 async 的 Effect.sync/try 回调内除外;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
+        "proves": "No try statement in the scanned files (except inside Effect.promise/tryPromise callbacks and non-async Effect.sync/try callbacks; the boundary is a lexical region: functions nested in a callback inherit its boundary, and the innermost boundary decides)",
         "blindSpots": [
-          "Promise 的 .catch()/.then() 错误处理不被检查",
-          "经变量间接传给 Effect 边界的回调按普通函数处理(可能误报,不会漏报)",
-          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Promise .catch()/.then() error handling is not checked",
+          "A callback passed to an Effect boundary through a variable is treated as a plain function (may over-report, never under-reports)",
+          "Code that re-enters Effect through Effect.run* inside a Promise boundary region is still exempt as Promise code; that re-entry point is owned by EFF400",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -137,7 +137,7 @@
         "selector": "async-function"
       },
       "family": "source",
-      "message": "禁用 async function。改写为 Effect.gen(function* () { ... }) + yield*",
+      "message": "async function is forbidden. Rewrite it as Effect.gen(function* () { ... }) with yield*.",
       "help": {
         "before": "async function load(id: string) { return await repo.get(id) }",
         "after": "const load = Effect.fn(\"load\")(function* (id: string) { return yield* repo.get(id) })"
@@ -146,11 +146,11 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async function/方法声明(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
+        "proves": "No async function or method declaration in the scanned files (except inside Effect.promise/tryPromise Promise callbacks; Effect.sync/try callbacks are synchronous boundaries, where async is still reported; the boundary is a lexical region: functions nested in a callback inherit its boundary, and the innermost boundary decides)",
         "blindSpots": [
-          "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
-          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Functions that return a Promise without the async keyword (new Promise, .then chains) are not recognized",
+          "Code that re-enters Effect through Effect.run* inside a Promise boundary region is still exempt as Promise code; that re-entry point is owned by EFF400",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -167,7 +167,7 @@
         "selector": "async-arrow"
       },
       "family": "source",
-      "message": "禁用 async 箭头函数。改写为 Effect.gen + yield*",
+      "message": "async arrow functions are forbidden. Rewrite as Effect.gen with yield*.",
       "help": {
         "before": "const load = async (id: string) => await repo.get(id)",
         "after": "const load = (id: string) => Effect.gen(function* () { return yield* repo.get(id) })"
@@ -176,11 +176,11 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async 箭头函数(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
+        "proves": "No async arrow function in the scanned files (except inside Effect.promise/tryPromise Promise callbacks; Effect.sync/try callbacks are synchronous boundaries, where async is still reported; the boundary is a lexical region: functions nested in a callback inherit its boundary, and the innermost boundary decides)",
         "blindSpots": [
-          "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
-          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Functions that return a Promise without the async keyword (new Promise, .then chains) are not recognized",
+          "Code that re-enters Effect through Effect.run* inside a Promise boundary region is still exempt as Promise code; that re-entry point is owned by EFF400",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -197,7 +197,7 @@
         "selector": "await"
       },
       "family": "source",
-      "message": "禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain",
+      "message": "await is forbidden. Use yield* inside Effect; at the edge, run the program with Effect.runPromise / NodeRuntime.runMain.",
       "help": {
         "before": "const user = await fetchUser(id)",
         "after": "const user = yield* Effect.tryPromise({ try: () => fetchUser(id), catch: (cause) => new FetchError({ cause }) })",
@@ -207,11 +207,11 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 await/for await/await using(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调内仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
+        "proves": "No await / for await / await using in the scanned files (except inside Effect.promise/tryPromise Promise callbacks; still reported inside Effect.sync/try callbacks; the boundary is a lexical region: functions nested in a callback inherit its boundary, and the innermost boundary decides)",
         "blindSpots": [
-          "Promise .then() 链式等待不被识别",
-          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Waiting through Promise .then() chains is not recognized",
+          "Code that re-enters Effect through Effect.run* inside a Promise boundary region is still exempt as Promise code; that re-entry point is owned by EFF400",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -228,7 +228,7 @@
         "selector": "promise-combinator"
       },
       "family": "source",
-      "message": "禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition",
+      "message": "Promise static combinators are forbidden. Use Effect.all({ concurrency }) / Effect.race / Effect.partition.",
       "help": {
         "before": "await Promise.all([a(), b()])",
         "after": "yield* Effect.all([a, b], { concurrency: \"unbounded\" })",
@@ -238,11 +238,11 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 Promise 绑定调用 all/allSettled/race/any",
+        "proves": "No call of all/allSettled/race/any through the global Promise binding in the scanned files",
         "blindSpots": [
-          "经函数参数、动态属性或无法解析到全局 Promise 的值调用的组合子不可见",
-          "new Promise(...) 构造不在本规则范围",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Combinators called through a function parameter, a dynamic property or a value not resolvable to the global Promise are not visible",
+          "new Promise(...) construction is outside this rule",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -262,15 +262,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码",
+      "message": "axios is forbidden. Use effect/http/HttpClient (FetchHttpClient or a platform HttpClient layer) with Schema decoding.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 axios 的字面量 import/require",
+        "proves": "No literal import/require of axios in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -289,15 +289,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 zod。改用 effect/Schema (双向 codec)",
+      "message": "zod is forbidden. Use effect/Schema (bidirectional codecs).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 zod 的字面量 import/require",
+        "proves": "No literal import/require of zod in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -316,15 +316,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 yup。改用 effect/Schema",
+      "message": "yup is forbidden. Use effect/Schema.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 yup 的字面量 import/require",
+        "proves": "No literal import/require of yup in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -343,15 +343,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 arktype。改用 effect/Schema",
+      "message": "arktype is forbidden. Use effect/Schema.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 arktype 的字面量 import/require",
+        "proves": "No literal import/require of arktype in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -370,15 +370,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 io-ts。改用 effect/Schema",
+      "message": "io-ts is forbidden. Use effect/Schema.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 io-ts 的字面量 import/require",
+        "proves": "No literal import/require of io-ts in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -397,15 +397,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 lodash。改用 effect/Array / effect/HashMap / effect/HashSet / effect/Option 等",
+      "message": "lodash is forbidden. Use effect/Array, effect/HashMap, effect/HashSet, effect/Option and friends.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 lodash* 的字面量 import/require",
+        "proves": "No literal import/require of lodash* in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -424,15 +424,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 ramda。改用 effect 内置集合与组合子",
+      "message": "ramda is forbidden. Use effect's built-in collections and combinators.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 ramda 的字面量 import/require",
+        "proves": "No literal import/require of ramda in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -451,15 +451,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 ts-pattern。改用 effect/Match",
+      "message": "ts-pattern is forbidden. Use effect/Match.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 ts-pattern 的字面量 import/require",
+        "proves": "No literal import/require of ts-pattern in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -480,15 +480,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)",
+      "message": "@tanstack/react-query / swr / @tanstack/query-core are forbidden. Use @effect/atom-react with effect/reactivity/Atom (AsyncResult state machine).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 @tanstack/react-query / @tanstack/query-core / swr 的字面量 import/require",
+        "proves": "No literal import/require of @tanstack/react-query / @tanstack/query-core / swr in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -507,15 +507,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)",
+      "message": "zustand is forbidden. Use @effect/atom-react with effect/reactivity/Atom (Atom.make).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 zustand* 的字面量 import/require",
+        "proves": "No literal import/require of zustand* in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -534,15 +534,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom",
+      "message": "jotai is forbidden. Use @effect/atom-react with effect/reactivity/Atom.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 jotai* 的字面量 import/require",
+        "proves": "No literal import/require of jotai* in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -562,15 +562,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)",
+      "message": "Native node fs is forbidden. Use effect/FileSystem (provided through Context; the Node layer is @effect/platform-node/NodeFileSystem).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 node:fs / fs-extra 的字面量 import/require",
+        "proves": "No literal import/require of node:fs / fs-extra in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -589,15 +589,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)",
+      "message": "Native node path is forbidden. Use effect/Path (the Node layer is @effect/platform-node/NodePath).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 node:path 的字面量 import/require",
+        "proves": "No literal import/require of node:path in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -614,7 +614,7 @@
         "selector": "set-timeout"
       },
       "family": "source",
-      "message": "禁用 setTimeout。改用 Effect.sleep(Duration 字面量)",
+      "message": "setTimeout is forbidden. Use Effect.sleep with a Duration.",
       "help": {
         "before": "setTimeout(tick, 1000)",
         "after": "yield* Effect.sleep(\"1 second\").pipe(Effect.andThen(tick))",
@@ -624,11 +624,11 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 setTimeout 绑定的调用(含从 node:timers、timers、timers/promises 导入的 setTimeout)",
+        "proves": "No call through the global setTimeout binding in the scanned files (including setTimeout imported from node:timers, timers, timers/promises)",
         "blindSpots": [
-          "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
-          "setImmediate/queueMicrotask/requestAnimationFrame 不在本规则范围",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Timers called through a function parameter, a dynamic property or an alias not resolvable to the global are not visible",
+          "setImmediate / queueMicrotask / requestAnimationFrame are outside this rule",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -645,7 +645,7 @@
         "selector": "set-interval"
       },
       "family": "source",
-      "message": "禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped",
+      "message": "setInterval is forbidden. Use Effect.repeat with Schedule.spaced / Schedule.fixed, forked with Effect.forkScoped.",
       "help": {
         "before": "setInterval(tick, 1000)",
         "after": "yield* tick.pipe(Effect.repeat(Schedule.spaced(\"1 second\")))",
@@ -655,10 +655,10 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 setInterval 绑定的调用(含从 node:timers、timers、timers/promises 导入的 setInterval)",
+        "proves": "No call through the global setInterval binding in the scanned files (including setInterval imported from node:timers, timers, timers/promises)",
         "blindSpots": [
-          "经函数参数、动态属性或无法解析到全局的别名调用的定时器不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Timers called through a function parameter, a dynamic property or an alias not resolvable to the global are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -675,7 +675,7 @@
         "selector": "new-error"
       },
       "family": "source",
-      "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
+      "message": "new Error is forbidden. Declare every domain error as a Schema.TaggedError class.",
       "help": {
         "before": "new Error(\"not found\")",
         "after": "class NotFound extends Schema.TaggedError<NotFound>()(\"NotFound\", { id: Schema.String }) {}  // new NotFound({ id })",
@@ -685,10 +685,10 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 new Error(...) 表达式",
+        "proves": "No new Error(...) expression in the scanned files",
         "blindSpots": [
-          "class X extends Error、不带 new 的 Error(...) 与库内部构造的错误不被识别",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "class X extends Error, Error(...) without new, and errors constructed inside libraries are not recognized",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -705,7 +705,7 @@
         "selector": "throw-statement"
       },
       "family": "source",
-      "message": "禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail",
+      "message": "throw is forbidden. Fail with yield* new MyTaggedError({ ... }) or Effect.fail.",
       "help": {
         "before": "throw new Error(\"not found\")",
         "after": "return yield* new NotFound({ id })",
@@ -715,10 +715,10 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 throw 语句",
+        "proves": "No throw statement in the scanned files",
         "blindSpots": [
-          "被调用代码(依赖、运行时)抛出的异常不可见,只检查扫描范围内的 throw 语句",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Exceptions thrown by called code (dependencies, the runtime) are not visible; only throw statements in the scanned files are checked",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -735,7 +735,7 @@
         "selector": "date-now"
       },
       "family": "source",
-      "message": "业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)",
+      "message": "Date.now() is forbidden in application code. Use Clock.currentTimeMillis (testable).",
       "help": {
         "before": "const now = Date.now()",
         "after": "const now = yield* Clock.currentTimeMillis",
@@ -745,10 +745,10 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有经全局 Date 绑定调用 Date.now()",
+        "proves": "No Date.now() call through the global Date binding in the scanned files",
         "blindSpots": [
-          "performance.now() 与经无法解析的别名调用的 Date.now 不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "performance.now() and Date.now called through an unresolvable alias are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -765,7 +765,7 @@
         "selector": "process-env"
       },
       "family": "source",
-      "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
+      "message": "Reading process.env directly is forbidden. Use Config.String / Config.Redacted provided through a Layer.",
       "help": {
         "before": "const port = process.env.PORT",
         "after": "const port = yield* Config.Int(\"PORT\")",
@@ -775,11 +775,11 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 process.env/Bun.env/import.meta.env 的读取",
+        "proves": "No read of process.env / Bun.env / import.meta.env in the scanned files",
         "blindSpots": [
-          "经 dotenv、Deno.env、其他配置对象间接读取环境不可见",
-          "经无法解析的别名取得的 env 对象不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Environment reads through dotenv, Deno.env or other configuration objects are not visible",
+          "An env object obtained through an unresolvable alias is not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -798,15 +798,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 node-cron。改用 Schedule.cron(\"M H D M W\") + Effect.repeat",
+      "message": "node-cron is forbidden. Use Schedule.cron(\"M H D M W\") with Effect.repeat.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 node-cron 的字面量 import/require",
+        "proves": "No literal import/require of node-cron in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -827,15 +827,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)",
+      "message": "tRPC is forbidden. Use effect/rpc (Rpc + RpcGroup with Schema requests, responses and errors).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 @trpc/* 的字面量 import/require",
+        "proves": "No literal import/require of @trpc/* in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -856,15 +856,15 @@
         ]
       },
       "family": "source",
-      "message": "禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator",
+      "message": "Prisma is forbidden. Use an @effect/sql-* adapter with the effect/sql SqlClient and Migrator.",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 @prisma/client 的字面量 import/require",
+        "proves": "No literal import/require of @prisma/client in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -885,15 +885,15 @@
         ]
       },
       "family": "source",
-      "message": "避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区)",
+      "message": "Avoid moment / dayjs / date-fns. Use effect/DateTime (time-zone aware).",
       "facts": [
         "source.imports"
       ],
       "coverage": {
-        "proves": "扫描范围内没有对 moment/dayjs/date-fns* 的字面量 import/require",
+        "proves": "No literal import/require of moment/dayjs/date-fns* in the scanned files",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only literal import / export-from / import() / require() specifiers are matched (require includes the value returned by createRequire and its aliases); a require passed in as a function parameter, non-literal specifiers and the same library re-wrapped by a third-party package are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -910,7 +910,7 @@
         "selector": "new-date"
       },
       "family": "source",
-      "message": "业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string",
+      "message": "Avoid new Date() in application code. Read time through Clock, compute calendars with DateTime, store timestamps as number / ISO string.",
       "help": {
         "before": "const now = new Date()",
         "after": "const now = yield* DateTime.now",
@@ -920,10 +920,10 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 new Date(...) 表达式(警告)",
+        "proves": "No new Date(...) expression in the scanned files (warning)",
         "blindSpots": [
-          "来自 API/依赖的 Date 实例、Date.parse 与 performance.now 不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Date instances from APIs or dependencies, Date.parse and performance.now are not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -960,10 +960,10 @@
         ]
       },
       "coverage": {
-        "proves": "测试范围内(testGlobs/默认 glob)导入 Effect 且定义测试的文件(调用测试框架导出或未绑定全局的 describe/it/suite/test,含成员与派生如 it.effect、describe.each、it.extend)导入了 @effect/vitest;只被套件引用、不定义测试的测试支持模块不是套件,但仍是测试代码",
+        "proves": "Every file in test scope (testGlobs / default globs) that imports Effect and defines tests (calls a test-framework export or an unbound global describe/it/suite/test, including members and derivations such as it.effect, describe.each, it.extend) imports @effect/vitest; a test-support module that suites import but that defines no tests is not a suite, though it is still test code",
         "blindSpots": [
-          "测试范围只按 manifest testGlobs/默认 glob 识别;经辅助模块间接使用 Effect 的测试不被标记",
-          "测试定义只按 scanner.testFrameworks 的导出与未绑定全局名识别;经函数参数、动态属性或非列出框架定义的测试不可见"
+          "Test scope is recognized only through manifest testGlobs / default globs; tests that use Effect indirectly through a helper module are not flagged",
+          "Test definitions are recognized only through scanner.testFrameworks exports and unbound global names; tests defined through a function parameter, a dynamic property or an unlisted framework are not visible"
         ]
       }
     },
@@ -986,9 +986,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 db:pg 的包在 package.json 中声明了 @effect/sql-pg 且没有直接 pg 依赖",
+        "proves": "A package declaring db:pg declares @effect/sql-pg in package.json and no direct pg dependency",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的使用适配器、锁文件与安装树中的实际版本不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really uses the adapter, and the versions in the lockfile and installed tree, are outside what this rule proves"
         ]
       }
     },
@@ -1011,9 +1011,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 db:mysql 的包声明了 @effect/sql-mysql2 且没有直接 mysql2 依赖",
+        "proves": "A package declaring db:mysql declares @effect/sql-mysql2 and no direct mysql2 dependency",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really uses the adapter, and the versions in the installed tree, are outside what this rule proves"
         ]
       }
     },
@@ -1036,9 +1036,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 db:sqlite 的包声明了受支持的 @effect/sql-sqlite-* 适配器",
+        "proves": "A package declaring db:sqlite declares a supported @effect/sql-sqlite-* adapter",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really uses the adapter, and the versions in the installed tree, are outside what this rule proves"
         ]
       }
     },
@@ -1061,9 +1061,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 db:d1 的包声明了 @effect/sql-d1",
+        "proves": "A package declaring db:d1 declares @effect/sql-d1",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really uses the adapter, and the versions in the installed tree, are outside what this rule proves"
         ]
       }
     },
@@ -1086,9 +1086,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 db:clickhouse 的包声明了 @effect/sql-clickhouse 且没有直接 ClickHouse 客户端依赖",
+        "proves": "A package declaring db:clickhouse declares @effect/sql-clickhouse and no direct ClickHouse client dependency",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的使用适配器、安装树中的实际版本不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really uses the adapter, and the versions in the installed tree, are outside what this rule proves"
         ]
       }
     },
@@ -1111,9 +1111,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 http-server 的包声明了 effect,且原生服务端依赖都有 manifest nativeDependencyBoundaries 声明",
+        "proves": "A package declaring http-server declares effect, and every native server dependency has a manifest nativeDependencyBoundaries entry",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的通过 effect/http 提供服务不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really serves through effect/http is outside what this rule proves"
         ]
       }
     },
@@ -1136,9 +1136,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 http-client 的包声明了 effect 且没有直接 HTTP 客户端依赖",
+        "proves": "A package declaring http-client declares effect and no direct HTTP client dependency",
         "blindSpots": [
-          "只读声明的依赖:源码是否真的通过 effect/http 发起请求不在本规则证明范围"
+          "Reads declared dependencies only: whether the source really sends requests through effect/http is outside what this rule proves"
         ]
       }
     },
@@ -1161,9 +1161,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 ai 的包声明了 effect,且其 AI loop 有声明的 owner:@effect/ai-* 提供方包、归属本包(最长匹配包路径)的 aiProviderTransports,或本包内被接纳、且依赖被本规则禁止的 nativeDependencyBoundaries(宿主拥有 loop);边界从不替代 effect 能力",
+        "proves": "A package declaring ai declares effect, and its AI loop has a declared owner: an @effect/ai-* provider package, aiProviderTransports belonging to the package (longest matching package path), or an admitted nativeDependencyBoundaries entry in the package whose dependency this rule forbids (the host owns the loop); a boundary never replaces the effect capability",
         "blindSpots": [
-          "只读声明的依赖:提供方是否被接入 AI 循环、直接 SDK 的使用不在本规则证明范围"
+          "Reads declared dependencies only: whether the provider is wired into the AI loop, and direct SDK use, are outside what this rule proves"
         ]
       }
     },
@@ -1186,9 +1186,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "非空 shape 的包在 devDependencies 中声明了 @effect/vitest",
+        "proves": "A package with a non-empty shape declares @effect/vitest in devDependencies",
         "blindSpots": [
-          "只证明声明;测试是否使用 @effect/vitest 由 EFF200 在导入层检查"
+          "Proves the declaration only; whether tests use @effect/vitest is checked at the import level by EFF200"
         ]
       }
     },
@@ -1211,9 +1211,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明 @effect/opentelemetry 的 v4 包满足其 @opentelemetry/* peer 依赖声明",
+        "proves": "A v4 package declaring @effect/opentelemetry satisfies its @opentelemetry/* peer dependency declarations",
         "blindSpots": [
-          "只比较声明与已安装 package.json 的 peer 范围;运行时/打包后的实际加载版本不可见"
+          "Compares declarations with the installed package.json peer ranges only; the versions actually loaded at runtime or after bundling are not visible"
         ]
       }
     },
@@ -1236,9 +1236,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "v4 项目没有声明 v3 线(0.x)的 @effect/* 包",
+        "proves": "A v4 project declares no v3-line (0.x) @effect/* package",
         "blindSpots": [
-          "只检查声明的依赖;经传递依赖引入的 v3 线包不可见"
+          "Checks declared dependencies only; v3-line packages introduced through transitive dependencies are not visible"
         ]
       }
     },
@@ -1261,9 +1261,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "已安装的 v4 @effect/* 包的 peer 依赖存在且在范围内",
+        "proves": "The peer dependencies of installed v4 @effect/* packages are present and in range",
         "blindSpots": [
-          "只检查已安装树中的 package.json;运行时实际解析到的副本与打包别名不可见"
+          "Checks package.json files in the installed tree only; the copies actually resolved at runtime and bundler aliases are not visible"
         ]
       }
     },
@@ -1286,9 +1286,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明与已安装的 Effect 主版本一致",
+        "proves": "The declared and installed Effect major versions agree",
         "blindSpots": [
-          "主版本取自声明范围与已安装 package.json;嵌套 node_modules 中的多份拷贝与打包器别名不被检查"
+          "The major version comes from the declared range and the installed package.json; multiple copies in nested node_modules and bundler aliases are not checked"
         ]
       }
     },
@@ -1311,14 +1311,14 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "Effect.run*/ManagedRuntime 运行器(make 及其实例的 run*/dispose)的每个引用(被调用、作为调用或 new 的参数传递、别名初始化或其它值位置)都位于 manifest executableEdges",
+        "proves": "Every reference to an Effect.run* / ManagedRuntime runner (make and its instances' run*/dispose) — called, passed as an argument of a call or new, an alias initializer, or any other value position — is in a manifest executableEdges file",
         "blindSpots": [
-          "只检查运行点:运行器被调用,或作为某次调用/new 的参数传入(pipe(Effect.runFork)、.map(Effect.runPromise))。仅被保存、导出或作为别名初始化的运行器不是运行点(其后续的调用才是),因此 `export const run = Effect.runPromise` 本身不报,经 executableEdges 内导出的包装函数在别处被调用也不会被标记",
-          "经动态属性/函数参数取得的运行器不可见",
-          "*Runtime.runMain 不属于本规则:非 executableEdges 文件里的 runMain 不被 EFF400 报告,其归属由 EFF401 的 process-main 契约校验",
-          "运行器身份只按文件内的 import 与 const 别名解析,外加相对路径的重导出(export { a as b } from、export * as N from、导入后再导出;export * from 只对运行器相关的 effect/@effect 名称生效,不核对包的真实导出表);非相对路径的重导出与函数内动态 import 取得的 Effect 命名空间(const { Effect: E } = await import(\"effect\"))不可见",
-          "无法解析的文件不产生运行器事实,只报 EFF504",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "Only run points are checked: a runner that is called, or passed as an argument of a call/new (pipe(Effect.runFork), .map(Effect.runPromise)). A runner that is only stored, exported or used as an alias initializer is not a run point (its later calls are), so `export const run = Effect.runPromise` itself is not reported, and a wrapper exported from an executableEdges file and called elsewhere is not flagged",
+          "Runners obtained through a dynamic property or a function parameter are not visible",
+          "*Runtime.runMain is outside this rule: runMain in a file that is not an executableEdges entry is not reported by EFF400; its ownership is checked by EFF401's process-main contract",
+          "Runner identity is resolved only through the file's imports and const aliases, plus relative re-exports (export { a as b } from, export * as N from, import-then-export; export * from applies only to runner-related effect/@effect names and does not consult the package's real export table); non-relative re-exports and an Effect namespace obtained by a dynamic import inside a function (const { Effect: E } = await import(\"effect\")) are not visible",
+          "A file that does not parse yields no runner facts; it is reported as EFF504 only",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -1341,11 +1341,11 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "声明的可执行边在源码中满足其 execution 合同(运行点:被调用或作为调用/new 的参数传入的运行器引用;与处理器形状)",
+        "proves": "A declared executable edge satisfies its execution contract in source (run points: runner references that are called or passed as an argument of a call/new; and the handler shape)",
         "blindSpots": [
-          "只证明边文件的源码形状;该文件是否真的是进程/宿主入口(wrangler、宿主配置消费)不在证明范围",
-          "赋值、导出、返回值与裸表达式里的运行器引用不是运行点(export const main = NodeRuntime.runMain 不满足 process-main);别名只在别名自身被调用或传入时计数",
-          "运行器身份的盲区同 EFF400:非相对路径的重导出与函数内动态 import 取得的 Effect 命名空间不可见;边文件无法解析时合同不可证明,按不匹配报告"
+          "Proves the edge file's source shape only; whether the file really is the process/host entry (wrangler, host configuration) is outside what this rule proves",
+          "Runner references in assignments, exports, return values and bare expressions are not run points (export const main = NodeRuntime.runMain does not satisfy process-main); an alias counts only where the alias itself is called or passed",
+          "Runner identity has EFF400's blind spots: non-relative re-exports and an Effect namespace obtained by a dynamic import inside a function are not visible; when the edge file does not parse the contract cannot be proven and is reported as a mismatch"
         ]
       }
     },
@@ -1379,9 +1379,9 @@
         ]
       },
       "coverage": {
-        "proves": "已知平台构造器(经 import 绑定识别)只出现在 allowedAdapters 或测试夹具位置",
+        "proves": "Known platform constructors (recognized through import bindings) appear only in allowedAdapters or test-fixture locations",
         "blindSpots": [
-          "无类型检查器时无法证明的构造(经再导出工厂、函数参数、泛型辅助得到的构造器)不被判定,以 unproven-fact 列出"
+          "Constructions that cannot be proven without a type checker (constructors obtained through re-exported factories, function parameters, generic helpers) are not judged; they are listed as unproven facts"
         ]
       }
     },
@@ -1404,9 +1404,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "没有对 effect 或 @effect/* 的 import * as 命名空间导入",
+        "proves": "No import * as namespace import of effect or @effect/*",
         "blindSpots": [
-          "只检查 import 声明;require('effect')/import() 的命名空间对象由 EFF404 管辖"
+          "Only import declarations are checked; namespace objects from require('effect') / import() are owned by EFF404"
         ]
       }
     },
@@ -1429,11 +1429,11 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "源码文件没有 require()(含 createRequire 返回值及其别名)与模块作用域 import()",
+        "proves": "No require() (including the value returned by createRequire and its aliases) and no module-scope import() in source files",
         "blindSpots": [
-          "函数体内的 import() 按规则允许;非字面量说明符与打包器魔法注释不被分析",
-          "经函数参数传入的 require 不可见",
-          "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
+          "import() inside a function body is allowed by the rule; non-literal specifiers and bundler magic comments are not analyzed",
+          "A require passed in as a function parameter is not visible",
+          "Test, generated, hostTooling and .d.ts files, and files with non-JS/TS extensions, are outside the scanned scope"
         ]
       }
     },
@@ -1456,9 +1456,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "诊断提供方没有对程序内文件报告 floating Effect",
+        "proves": "The diagnostics provider reports no floating Effect for files in the program",
         "blindSpots": [
-          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被 ts-ignore/抑制的代码不可见,Effect 类型流本身不被重新实现"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and ts-ignore'd or suppressed code are not visible, and the Effect type flow is not reimplemented"
         ]
       }
     },
@@ -1481,9 +1481,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "诊断提供方没有对程序内文件报告缺失的 Effect 上下文",
+        "proves": "The diagnostics provider reports no missing Effect context for files in the program",
         "blindSpots": [
-          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
         ]
       }
     },
@@ -1506,9 +1506,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "诊断提供方没有对程序内文件报告未处理的错误通道",
+        "proves": "The diagnostics provider reports no unhandled error channel for files in the program",
         "blindSpots": [
-          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
         ]
       }
     },
@@ -1531,9 +1531,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "诊断提供方没有对程序内文件报告未关闭的 Layer 依赖",
+        "proves": "The diagnostics provider reports no unclosed Layer dependency for files in the program",
         "blindSpots": [
-          "只含 @effect/tsgo 诊断对 tsconfig 程序内文件的结果;程序外文件与被抑制的代码不可见"
+          "Covers only @effect/tsgo diagnostics for files in the tsconfig program; files outside the program and suppressed code are not visible"
         ]
       }
     },
@@ -1556,9 +1556,9 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "程序内扫描文件在项目 tsconfig 下通过 TypeScript 编译;扫描器自身无法解析的文件(语法错误)按文件报告,不会静默得到空结论",
+        "proves": "Scanned files in the program compile under the project tsconfig; a file the scanner itself cannot parse (a syntax error) is reported per file and never silently yields an empty verdict",
         "blindSpots": [
-          "不在 tsconfig 程序内的文件、skipLibCheck 的声明文件与 ts-expect-error/ts-ignore 抑制的错误不被报告"
+          "Files outside the tsconfig program, declaration files under skipLibCheck, and errors suppressed by ts-expect-error/ts-ignore are not reported"
         ]
       }
     },
@@ -1733,10 +1733,10 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "每个 eff-ignore 注释都带 reason;启用 --fail-on-suppression-drift 时还都匹配本行仍存在的同规则 finding 且未过期",
+        "proves": "Every eff-ignore comment carries a reason; with --fail-on-suppression-drift each also matches a finding of its rule still on its line and is not expired",
         "blindSpots": [
-          "reason 的内容是否成立不被判断,只检查非空",
-          "不带 --fail-on-suppression-drift 时孤儿与过期注释不报告"
+          "Whether the reason holds is not judged; it is only checked to be non-empty",
+          "Without --fail-on-suppression-drift, orphaned and expired comments are not reported"
         ]
       }
     }

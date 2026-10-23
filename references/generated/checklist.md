@@ -3,35 +3,35 @@
 Source of truth: `contracts/rules.json`.
 
 - [ ] EFF000 --strict requires .effect-skill.json
-- [ ] EFF001 禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError
-- [ ] EFF002 禁用 async function。改写为 Effect.gen(function* () { ... }) + yield*
-- [ ] EFF003 禁用 async 箭头函数。改写为 Effect.gen + yield*
-- [ ] EFF004 禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain
-- [ ] EFF005 禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition
-- [ ] EFF006 禁用 axios。改用 effect/http/HttpClient (FetchHttpClient 或平台 HttpClient 层),配合 Schema 化解码
-- [ ] EFF007 禁用 zod。改用 effect/Schema (双向 codec)
-- [ ] EFF008 禁用 yup。改用 effect/Schema
-- [ ] EFF009 禁用 arktype。改用 effect/Schema
-- [ ] EFF010 禁用 io-ts。改用 effect/Schema
-- [ ] EFF011 禁用 lodash。改用 effect/Array / effect/HashMap / effect/HashSet / effect/Option 等
-- [ ] EFF012 禁用 ramda。改用 effect 内置集合与组合子
-- [ ] EFF013 禁用 ts-pattern。改用 effect/Match
-- [ ] EFF014 禁用 @tanstack/react-query / swr / @tanstack/query-core。改用 @effect/atom-react + effect/reactivity/Atom (AsyncResult 状态机)
-- [ ] EFF015 禁用 zustand。改用 @effect/atom-react + effect/reactivity/Atom (Atom.make)
-- [ ] EFF016 禁用 jotai。改用 @effect/atom-react + effect/reactivity/Atom
-- [ ] EFF020 禁用 node 原生 fs。改用 effect/FileSystem (Context 注入; Node 层为 @effect/platform-node/NodeFileSystem)
-- [ ] EFF021 禁用 node 原生 path。改用 effect/Path (Node 层为 @effect/platform-node/NodePath)
-- [ ] EFF022 禁用 setTimeout。改用 Effect.sleep(Duration 字面量)
-- [ ] EFF023 禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped
-- [ ] EFF024 禁止 new Error。所有领域错误用 Schema.TaggedError class 声明
-- [ ] EFF025 禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail
-- [ ] EFF026 业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)
-- [ ] EFF027 禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入
-- [ ] EFF028 禁用 node-cron。改用 Schedule.cron("M H D M W") + Effect.repeat
-- [ ] EFF029 禁用 trpc。改用 effect/rpc (Rpc + RpcGroup, Schema 化请求/响应/错误)
-- [ ] EFF030 禁用 prisma。改用 @effect/sql-* 适配器 + effect/sql SqlClient + Migrator
-- [ ] EFF031 避免 moment/dayjs/date-fns。改用 effect/DateTime (带时区)
-- [ ] EFF032 业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string
+- [ ] EFF001 Native try/catch is forbidden. Wrap the side effect in Effect.try / Effect.tryPromise; type the failure channel with a Schema.TaggedError.
+- [ ] EFF002 async function is forbidden. Rewrite it as Effect.gen(function* () { ... }) with yield*.
+- [ ] EFF003 async arrow functions are forbidden. Rewrite as Effect.gen with yield*.
+- [ ] EFF004 await is forbidden. Use yield* inside Effect; at the edge, run the program with Effect.runPromise / NodeRuntime.runMain.
+- [ ] EFF005 Promise static combinators are forbidden. Use Effect.all({ concurrency }) / Effect.race / Effect.partition.
+- [ ] EFF006 axios is forbidden. Use effect/http/HttpClient (FetchHttpClient or a platform HttpClient layer) with Schema decoding.
+- [ ] EFF007 zod is forbidden. Use effect/Schema (bidirectional codecs).
+- [ ] EFF008 yup is forbidden. Use effect/Schema.
+- [ ] EFF009 arktype is forbidden. Use effect/Schema.
+- [ ] EFF010 io-ts is forbidden. Use effect/Schema.
+- [ ] EFF011 lodash is forbidden. Use effect/Array, effect/HashMap, effect/HashSet, effect/Option and friends.
+- [ ] EFF012 ramda is forbidden. Use effect's built-in collections and combinators.
+- [ ] EFF013 ts-pattern is forbidden. Use effect/Match.
+- [ ] EFF014 @tanstack/react-query / swr / @tanstack/query-core are forbidden. Use @effect/atom-react with effect/reactivity/Atom (AsyncResult state machine).
+- [ ] EFF015 zustand is forbidden. Use @effect/atom-react with effect/reactivity/Atom (Atom.make).
+- [ ] EFF016 jotai is forbidden. Use @effect/atom-react with effect/reactivity/Atom.
+- [ ] EFF020 Native node fs is forbidden. Use effect/FileSystem (provided through Context; the Node layer is @effect/platform-node/NodeFileSystem).
+- [ ] EFF021 Native node path is forbidden. Use effect/Path (the Node layer is @effect/platform-node/NodePath).
+- [ ] EFF022 setTimeout is forbidden. Use Effect.sleep with a Duration.
+- [ ] EFF023 setInterval is forbidden. Use Effect.repeat with Schedule.spaced / Schedule.fixed, forked with Effect.forkScoped.
+- [ ] EFF024 new Error is forbidden. Declare every domain error as a Schema.TaggedError class.
+- [ ] EFF025 throw is forbidden. Fail with yield* new MyTaggedError({ ... }) or Effect.fail.
+- [ ] EFF026 Date.now() is forbidden in application code. Use Clock.currentTimeMillis (testable).
+- [ ] EFF027 Reading process.env directly is forbidden. Use Config.String / Config.Redacted provided through a Layer.
+- [ ] EFF028 node-cron is forbidden. Use Schedule.cron("M H D M W") with Effect.repeat.
+- [ ] EFF029 tRPC is forbidden. Use effect/rpc (Rpc + RpcGroup with Schema requests, responses and errors).
+- [ ] EFF030 Prisma is forbidden. Use an @effect/sql-* adapter with the effect/sql SqlClient and Migrator.
+- [ ] EFF031 Avoid moment / dayjs / date-fns. Use effect/DateTime (time-zone aware).
+- [ ] EFF032 Avoid new Date() in application code. Read time through Clock, compute calendars with DateTime, store timestamps as number / ISO string.
 - [ ] EFF200 Effect test suites must import @effect/vitest.
 - [ ] EFF300 shape db:pg requires @effect/sql-pg and forbids direct pg dependency.
 - [ ] EFF301 shape db:mysql requires @effect/sql-mysql2 and forbids direct mysql2 dependency.
