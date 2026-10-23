@@ -72,6 +72,11 @@
       "guidance": "Inside an Effect.promise/tryPromise/sync/try callback, Promise or synchronous code by design: let the boundary map the failure (catch: (cause) => new XError({ cause })) instead of rewriting the callback body."
     }
   },
+  "baseline": {
+    "excludedFamilies": [
+      "infra"
+    ]
+  },
   "rules": [
     {
       "id": "EFF000",

@@ -25,6 +25,15 @@ pub struct Options {
     pub gate_summary: bool,
     /// `--rules <file>` (test only): the rule contract was replaced; recorded in `warnings`.
     pub rules_override: Option<String>,
+    /// `--baseline <file>` / `--write-baseline <file>`.
+    pub baseline: Option<BaselineMode>,
+}
+
+pub enum BaselineMode {
+    /// Recorded findings are reported, not blocking.
+    Gate(crate::baseline::Baseline),
+    /// Record this scan's findings at the path, then gate this run against that record.
+    Write(String),
 }
 
 pub struct FileRoles {
@@ -136,6 +145,20 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         locale_compare(&a.file, &b.file).then(a.line.cmp(&b.line)).then(locale_compare(&a.rule_id, &b.rule_id))
     });
     timings.mark("sortFindings");
+    // Before the projection, so the gate summary and the evidence see the baselined state.
+    let written;
+    let baseline = match &options.baseline {
+        None => None,
+        Some(BaselineMode::Gate(b)) => Some(b),
+        Some(BaselineMode::Write(path)) => {
+            written = crate::baseline::Baseline::write(path, &findings, registry)?;
+            Some(&written)
+        }
+    };
+    if let Some(baseline) = baseline {
+        let applied = baseline.apply(&mut findings, registry);
+        extras.insert("baseline".into(), json!({ "path": baseline.path(), "matched": applied.matched, "stale": applied.stale }));
+    }
     // Facts a rule could not decide, handed to the projection as `{ id: "<rule>:<file>:<line>", reason }`.
     extras.insert(
         "notProvenFacts".into(),
@@ -416,10 +439,12 @@ pub fn summarize(findings: &[Finding]) -> Value {
     for f in findings {
         *by_rule.entry(&f.rule_id).or_default() += 1;
     }
+    // errors / warnings count what the gate acts on; baselined findings are counted apart.
     json!({
         "total": findings.len(),
-        "errors": findings.iter().filter(|f| f.severity == "error").count(),
-        "warnings": findings.iter().filter(|f| f.severity == "warning").count(),
+        "errors": findings.iter().filter(|f| f.severity == "error" && !f.baselined).count(),
+        "warnings": findings.iter().filter(|f| f.severity == "warning" && !f.baselined).count(),
+        "baselined": findings.iter().filter(|f| f.baselined).count(),
         "byRule": by_rule,
     })
 }

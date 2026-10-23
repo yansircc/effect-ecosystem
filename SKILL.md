@@ -42,7 +42,9 @@ compatibility guess.
    Record `<dir>/gate-summary.json` as the Effect mechanical compliance gate
    and keep both as artifact paths instead of pasting JSON into task evidence.
 4. Treat error findings as mechanical blockers. Warning findings are report-only.
-   Fix blockers or add an owned, reasoned suppression.
+   Fix blockers or add an owned, reasoned suppression. A repository migrating
+   in steps gates with `--baseline <file>` (recorded with `--write-baseline`):
+   only findings the baseline does not record block; never re-record to pass.
 5. Treat signals as review prompts, not verdicts.
 6. Load only the exact `path §heading` entries in
    `effect.requiredReferences`. They derive solely from findings and emitted

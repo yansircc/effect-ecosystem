@@ -38,6 +38,8 @@ pub struct GateInput<'a> {
     pub strict: bool,
     /// Facts a rule could not decide (`extras["notProvenFacts"]` of the contracts stage).
     pub unproven_facts: &'a [Value],
+    /// `{ path, matched, stale }` when `--baseline` applied (`extras["baseline"]` of the scan).
+    pub baseline: Option<&'a Value>,
 }
 
 pub fn build_scan_projection(
@@ -116,13 +118,18 @@ fn normalize_findings(findings: Vec<&Finding>) -> Vec<Value> {
 }
 
 fn gate_summary(gate: &GateInput, evidence: &Value, input_hash: &str, full_hash: &str, artifacts: Option<Value>) -> Value {
-    let block = normalize_findings(gate.findings.iter().filter(|f| f.severity == "error").collect());
-    let report = normalize_findings(gate.findings.iter().filter(|f| f.severity == "warning").collect());
+    let block = normalize_findings(gate.findings.iter().filter(|f| f.severity == "error" && !f.baselined).collect());
+    let report = normalize_findings(gate.findings.iter().filter(|f| f.severity == "warning" && !f.baselined).collect());
+    let baselined = normalize_findings(gate.findings.iter().filter(|f| f.baselined).collect());
     let build_info = &evidence["scanner"]["buildInfo"];
     let scanner_build_id = build_info.get("buildId").cloned().unwrap_or(Value::Null);
+    // The hash names the code's compliance state, not the policy over it: a baseline does not change it.
     let compliance_hash = sha256(&stable_json(&json!({
         "scannerBuildId": scanner_build_id,
-        "findings": block.iter().chain(report.iter()).collect::<Vec<_>>(),
+        "findings": normalize_findings(gate.findings.iter().filter(|f| f.severity == "error").collect())
+            .into_iter()
+            .chain(normalize_findings(gate.findings.iter().filter(|f| f.severity == "warning").collect()))
+            .collect::<Vec<_>>(),
     })));
     let mut by_kind: BTreeMap<&str, u64> = BTreeMap::new();
     for signal in gate.signals {
@@ -138,7 +145,7 @@ fn gate_summary(gate: &GateInput, evidence: &Value, input_hash: &str, full_hash:
     let errors = gate.summary["errors"].as_u64().unwrap_or(0);
     let exit_code = u8::from(errors > 0);
     let profile = gate.profile;
-    json!({
+    let mut summary = json!({
         "schemaVersion": 2,
         "kind": "effect-mechanical-compliance-gate",
         "ok": errors == 0,
@@ -171,7 +178,13 @@ fn gate_summary(gate: &GateInput, evidence: &Value, input_hash: &str, full_hash:
         "complianceHash": compliance_hash,
         "notProven": not_proven(gate),
         "artifacts": artifacts,
-    })
+    });
+    if let Some(applied) = gate.baseline {
+        summary["tiers"]["baselined"] = Value::Array(baselined);
+        summary["summary"]["baselined"] = applied["matched"].clone();
+        summary["baseline"] = applied.clone();
+    }
+    summary
 }
 
 /// Scanner defaults, then the blind spots every rule that ran declares (`coverage.blindSpots` in
@@ -246,7 +259,7 @@ mod tests {
     use super::*;
 
     fn gate<'a>(unproven: &'a [Value], summary: &'a Value, profile: &'a Value, strict: bool) -> GateInput<'a> {
-        GateInput { findings: &[], summary, profile, signals: &[], manifest: None, strict, unproven_facts: unproven }
+        GateInput { findings: &[], summary, profile, signals: &[], manifest: None, strict, unproven_facts: unproven, baseline: None }
     }
 
     #[test]

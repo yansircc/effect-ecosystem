@@ -5,6 +5,7 @@ macro_rules! manifest_name {
     };
 }
 
+mod baseline;
 mod contracts;
 mod diagnostics;
 mod expires;
@@ -89,6 +90,17 @@ fn main() -> ExitCode {
         eprintln!("root is not a directory: {}", root.display());
         return ExitCode::from(2);
     }
+    let baseline_path = match (parsed.value("--baseline"), parsed.value("--write-baseline")) {
+        (Some(_), Some(_)) => return usage("--baseline and --write-baseline are exclusive: write a baseline, or gate against one"),
+        (read, _) => read,
+    };
+    let baseline = match baseline_path.as_deref().map(baseline::Baseline::load).transpose() {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::from(2);
+        }
+    };
     let options = scan::Options {
         strict: parsed.flag("--strict"),
         manifest_path: parsed.value("--manifest"),
@@ -98,6 +110,11 @@ fn main() -> ExitCode {
         evidence_dir: parsed.value("--evidence"),
         gate_summary: matches!(mode, OutputMode::GateJson | OutputMode::Human | OutputMode::Agent),
         rules_override,
+        baseline: match (baseline, parsed.value("--write-baseline")) {
+            (Some(b), _) => Some(scan::BaselineMode::Gate(b)),
+            (None, Some(path)) => Some(scan::BaselineMode::Write(path)),
+            (None, None) => None,
+        },
     };
     let result = match scan::run(&root, &options, &registry) {
         Ok(r) => r,
@@ -109,12 +126,14 @@ fn main() -> ExitCode {
     let summary = scan::summarize(&result.findings);
     let errors = summary["errors"].as_u64().unwrap_or(0);
     if mode == OutputMode::Agent {
+        let active: Vec<findings::Finding> = result.findings.iter().filter(|f| !f.baselined).cloned().collect();
         let build_id = projection::build_info::embedded()["buildId"].as_str().unwrap_or("unknown").to_string();
         let manifest_name = options.manifest_path.clone().unwrap_or_else(|| manifest_name!().to_string());
         print!(
             "{}",
             projection::agent::render(&projection::agent::Input {
-                findings: &result.findings,
+                findings: &active,
+                baseline: result.extras.get("baseline"),
                 registry: &registry,
                 warnings: &result.warnings,
                 signals: result.extras.get("signals").and_then(|s| s.as_array()).map(Vec::as_slice).unwrap_or(&[]),

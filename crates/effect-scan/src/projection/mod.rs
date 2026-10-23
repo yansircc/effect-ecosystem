@@ -84,7 +84,8 @@ fn project(
     extras.insert("signals".into(), Value::Array(signals.clone()));
     extras.insert("profile".into(), profile.clone());
     let summary = crate::scan::summarize(findings);
-    let gate_input = evidence::GateInput { findings, summary: &summary, profile: &profile, signals: &signals, manifest, strict: options.strict, unproven_facts };
+    let baseline = extras.get("baseline").cloned();
+    let gate_input = evidence::GateInput { findings, summary: &summary, profile: &profile, signals: &signals, manifest, strict: options.strict, unproven_facts, baseline: baseline.as_ref() };
     let raw = cli::raw_document(findings, &summary, warnings, extras);
     if let Some(dir) = &options.evidence_dir {
         let artifacts = json!({ "rawJson": "scan-result.json", "evidence": "scan-evidence.json" });

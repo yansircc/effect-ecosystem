@@ -20,6 +20,7 @@ export function validateRegistry(registry) {
   // `scope` is read by the scanner, which validates its shape at load (exit 2); here only its presence.
   if (registry.scope === null || typeof registry.scope !== "object" || Array.isArray(registry.scope)) errors.push("scope must be an object")
   if ("defaults" in registry) errors.push("defaults is retired: the scanner's source scope is `scope`")
+  if (!Array.isArray(registry.baseline?.excludedFamilies)) errors.push("baseline.excludedFamilies must be an array of rule families")
   // actionOrder orders every rule family exactly once (the scanner rejects the contract otherwise).
   const families = new Set((registry.rules ?? []).map((rule) => rule.family))
   const order = registry.actionOrder

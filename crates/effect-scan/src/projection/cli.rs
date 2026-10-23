@@ -29,6 +29,8 @@ flags:
   --output <mode>                human | agent | gate-json | raw-json (default: human on a TTY, else gate-json)
                                  agent: ordered next actions, size bounded by distinct rules, not occurrences
   --evidence <dir>               write the evidence bundle to <dir>
+  --baseline <file>              findings recorded in <file> are reported, not blocking (infra never)
+  --write-baseline <file>        record this scan's findings in <file>, then apply it
   --fail-on-suppression-drift    report expired, reason-less and orphan eff-ignore comments
   --profile                      include signals and profile in the raw result
   --timings                      include stage timings in the raw result
@@ -45,7 +47,7 @@ exit codes:
 "
 );
 
-pub const VALUE_FLAGS: [&str; 4] = ["--evidence", "--manifest", "--output", "--rules"];
+pub const VALUE_FLAGS: [&str; 6] = ["--evidence", "--manifest", "--output", "--rules", "--baseline", "--write-baseline"];
 pub const BOOL_FLAGS: [&str; 6] = ["--strict", "--fail-on-suppression-drift", "--profile", "--timings", "--list-implemented-rules", "--build-info"];
 
 /// The command line as data: one pass, so every token is a known flag, a flag value or the root.
@@ -155,7 +157,10 @@ fn human(doc: &Map<String, Value>) {
             None => println!("artifacts=not-written"),
         }
     }
-    let findings = doc["findings"].as_array().cloned().unwrap_or_default();
+    if let Some(b) = doc.get("baseline") {
+        println!("baseline {}: {} admitted, {} recorded no longer found", text(&b["path"]), text(&b["matched"]), text(&b["stale"]));
+    }
+    let findings: Vec<Value> = doc["findings"].as_array().cloned().unwrap_or_default().into_iter().filter(|f| f["baselined"] != json!(true)).collect();
     if findings.is_empty() {
         return;
     }

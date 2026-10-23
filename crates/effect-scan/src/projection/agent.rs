@@ -26,7 +26,10 @@ const INSTANCES: usize = 8;
 const WARNINGS: usize = 5;
 
 pub struct Input<'a> {
+    /// The findings to act on: a baseline's admitted findings are not among them.
     pub findings: &'a [Finding],
+    /// `{ path, matched, stale }` when a baseline applied.
+    pub baseline: Option<&'a serde_json::Value>,
     pub registry: &'a Registry,
     pub warnings: &'a [String],
     /// Emitted signals (`signals` of the raw result).
@@ -53,6 +56,13 @@ pub fn render(input: &Input) -> String {
     let files = input.findings.iter().map(|f| f.file.as_str()).collect::<std::collections::BTreeSet<_>>().len();
     let verdict = if errors == 0 { "PASS" } else { "FAIL" };
     let _ = writeln!(out, "effect-scan {verdict}: {}, {} in {} (scanner {})", count(errors, "error"), count(warnings, "warning"), count(files, "file"), input.build_id);
+    if let Some(b) = input.baseline {
+        let (matched, stale) = (b["matched"].as_u64().unwrap_or(0) as usize, b["stale"].as_u64().unwrap_or(0) as usize);
+        let _ = writeln!(out, "baseline {}: {} admitted, not blocking", b["path"].as_str().unwrap_or(""), count(matched, "finding"));
+        if stale > 0 {
+            let _ = writeln!(out, "baseline: {} no longer found; tighten it with --write-baseline", count(stale, "recorded finding"));
+        }
+    }
     for warning in input.warnings.iter().take(WARNINGS) {
         let _ = writeln!(out, "warning: {warning}");
     }
@@ -299,7 +309,7 @@ mod tests {
         let registry = registry();
         let render_n = |n: u32| {
             let findings: Vec<Finding> = (0..n).map(|i| finding(&registry, "EFF004", &format!("src/f{i}.ts"), 1)).collect();
-            let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+            let input = Input { findings: &findings, baseline: None, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
             render(&input)
         };
         let (small, large) = (render_n(10), render_n(5000));
@@ -312,7 +322,7 @@ mod tests {
     fn families_follow_action_order_and_scope_comes_first_without_a_manifest() {
         let registry = registry();
         let findings = vec![finding(&registry, "EFF004", "src/a.ts", 1), finding(&registry, "EFF000", ".effect-skill.json", 1)];
-        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: false, manifest_name: ".effect-skill.json", evidence_dir: Some("ev"), build_id: "test" };
+        let input = Input { findings: &findings, baseline: None, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: false, manifest_name: ".effect-skill.json", evidence_dir: Some("ev"), build_id: "test" };
         let text = render(&input);
         let scope = text.find("1. [scope]").unwrap();
         let infra = text.find("2. EFF000").unwrap();
@@ -325,7 +335,7 @@ mod tests {
     fn instance_messages_are_each_listed_up_to_the_bound() {
         let registry = registry();
         let findings: Vec<Finding> = (0..12).map(|i| registry.finding("EFF900", ".effect-skill.json", 1, "", Some(&format!("stale selector s{i}")), None)).collect();
-        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+        let input = Input { findings: &findings, baseline: None, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
         let text = render(&input);
         assert!(text.contains("stale selector s0") && text.contains("stale selector s7") && !text.contains("stale selector s8"), "{text}");
         assert!(text.contains("+4 more") && !text.contains(" | {"), "{text}");
@@ -339,7 +349,7 @@ mod tests {
             finding(&registry, "EFF024", "src/a.ts", 3),
             finding(&registry, "EFF024", "src/b.ts", 7),
         ];
-        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+        let input = Input { findings: &findings, baseline: None, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
         let text = render(&input);
         assert_eq!(text.matches("src/a.ts:3:3").count(), 1, "{text}");
         assert!(text.contains("src/b.ts:7:3") && text.contains("1 error in 1 file") && text.contains("2 errors in 2 files"), "{text}");
@@ -356,7 +366,7 @@ mod tests {
             finding(&registry, "EFF003", "src/a.ts", 5).with_context(Some("module")),
             finding(&registry, "EFF003", "src/c.ts", 5).with_context(Some("function")),
         ];
-        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+        let input = Input { findings: &findings, baseline: None, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
         let text = render(&input);
         assert!(text.contains("EFF004 await-keyword · in plain functions · 2 errors in 1 file"), "{text}");
         assert!(text.contains("EFF004 await-keyword · 1 error in 1 file"), "{text}");

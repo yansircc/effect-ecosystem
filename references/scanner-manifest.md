@@ -803,6 +803,18 @@ EFF500-EFF503. It does not claim full coverage of every diagnostic currently
 emitted by the selected provider; unmapped diagnostics are signal candidates
 for future rule graduation, not current scanner failures.
 
+## Baseline
+
+`--write-baseline <file>` records the scan's findings; `--baseline <file>` gates against
+that record: recorded findings are reported as `baselined` (gate tier `tiers.baselined`,
+not blocking) and only the rest block. A finding is identified by rule, file and its line
+text with all whitespace removed (its instance message when it has no line text), counted
+per identity: reformatting and moved lines keep the identity, an edited line is a new
+finding. Recorded findings that no longer occur are reported as `stale`; rewrite the
+baseline to tighten it. Families in rules.json `baseline.excludedFamilies` (`infra`) are
+never recorded or admitted: they mean the scan itself is not trustworthy.
+`complianceHash` covers every finding, baselined or not.
+
 ## Suppression
 
 Line suppression requires a reason and applies only to diagnostic rules that do

@@ -1,0 +1,81 @@
+{
+  "description": "--baseline: recorded findings (matched by rule, file and whitespace-free line text) are admitted, an unrecorded one blocks, a recorded one that no longer occurs is stale; an unreadable baseline is a scanner failure and the two baseline flags are exclusive",
+  "suites": [
+    "cli-output"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004"
+  ],
+  "extraRuns": [
+    {
+      "args": [
+        "--baseline",
+        "{work}/tree/baseline.json",
+        "--output",
+        "agent"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "effect-scan FAIL: 1 error, 0 warnings in 1 file",
+        "2 findings admitted, not blocking",
+        "1 recorded finding no longer found; tighten it with --write-baseline",
+        "EFF004 await-keyword · in plain functions · 1 error in 1 file",
+        "src/a.ts:3:19"
+      ],
+      "expectStdoutExcludes": [
+        "src/a.ts:2:",
+        "EFF003 async-arrow"
+      ]
+    },
+    {
+      "args": [
+        "--baseline",
+        "{work}/tree/baseline.json",
+        "--output",
+        "gate-json"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "\"baselined\"",
+        "\"stale\""
+      ]
+    },
+    {
+      "args": [
+        "--write-baseline",
+        "{work}/written.json",
+        "--output",
+        "agent"
+      ],
+      "expectExit": 0,
+      "expectStdoutIncludes": [
+        "effect-scan PASS",
+        "3 findings admitted, not blocking"
+      ]
+    },
+    {
+      "args": [
+        "--baseline",
+        "{work}/tree/missing.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "cannot read baseline"
+      ]
+    },
+    {
+      "args": [
+        "--baseline",
+        "{work}/tree/baseline.json",
+        "--write-baseline",
+        "{work}/x.json"
+      ],
+      "expectExit": 64,
+      "expectStderrIncludes": [
+        "--baseline and --write-baseline are exclusive"
+      ]
+    }
+  ]
+}

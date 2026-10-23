@@ -17,6 +17,7 @@
         "findings": { "type": "number" },
         "errors": { "type": "number" },
         "warnings": { "type": "number" },
+        "baselined": { "type": "number" },
         "byRule": { "type": "object", "additionalProperties": { "type": "number" } }
       }
     },
@@ -38,6 +39,7 @@
       "properties": {
         "block": { "$ref": "#/$defs/findingList" },
         "report": { "$ref": "#/$defs/findingList" },
+        "baselined": { "$ref": "#/$defs/findingList" },
         "review": {
           "type": "object",
           "additionalProperties": false,
@@ -101,6 +103,16 @@
       }
     },
     "complianceHash": { "type": "string" },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "matched", "stale"],
+      "properties": {
+        "path": { "type": "string" },
+        "matched": { "type": "number" },
+        "stale": { "type": "number" }
+      }
+    },
     "notProven": {
       "type": "array",
       "items": {

@@ -1,0 +1,24 @@
+{
+  "kind": "effect-scan-baseline",
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "ruleId": "EFF003",
+      "file": "src/a.ts",
+      "fingerprint": "exportconstload=async()=>{",
+      "count": 1
+    },
+    {
+      "ruleId": "EFF004",
+      "file": "src/a.ts",
+      "fingerprint": "constone=awaitfetch(\"/one\")",
+      "count": 1
+    },
+    {
+      "ruleId": "EFF004",
+      "file": "src/a.ts",
+      "fingerprint": "constold=awaitfetch(\"/old\")",
+      "count": 1
+    }
+  ]
+}

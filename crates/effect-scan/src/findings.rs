@@ -48,6 +48,8 @@ pub struct Finding {
     pub span: Option<(u32, u32)>,
     /// The code world of a syntax hit (`rules::Context`); none for imports and projection findings.
     pub context: Option<&'static str>,
+    /// Admitted by `--baseline`: reported, not blocking.
+    pub baselined: bool,
 }
 
 impl Finding {
@@ -77,6 +79,9 @@ impl Finding {
         if let Some(context) = self.context {
             m.insert("context".into(), json!(context));
         }
+        if self.baselined {
+            m.insert("baselined".into(), json!(true));
+        }
         m.insert("ref".into(), json!(self.reference));
         m.insert("package".into(), json!(self.package));
         m.insert("family".into(), json!(self.family));
@@ -95,6 +100,8 @@ pub struct Registry {
     pub action_order: Vec<String>,
     /// Every `rules::CONTEXTS` entry, as the contract names and guides it (`contexts`).
     pub contexts: HashMap<String, ContextMeta>,
+    /// Families a baseline never admits (`baseline.excludedFamilies`): their findings void the scan itself.
+    pub baseline_excluded_families: Vec<String>,
     by_id: HashMap<String, usize>,
 }
 
@@ -194,8 +201,15 @@ impl Registry {
         if let Some(stray) = declared.keys().find(|k| !crate::rules::CONTEXTS.contains(&k.as_str())) {
             return Err(format!("rules.json contexts names unknown context {stray}"));
         }
+        let baseline_excluded_families: Vec<String> = value["baseline"]["excludedFamilies"]
+            .as_array()
+            .and_then(|a| a.iter().map(|x| x.as_str().map(String::from)).collect::<Option<Vec<_>>>())
+            .ok_or("rules.json baseline.excludedFamilies must be an array of family names")?;
+        if let Some(stray) = baseline_excluded_families.iter().find(|f| !action_order.contains(f)) {
+            return Err(format!("rules.json baseline.excludedFamilies names no rule family: {stray}"));
+        }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
-        Ok(Self { rules, scope, action_order, contexts, by_id })
+        Ok(Self { rules, scope, action_order, contexts, baseline_excluded_families, by_id })
     }
 
     pub fn meta(&self, id: &str) -> Option<&RuleMeta> {
@@ -217,6 +231,7 @@ impl Registry {
             family: meta.map(|m| m.family.clone()).unwrap_or_else(|| "unknown".into()),
             span: None,
             context: None,
+            baselined: false,
         }
     }
 }
