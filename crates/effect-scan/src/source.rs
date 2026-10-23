@@ -22,6 +22,8 @@ pub struct ImportFact {
 
 /// Where a hit sits: its 1-based line and its column range on that line, in Unicode scalar values,
 /// 1-based, end exclusive, clipped to the line (a node spanning lines is located by its first line).
+/// A range never starts or ends in whitespace: a head that begins after a decorator starts at the
+/// next token, and `async ` is `async`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Loc {
     pub line: u32,
@@ -30,6 +32,8 @@ pub struct Loc {
 }
 
 fn locate(source: &str, starts: &[u32], start: u32, end: u32) -> Loc {
+    let lead = source.get(start as usize..(end as usize).max(start as usize)).map_or(0, |t| t.len() - t.trim_start().len());
+    let start = start + lead as u32;
     let line = line_in(starts, start);
     let line_start = starts[line as usize - 1] as usize;
     let mut line_end = starts.get(line as usize).map_or(source.len(), |next| *next as usize - 1);
@@ -37,7 +41,8 @@ fn locate(source: &str, starts: &[u32], start: u32, end: u32) -> Loc {
         line_end -= 1;
     }
     let s = (start as usize).min(line_end.max(line_start));
-    let e = (end as usize).clamp(s, line_end.max(s));
+    let mut e = (end as usize).clamp(s, line_end.max(s));
+    e = s + source[s..e].trim_end().len();
     let column = source[line_start..s].chars().count() as u32 + 1;
     Loc { line, column, end_column: column + source[s..e].chars().count() as u32 }
 }

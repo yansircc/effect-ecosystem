@@ -48,7 +48,8 @@ pub const SELECTORS: [&str; 12] = [
 ];
 
 /// Byte span `(start, end)` of every hit, per selector: the node the selector names, narrowed to its
-/// head where the node is a whole body (a function up to its body, `try` to its keyword).
+/// head where the node is a whole body: a function to its name (`async function load`, a method's
+/// `async load`, an arrow's `async`), `try` to its keyword.
 pub type Hits = BTreeMap<&'static str, Vec<(u32, u32)>>;
 
 const GLOBAL_OBJECTS: [&str; 4] = ["globalThis", "window", "self", "global"];
@@ -178,6 +179,7 @@ pub fn collect(program: &Program, resolver: &Resolver) -> Hits {
         resolver,
         hits: SELECTORS.iter().map(|s| (*s, Vec::new())).collect(),
         boundary_fns: HashMap::new(),
+        heads: HashMap::new(),
         frames: Vec::new(),
         marked: HashSet::new(),
     };
@@ -190,6 +192,9 @@ struct Collector<'r, 's> {
     hits: Hits,
     /// Spans of functions that are Effect boundary callbacks, with what the boundary expects of them.
     boundary_fns: HashMap<(u32, u32), Boundary>,
+    /// Heads of functions that are a method's value: oxc spans such a function from its parameters,
+    /// so its head is the method's modifiers and key (`async #state`), registered by the method.
+    heads: HashMap<(u32, u32), oxc_span::Span>,
     /// One entry per enclosing function.
     frames: Vec<Frame>,
     /// Bindings whose value already counted as a reference hit at their declaration; their uses do not
@@ -274,8 +279,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
         let boundary = self.boundary_fns.get(&(func.span.start, func.span.end)).copied().or_else(|| self.enclosing_boundary());
         if func.r#async && !boundary.is_some_and(Boundary::admits_async) {
-            let head_end = func.body.as_ref().map_or(func.span.end, |b| b.span.start);
-            self.hit("async-function", oxc_span::Span::new(func.span.start, head_end));
+            let head = self.heads.get(&(func.span.start, func.span.end)).copied().unwrap_or(oxc_span::Span::new(func.span.start, func.params.span.start));
+            self.hit("async-function", head);
         }
         self.frames.push(Frame { boundary, is_async: func.r#async });
         walk::walk_function(self, func, flags);
@@ -285,11 +290,25 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
         let boundary = self.boundary_fns.get(&(arrow.span.start, arrow.span.end)).copied().or_else(|| self.enclosing_boundary());
         if arrow.r#async && !boundary.is_some_and(Boundary::admits_async) {
-            self.hit("async-arrow", oxc_span::Span::new(arrow.span.start, arrow.body.span().start));
+            self.hit("async-arrow", oxc_span::Span::new(arrow.span.start, arrow.params.span.start));
         }
         self.frames.push(Frame { boundary, is_async: arrow.r#async });
         walk::walk_arrow_function_expression(self, arrow);
         self.frames.pop();
+    }
+
+    fn visit_method_definition(&mut self, method: &MethodDefinition<'a>) {
+        // Decorators precede the method; its head starts after them (locate skips the whitespace).
+        let start = method.decorators.last().map_or(method.span.start, |d| d.span.end);
+        self.heads.insert((method.value.span.start, method.value.span.end), oxc_span::Span::new(start, method.key.span().end));
+        walk::walk_method_definition(self, method);
+    }
+
+    fn visit_object_property(&mut self, property: &ObjectProperty<'a>) {
+        if let (true, Expression::FunctionExpression(f)) = (property.method, &property.value) {
+            self.heads.insert((f.span.start, f.span.end), oxc_span::Span::new(property.span.start, property.key.span().end));
+        }
+        walk::walk_object_property(self, property);
     }
 
     fn visit_await_expression(&mut self, expr: &AwaitExpression<'a>) {

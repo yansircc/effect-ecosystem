@@ -1,5 +1,5 @@
 {
-  "description": "--output agent: scope first without a manifest, one group per rule in actionOrder, examples located with a caret span, the rest named by count and truncated; raw-json carries the column range",
+  "description": "--output agent: scope first without a manifest, one group per rule in actionOrder, examples located with a caret on the hit's head (an arrow's `async`), the rest named by count and truncated; raw-json carries the column range",
   "suites": [
     "cli-output"
   ],
@@ -26,8 +26,8 @@
         "2 |   return await fetch(\"/a\")",
         "|          ^^^^^^^^^^^^^^^^^",
         "src/a.ts:1:20",
-        "|                    ^^^^^^^^^^^^",
-        "also: src/c.ts (1), src/d.ts (1), src/e.ts (1), src/f.ts (1), src/g.ts (1), +1 files",
+        "|                    ^^^^^\n",
+        "also: src/c.ts (1), src/d.ts (1), src/e.ts (1), src/f.ts (1), src/g.ts (1), +1 file",
         "full list: rerun with --output raw-json"
       ],
       "expectStdoutExcludes": [
@@ -44,7 +44,7 @@
         "\"column\": 10",
         "\"endColumn\": 27",
         "\"column\": 20",
-        "\"endColumn\": 32"
+        "\"endColumn\": 25"
       ]
     }
   ]

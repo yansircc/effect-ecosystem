@@ -49,7 +49,7 @@ pub fn render(input: &Input) -> String {
     let warnings = input.findings.len() - errors;
     let files = input.findings.iter().map(|f| f.file.as_str()).collect::<std::collections::BTreeSet<_>>().len();
     let verdict = if errors == 0 { "PASS" } else { "FAIL" };
-    let _ = writeln!(out, "effect-scan {verdict}: {errors} errors, {warnings} warnings in {files} files (scanner {})", input.build_id);
+    let _ = writeln!(out, "effect-scan {verdict}: {}, {} in {} (scanner {})", count(errors, "error"), count(warnings, "warning"), count(files, "file"), input.build_id);
     for warning in input.warnings.iter().take(WARNINGS) {
         let _ = writeln!(out, "warning: {warning}");
     }
@@ -93,8 +93,16 @@ fn review(out: &mut String, signals: &[serde_json::Value]) {
     }
 }
 
+/// `1 error`, `2 errors`.
+fn count(n: usize, noun: &str) -> String {
+    format!("{n} {noun}{}", if n == 1 { "" } else { "s" })
+}
+
 fn actions(out: &mut String, input: &Input) {
     let mut step = 0;
+    // Lines already framed by an earlier group: `throw new Error(...)` is an EFF025 and an EFF024 hit,
+    // and showing it twice teaches nothing the second time.
+    let mut shown: std::collections::HashSet<(&str, u32)> = std::collections::HashSet::new();
     let _ = writeln!(out, "\nnext actions, in order:");
     if !input.manifest_loaded {
         step += 1;
@@ -102,7 +110,7 @@ fn actions(out: &mut String, input: &Input) {
     }
     for group in groups(input) {
         step += 1;
-        group_action(out, step, &group, input);
+        group_action(out, step, &group, input, &mut shown);
     }
 }
 
@@ -151,7 +159,7 @@ fn scope_action(out: &mut String, step: usize, input: &Input) {
     let _ = writeln!(out, "   see: references/scanner-manifest.md §Manifest");
 }
 
-fn group_action(out: &mut String, step: usize, group: &Group, input: &Input) {
+fn group_action<'a>(out: &mut String, step: usize, group: &Group<'a>, input: &Input, shown: &mut std::collections::HashSet<(&'a str, u32)>) {
     let first = group.findings[0];
     let meta = input.registry.meta(group.rule_id);
     let mut by_file: Vec<(&str, usize)> = Vec::new();
@@ -161,8 +169,8 @@ fn group_action(out: &mut String, step: usize, group: &Group, input: &Input) {
             None => by_file.push((f.file.as_str(), 1)),
         }
     }
-    let kind = if first.severity == "error" { "errors" } else { "warnings" };
-    let _ = writeln!(out, "\n{step}. {} {} · {} {kind} in {} files", group.rule_id, first.rule_name, group.findings.len(), by_file.len());
+    let kind = if first.severity == "error" { "error" } else { "warning" };
+    let _ = writeln!(out, "\n{step}. {} {} · {} in {}", group.rule_id, first.rule_name, count(group.findings.len(), kind), count(by_file.len(), "file"));
     let rule_message = meta.map(|m| m.message.as_str()).unwrap_or(first.message.as_str());
     let _ = writeln!(out, "   {rule_message}");
     if let Some(help) = meta.and_then(|m| m.help.as_ref()) {
@@ -180,6 +188,7 @@ fn group_action(out: &mut String, step: usize, group: &Group, input: &Input) {
     if !instances.is_empty() {
         for f in instances.iter().take(INSTANCES) {
             example(out, f, rule_message, input.root);
+            shown.insert((f.file.as_str(), f.line));
         }
         if instances.len() > INSTANCES {
             let _ = writeln!(out, "   +{} more", instances.len() - INSTANCES);
@@ -187,16 +196,23 @@ fn group_action(out: &mut String, step: usize, group: &Group, input: &Input) {
         return;
     }
     by_file.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
-    for (file, _) in by_file.iter().take(EXAMPLES) {
-        if let Some(f) = group.findings.iter().copied().find(|f| f.file == *file) {
+    // One example per file, densest files first, skipping lines an earlier group already framed.
+    let mut example_files: Vec<&str> = Vec::new();
+    for (file, _) in &by_file {
+        if example_files.len() == EXAMPLES {
+            break;
+        }
+        if let Some(f) = group.findings.iter().copied().find(|f| f.file == *file && !shown.contains(&(f.file.as_str(), f.line))) {
             example(out, f, rule_message, input.root);
+            shown.insert((f.file.as_str(), f.line));
+            example_files.push(file);
         }
     }
-    let rest = &by_file[by_file.len().min(EXAMPLES)..];
+    let rest: Vec<&(&str, usize)> = by_file.iter().filter(|(file, _)| !example_files.contains(file)).collect();
     if !rest.is_empty() {
         let named: Vec<String> = rest.iter().take(MORE_FILES).map(|(file, n)| format!("{file} ({n})")).collect();
         let more = rest.len().saturating_sub(MORE_FILES);
-        let _ = writeln!(out, "   also: {}{}", named.join(", "), if more > 0 { format!(", +{more} files") } else { String::new() });
+        let _ = writeln!(out, "   also: {}{}", named.join(", "), if more > 0 { format!(", +{}", count(more, "file")) } else { String::new() });
     }
 }
 
@@ -280,6 +296,21 @@ mod tests {
         let text = render(&input);
         assert!(text.contains("stale selector s0") && text.contains("stale selector s7") && !text.contains("stale selector s8"), "{text}");
         assert!(text.contains("+4 more") && !text.contains(" | {"), "{text}");
+    }
+
+    #[test]
+    fn a_line_framed_by_one_group_is_not_framed_again_and_counts_agree_in_number() {
+        let registry = registry();
+        let findings = vec![
+            finding(&registry, "EFF025", "src/a.ts", 3),
+            finding(&registry, "EFF024", "src/a.ts", 3),
+            finding(&registry, "EFF024", "src/b.ts", 7),
+        ];
+        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+        let text = render(&input);
+        assert_eq!(text.matches("src/a.ts:3:3").count(), 1, "{text}");
+        assert!(text.contains("src/b.ts:7:3") && text.contains("1 error in 1 file") && text.contains("2 errors in 2 files"), "{text}");
+        assert!(text.contains("also: src/a.ts (1)"), "{text}");
     }
 
     #[test]
