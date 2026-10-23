@@ -2,20 +2,27 @@
 //!
 //! Invariant: what the strict gate proves does not depend on the target's editor settings. `tsc -p`
 //! applies the project's plugin config, so a project that never enabled `floatingEffect` (or has no
-//! plugin entry at all) made EFF500 prove nothing while reporting nothing. The provider's dedicated
-//! command `effect-tsgo diagnostics --project <tsconfig> --format json --lspconfig <json>` replaces the
-//! project config with one the scanner derives from the rule contract (every name in `scanner.upstream`
-//! enabled), checks the project's own program, writes nothing into the target, and reports each
-//! diagnostic with its rule name and range.
+//! plugin entry at all) made EFF500 prove nothing while reporting nothing. The provider's diagnostics
+//! mode replaces the project config with one the scanner derives from the rule contract (every name in
+//! `scanner.upstream` enabled), checks the project's own program, writes nothing into the target, and
+//! reports each diagnostic with its rule name and range as JSON.
+//!
+//! Entry: the verified compiler itself (`node <tooling>/node_modules/typescript/bin/tsc`, the patched
+//! compiler the strict prerequisites check), given `--effect-cli-diagnostics <request>`. That is the
+//! request the provider's `effect-tsgo diagnostics` launcher builds and hands to the same compiler; the
+//! launcher adds ~300-500 ms of Node start-up per project, which broke the repository's performance gate
+//! (cold strict scan 112 ms -> 559 ms). The request format is the provider's internal protocol: it is
+//! bounded by the verified-provider pin (contracts/effect-capabilities.json) and the compiler-marker
+//! check, and a provider that rejects it fails the gate (EFF902), never yields an empty result. Remove
+//! this when the provider exposes a public programmatic interface for configured diagnostics.
 //!
 //! Scope: projects that own a scanned file (`tsc::Projects::owners`); a diagnostic counts only for a file
 //! its project owns. Files of the inferred project get no upstream diagnostics (no tsconfig names their
 //! program); that blind spot is declared by the rules that consume them.
-use super::tsc::{max_jobs, normalize, run_with_deadline, timeout};
+use super::tsc::{max_jobs, node_tsc, normalize, run_with_deadline, timeout};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpstreamDiagnostic {
@@ -27,11 +34,6 @@ pub struct UpstreamDiagnostic {
     pub span: Option<(u32, u32)>,
     pub name: String,
     pub message: String,
-}
-
-/// The provider's command-line entry inside the target's tooling root.
-pub fn entry(tooling_root: &Path) -> PathBuf {
-    tooling_root.join("node_modules").join("@effect").join("tsgo").join("dist").join("effect-tsgo.cjs")
 }
 
 /// The configuration the scanner owns: every contract name at error severity.
@@ -46,17 +48,12 @@ pub fn run(tooling_root: &Path, projects: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     if names.is_empty() {
         return projects.keys().map(|p| (p.clone(), Ok(Vec::new()))).collect();
     }
-    let entry = entry(tooling_root);
-    if !entry.is_file() {
-        let missing = format!("the Effect diagnostics provider has no command-line entry at {}", entry.display());
-        return projects.keys().map(|p| (p.clone(), Err(missing.clone()))).collect();
-    }
     let config = lsp_config(names);
     let list: Vec<(&PathBuf, &BTreeSet<PathBuf>)> = projects.iter().collect();
     let mut out = BTreeMap::new();
     for chunk in list.chunks(max_jobs()) {
         std::thread::scope(|scope| {
-            let handles: Vec<_> = chunk.iter().map(|(tsconfig, files)| (*tsconfig, scope.spawn(|| project(&entry, tsconfig, files, &config, names)))).collect();
+            let handles: Vec<_> = chunk.iter().map(|(tsconfig, files)| (*tsconfig, scope.spawn(|| project(tooling_root, tsconfig, files, &config, names)))).collect();
             for (tsconfig, handle) in handles {
                 out.insert(tsconfig.clone(), handle.join().unwrap_or_else(|p| std::panic::resume_unwind(p)));
             }
@@ -65,11 +62,12 @@ pub fn run(tooling_root: &Path, projects: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     out
 }
 
-fn project(entry: &Path, tsconfig: &Path, files: &BTreeSet<PathBuf>, config: &str, names: &[String]) -> Result<Vec<UpstreamDiagnostic>, String> {
+fn project(tooling_root: &Path, tsconfig: &Path, files: &BTreeSet<PathBuf>, config: &str, names: &[String]) -> Result<Vec<UpstreamDiagnostic>, String> {
     let cwd = tsconfig.parent().ok_or("tsconfig has no directory")?;
-    let label = format!("effect-tsgo diagnostics for {}", tsconfig.display());
-    let mut command = Command::new("node");
-    command.arg(entry).args(["diagnostics", "--project"]).arg(tsconfig).args(["--format", "json", "--lspconfig", config]).current_dir(cwd).env("PWD", cwd);
+    let label = format!("Effect diagnostics for {}", tsconfig.display());
+    let request = json!({ "cwd": cwd, "project": tsconfig, "format": "json", "strict": false, "progress": false, "lspconfig": config, "listFiles": false });
+    let mut command = node_tsc(tooling_root, cwd);
+    command.arg("--effect-cli-diagnostics").arg(request.to_string());
     let output = run_with_deadline(command, &label, timeout())?;
     // The command exits non-zero when it reports errors (the scanner enables its names at error); a
     // verdict is a parseable report, and anything else is a failed run, never "no diagnostics".

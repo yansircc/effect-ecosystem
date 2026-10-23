@@ -94,7 +94,7 @@ fn parse_output(stdout: &str, cwd: &Path) -> Run {
 /// `tsc` run in `cwd`. `PWD` is set explicitly: the compiler (Go) trusts an inherited `PWD` that
 /// names the same directory, so a stale one would print paths through a different spelling of `cwd`
 /// (a symlinked /tmp) than the one the scanned file set uses.
-fn node_tsc(tooling_root: &Path, cwd: &Path) -> Command {
+pub(super) fn node_tsc(tooling_root: &Path, cwd: &Path) -> Command {
     let mut command = Command::new("node");
     command.arg(local_tsc(tooling_root)).current_dir(cwd).env("PWD", cwd);
     command
