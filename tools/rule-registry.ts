@@ -46,10 +46,11 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
     if (!rule.scanner || !["source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
     if (rule.help !== undefined) {
-      const { before, after, ...rest } = rule.help ?? {}
+      const { before, after, in: context, ...rest } = rule.help ?? {}
       if (typeof before !== "string" || !before.trim() || typeof after !== "string" || !after.trim() || Object.keys(rest).length > 0) {
-        errors.push(`${rule.id}.help must be { before, after } non-empty strings`)
+        errors.push(`${rule.id}.help must be { before, after, in? } with non-empty strings`)
       }
+      if (context !== undefined && !Object.prototype.hasOwnProperty.call(registry.contexts ?? {}, context)) errors.push(`${rule.id}.help.in names no declared context`)
     }
     if (rule.coverage !== undefined) {
       const { proves, blindSpots, ...rest } = rule.coverage ?? {}

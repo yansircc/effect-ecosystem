@@ -54,6 +54,24 @@
     "lsp",
     "source"
   ],
+  "contexts": {
+    "module": {
+      "label": "at module top level",
+      "guidance": "Script code, not an Effect program. If the file is tooling, declare it hostTooling and rescan; otherwise move the statement into a program run at the edge (NodeRuntime.runMain or an executableEdges entry), then rewrite it as below."
+    },
+    "function": {
+      "label": "in plain functions",
+      "guidance": "The enclosing function is not Effect code yet. Convert it (Effect.fn / Effect.gen; an async one is reported by EFF002/EFF003) — or, if it is a platform callback, keep it as a terminal adapter that runs an Effect program — then rewrite this hit as below."
+    },
+    "effect": {
+      "label": "in Effect programs",
+      "guidance": "Inside an Effect program: rewrite in place."
+    },
+    "boundary": {
+      "label": "in boundary callbacks",
+      "guidance": "Inside an Effect.promise/tryPromise/sync/try callback, Promise or synchronous code by design: let the boundary map the failure (catch: (cause) => new XError({ cause })) instead of rewriting the callback body."
+    }
+  },
   "rules": [
     {
       "id": "EFF000",
@@ -90,7 +108,8 @@
       "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
       "help": {
         "before": "try { return JSON.parse(text) } catch { return null }",
-        "after": "Effect.try({ try: () => JSON.parse(text), catch: (cause) => new ParseError({ cause }) })"
+        "after": "Effect.try({ try: () => JSON.parse(text), catch: (cause) => new ParseError({ cause }) })",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -181,7 +200,8 @@
       "message": "禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain",
       "help": {
         "before": "const user = await fetchUser(id)",
-        "after": "const user = yield* Effect.tryPromise({ try: () => fetchUser(id), catch: (cause) => new FetchError({ cause }) })"
+        "after": "const user = yield* Effect.tryPromise({ try: () => fetchUser(id), catch: (cause) => new FetchError({ cause }) })",
+        "in": "effect"
       },
       "facts": [
         "source.syntax"
@@ -211,7 +231,8 @@
       "message": "禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition",
       "help": {
         "before": "await Promise.all([a(), b()])",
-        "after": "yield* Effect.all([a, b], { concurrency: \"unbounded\" })"
+        "after": "yield* Effect.all([a, b], { concurrency: \"unbounded\" })",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -596,7 +617,8 @@
       "message": "禁用 setTimeout。改用 Effect.sleep(Duration 字面量)",
       "help": {
         "before": "setTimeout(tick, 1000)",
-        "after": "yield* Effect.sleep(\"1 second\").pipe(Effect.andThen(tick))"
+        "after": "yield* Effect.sleep(\"1 second\").pipe(Effect.andThen(tick))",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -626,7 +648,8 @@
       "message": "禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped",
       "help": {
         "before": "setInterval(tick, 1000)",
-        "after": "yield* tick.pipe(Effect.repeat(Schedule.spaced(\"1 second\")))"
+        "after": "yield* tick.pipe(Effect.repeat(Schedule.spaced(\"1 second\")))",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -655,7 +678,8 @@
       "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
       "help": {
         "before": "new Error(\"not found\")",
-        "after": "class NotFound extends Schema.TaggedError<NotFound>()(\"NotFound\", { id: Schema.String }) {}  // new NotFound({ id })"
+        "after": "class NotFound extends Schema.TaggedError<NotFound>()(\"NotFound\", { id: Schema.String }) {}  // new NotFound({ id })",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -684,7 +708,8 @@
       "message": "禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail",
       "help": {
         "before": "throw new Error(\"not found\")",
-        "after": "return yield* new NotFound({ id })"
+        "after": "return yield* new NotFound({ id })",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -713,7 +738,8 @@
       "message": "业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)",
       "help": {
         "before": "const now = Date.now()",
-        "after": "const now = yield* Clock.currentTimeMillis"
+        "after": "const now = yield* Clock.currentTimeMillis",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -742,7 +768,8 @@
       "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
       "help": {
         "before": "const port = process.env.PORT",
-        "after": "const port = yield* Config.Int(\"PORT\")"
+        "after": "const port = yield* Config.Int(\"PORT\")",
+        "in": "effect"
       },
       "facts": [
         "source.code"
@@ -886,7 +913,8 @@
       "message": "业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string",
       "help": {
         "before": "const now = new Date()",
-        "after": "const now = yield* DateTime.now"
+        "after": "const now = yield* DateTime.now",
+        "in": "effect"
       },
       "facts": [
         "source.code"

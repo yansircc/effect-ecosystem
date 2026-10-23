@@ -302,16 +302,17 @@ fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> 
             if skip_file(file, &rule.scanner) {
                 continue;
             }
-            let mut locs: Vec<crate::source::Loc> = match &matcher {
-                Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| i.loc).collect(),
-                None => file.facts.selector(selector).expect("Registry::from_json validated the selector").clone(),
+            // Imports are module-level declarations: they have a location, not a code-world context.
+            let mut hits: Vec<(crate::source::Loc, Option<crate::rules::Context>)> = match &matcher {
+                Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| (i.loc, None)).collect(),
+                None => file.facts.selector(selector).expect("Registry::from_json validated the selector").iter().map(|(l, c)| (*l, Some(*c))).collect(),
             };
-            locs.sort_unstable_by_key(|l| (l.line, l.column));
-            locs.dedup_by_key(|l| l.line);
-            for loc in locs {
+            hits.sort_unstable_by_key(|(l, _)| (l.line, l.column));
+            hits.dedup_by_key(|(l, _)| l.line);
+            for (loc, context) in hits {
                 let text = file.lines.get(loc.line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
                 let finding = registry.finding(&rule.id, &file.relative, loc.line, &text, None, file.package.as_deref());
-                findings.push(finding.with_span(Some((loc.column, loc.end_column))));
+                findings.push(finding.with_span(Some((loc.column, loc.end_column))).with_context(context.map(crate::rules::Context::as_str)));
             }
         }
     }

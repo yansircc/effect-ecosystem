@@ -1,0 +1,47 @@
+{
+  "description": "a syntax hit's context is its innermost enclosing function: module top level, a plain function (also inside Effect.gen), an Effect.gen / Effect.fn program body, an Effect boundary callback; a rule whose help is written for Effect programs is split by context, with the context's guidance printed once",
+  "suites": [
+    "cli-output"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004",
+    "EFF024",
+    "EFF025",
+    "EFF026"
+  ],
+  "extraRuns": [
+    {
+      "args": [
+        "--output",
+        "agent"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "EFF026 date-now · 2 errors in 1 file",
+        "EFF026 date-now · in plain functions · 1 error in 1 file",
+        "EFF004 await-keyword · in plain functions · 1 error in 1 file",
+        "EFF004 await-keyword · at module top level · 1 error in 1 file",
+        "EFF024 new-error · in boundary callbacks · 1 error in 1 file",
+        "EFF025 raw-throw · in boundary callbacks · 1 error in 1 file",
+        "EFF003 async-arrow · 1 error in 1 file",
+        "where: in boundary callbacks (see step",
+        "help (in Effect programs): as in step"
+      ]
+    },
+    {
+      "args": [
+        "--output",
+        "raw-json"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "\"context\": \"module\"",
+        "\"context\": \"function\"",
+        "\"context\": \"effect\"",
+        "\"context\": \"boundary\""
+      ]
+    }
+  ]
+}

@@ -47,10 +47,42 @@ pub const SELECTORS: [&str; 12] = [
     "process-env",
 ];
 
-/// Byte span `(start, end)` of every hit, per selector: the node the selector names, narrowed to its
+/// Where a hit sits, by its innermost enclosing function: the code world it is written in. Help for a
+/// finding depends on it (rules.json `contexts`): the same `await` is rewritten in place inside an
+/// Effect program, but inside a plain function the function itself is what is not yet Effect code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Context {
+    /// No enclosing function: module top level (a script's statements, a module's initializers).
+    Module,
+    /// A plain function or method: not an Effect program and not a boundary callback.
+    Function,
+    /// A generator that is an Effect program body: `Effect.gen(function* ...)`, `Effect.fn(...)(function* ...)`.
+    Effect,
+    /// An Effect boundary region (`Effect.promise|tryPromise|sync|try` callbacks and what they contain).
+    Boundary,
+}
+
+/// The context vocabulary of `contracts/rules.json` (`contexts`), one fact one location.
+pub const CONTEXTS: [&str; 4] = ["module", "function", "effect", "boundary"];
+
+impl Context {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Context::Module => "module",
+            Context::Function => "function",
+            Context::Effect => "effect",
+            Context::Boundary => "boundary",
+        }
+    }
+}
+
+/// `Effect` members whose generator argument is an Effect program body.
+const PROGRAM_CONSTRUCTORS: [&str; 3] = ["gen", "fn", "fnUntraced"];
+
+/// Byte span `(start, end)` and context of every hit, per selector: the node the selector names, narrowed to its
 /// head where the node is a whole body: a function to its name (`async function load`, a method's
 /// `async load`, an arrow's `async`), `try` to its keyword.
-pub type Hits = BTreeMap<&'static str, Vec<(u32, u32)>>;
+pub type Hits = BTreeMap<&'static str, Vec<(u32, u32, Context)>>;
 
 const GLOBAL_OBJECTS: [&str; 4] = ["globalThis", "window", "self", "global"];
 const PROMISE_COMBINATORS: [&str; 4] = ["all", "allSettled", "race", "any"];
@@ -90,6 +122,7 @@ impl Boundary {
 struct Frame {
     boundary: Option<Boundary>,
     is_async: bool,
+    context: Context,
 }
 
 /// Modules whose named exports are the global timer functions (`node:timers` and
@@ -180,6 +213,7 @@ pub fn collect(program: &Program, resolver: &Resolver) -> Hits {
         hits: SELECTORS.iter().map(|s| (*s, Vec::new())).collect(),
         boundary_fns: HashMap::new(),
         heads: HashMap::new(),
+        programs: HashSet::new(),
         frames: Vec::new(),
         marked: HashSet::new(),
     };
@@ -195,6 +229,8 @@ struct Collector<'r, 's> {
     /// Heads of functions that are a method's value: oxc spans such a function from its parameters,
     /// so its head is the method's modifiers and key (`async #state`), registered by the method.
     heads: HashMap<(u32, u32), oxc_span::Span>,
+    /// Spans of generator functions that are Effect program bodies.
+    programs: HashSet<(u32, u32)>,
     /// One entry per enclosing function.
     frames: Vec<Frame>,
     /// Bindings whose value already counted as a reference hit at their declaration; their uses do not
@@ -204,7 +240,41 @@ struct Collector<'r, 's> {
 
 impl Collector<'_, '_> {
     fn hit(&mut self, selector: &'static str, span: oxc_span::Span) {
-        self.hits.get_mut(selector).expect("selector registered").push((span.start, span.end));
+        let context = self.frames.last().map_or(Context::Module, |f| f.context);
+        self.hits.get_mut(selector).expect("selector registered").push((span.start, span.end, context));
+    }
+
+    /// A function's context: its own boundary, else an Effect program body, else the boundary region it
+    /// is nested in, else a plain function (the innermost marker decides).
+    fn context_of(&self, span: (u32, u32), inherited: Option<Boundary>) -> Context {
+        if self.boundary_fns.contains_key(&span) {
+            Context::Boundary
+        } else if self.programs.contains(&span) {
+            Context::Effect
+        } else if inherited.is_some() {
+            Context::Boundary
+        } else {
+            Context::Function
+        }
+    }
+
+    /// Generator arguments of `Effect.gen(...)`, `Effect.fn(...)` and `Effect.fn("name")(...)`.
+    fn register_programs(&mut self, call: &CallExpression) {
+        let is_program = |resolver: &Resolver, callee: &Expression| {
+            resolver.path_of(callee).filter(|p| !p.via_call && p.binding_verified).and_then(|p| effect_member(&p)).is_some_and(|m| PROGRAM_CONSTRUCTORS.contains(&m.as_str()))
+        };
+        let direct = is_program(self.resolver, &call.callee);
+        let curried = matches!(unwrap(&call.callee), Expression::CallExpression(inner) if is_program(self.resolver, &inner.callee));
+        if !(direct || curried) {
+            return;
+        }
+        for arg in &call.arguments {
+            if let Some(Expression::FunctionExpression(f)) = arg.as_expression().map(unwrap) {
+                if f.generator {
+                    self.programs.insert((f.span.start, f.span.end));
+                }
+            }
+        }
     }
 
     /// The boundary region the next nested function sits in.
@@ -282,7 +352,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
             let head = self.heads.get(&(func.span.start, func.span.end)).copied().unwrap_or(oxc_span::Span::new(func.span.start, func.params.span.start));
             self.hit("async-function", head);
         }
-        self.frames.push(Frame { boundary, is_async: func.r#async });
+        let context = self.context_of((func.span.start, func.span.end), self.enclosing_boundary());
+        self.frames.push(Frame { boundary, is_async: func.r#async, context });
         walk::walk_function(self, func, flags);
         self.frames.pop();
     }
@@ -292,7 +363,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
         if arrow.r#async && !boundary.is_some_and(Boundary::admits_async) {
             self.hit("async-arrow", oxc_span::Span::new(arrow.span.start, arrow.params.span.start));
         }
-        self.frames.push(Frame { boundary, is_async: arrow.r#async });
+        let context = self.context_of((arrow.span.start, arrow.span.end), self.enclosing_boundary());
+        self.frames.push(Frame { boundary, is_async: arrow.r#async, context });
         walk::walk_arrow_function_expression(self, arrow);
         self.frames.pop();
     }
@@ -366,6 +438,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     }
 
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        self.register_programs(call);
         if let Some(selector) = self.resolver.path_of(&call.callee).and_then(|p| call_selector(&p)) {
             self.hit(selector, call.span);
         }

@@ -10,7 +10,7 @@
 //! deciding which directories are Effect application source comes first: every other count depends on it.
 //! Signals follow the actions as review prompts, one line per kind: they are not blockers.
 use crate::findings::{Finding, Registry};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write;
 use std::path::Path;
 
@@ -38,8 +38,11 @@ pub struct Input<'a> {
     pub build_id: &'a str,
 }
 
+/// One action: a rule, split by context when the rule's `help` is written for one context and these
+/// hits sit in another (they need that context's guidance first, so they are a different action).
 struct Group<'a> {
     rule_id: &'a str,
+    context: Option<&'a str>,
     findings: Vec<&'a Finding>,
 }
 
@@ -103,6 +106,9 @@ fn actions(out: &mut String, input: &Input) {
     // Lines already framed by an earlier group: `throw new Error(...)` is an EFF025 and an EFF024 hit,
     // and showing it twice teaches nothing the second time.
     let mut shown: std::collections::HashSet<(&str, u32)> = std::collections::HashSet::new();
+    // Guidance and help are facts of a context and of a rule: printed in full at their first step,
+    // referenced by step after that.
+    let mut first_step: HashMap<String, usize> = HashMap::new();
     let _ = writeln!(out, "\nnext actions, in order:");
     if !input.manifest_loaded {
         step += 1;
@@ -110,17 +116,22 @@ fn actions(out: &mut String, input: &Input) {
     }
     for group in groups(input) {
         step += 1;
-        group_action(out, step, &group, input, &mut shown);
+        group_action(out, step, &group, input, &mut shown, &mut first_step);
     }
 }
 
 fn groups<'a>(input: &Input<'a>) -> Vec<Group<'a>> {
-    let mut by_rule: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
+    let mut by_key: BTreeMap<(&str, Option<&str>), Vec<&Finding>> = BTreeMap::new();
     for f in input.findings {
-        by_rule.entry(f.rule_id.as_str()).or_default().push(f);
+        let written_for = input.registry.meta(&f.rule_id).and_then(|m| m.help.as_ref()).and_then(|h| h.context.as_deref());
+        let split = match (written_for, f.context) {
+            (Some(target), Some(at)) if at != target => Some(at),
+            _ => None,
+        };
+        by_key.entry((f.rule_id.as_str(), split)).or_default().push(f);
     }
     let order = |family: &str| input.registry.action_order.iter().position(|f| f == family).unwrap_or(usize::MAX);
-    let mut groups: Vec<Group> = by_rule.into_iter().map(|(rule_id, findings)| Group { rule_id, findings }).collect();
+    let mut groups: Vec<Group> = by_key.into_iter().map(|((rule_id, context), findings)| Group { rule_id, context, findings }).collect();
     groups.sort_by(|a, b| {
         let (fa, fb) = (a.findings[0], b.findings[0]);
         order(&fa.family)
@@ -159,7 +170,7 @@ fn scope_action(out: &mut String, step: usize, input: &Input) {
     let _ = writeln!(out, "   see: references/scanner-manifest.md §Manifest");
 }
 
-fn group_action<'a>(out: &mut String, step: usize, group: &Group<'a>, input: &Input, shown: &mut std::collections::HashSet<(&'a str, u32)>) {
+fn group_action<'a>(out: &mut String, step: usize, group: &Group<'a>, input: &Input, shown: &mut std::collections::HashSet<(&'a str, u32)>, first_step: &mut HashMap<String, usize>) {
     let first = group.findings[0];
     let meta = input.registry.meta(group.rule_id);
     let mut by_file: Vec<(&str, usize)> = Vec::new();
@@ -170,12 +181,34 @@ fn group_action<'a>(out: &mut String, step: usize, group: &Group<'a>, input: &In
         }
     }
     let kind = if first.severity == "error" { "error" } else { "warning" };
-    let _ = writeln!(out, "\n{step}. {} {} · {} in {}", group.rule_id, first.rule_name, count(group.findings.len(), kind), count(by_file.len(), "file"));
+    let context = group.context.and_then(|c| input.registry.contexts.get(c));
+    let label = context.map(|c| format!(" · {}", c.label)).unwrap_or_default();
+    let _ = writeln!(out, "\n{step}. {} {}{label} · {} in {}", group.rule_id, first.rule_name, count(group.findings.len(), kind), count(by_file.len(), "file"));
     let rule_message = meta.map(|m| m.message.as_str()).unwrap_or(first.message.as_str());
     let _ = writeln!(out, "   {rule_message}");
+    if let (Some(name), Some(context)) = (group.context, context) {
+        match first_step.get(&format!("context:{name}")) {
+            Some(at) => {
+                let _ = writeln!(out, "   where: {} (see step {at})", context.label);
+            }
+            None => {
+                first_step.insert(format!("context:{name}"), step);
+                let _ = writeln!(out, "   where: {}", context.guidance);
+            }
+        }
+    }
     if let Some(help) = meta.and_then(|m| m.help.as_ref()) {
-        let _ = writeln!(out, "   help: - {}", help.before);
-        let _ = writeln!(out, "         + {}", help.after);
+        let scope = help.context.as_deref().and_then(|c| input.registry.contexts.get(c)).map(|c| format!(" ({})", c.label)).unwrap_or_default();
+        match first_step.get(&format!("help:{}", group.rule_id)) {
+            Some(at) => {
+                let _ = writeln!(out, "   help{scope}: as in step {at}");
+            }
+            None => {
+                first_step.insert(format!("help:{}", group.rule_id), step);
+                let _ = writeln!(out, "   help{scope}: - {}", help.before);
+                let _ = writeln!(out, "   {}+ {}", " ".repeat(5 + scope.chars().count() + 1), help.after);
+            }
+        }
     }
     if let Some(reference) = first.reference.as_ref().filter(|r| !r.is_empty()) {
         let _ = writeln!(out, "   see: {reference}");
@@ -311,6 +344,28 @@ mod tests {
         assert_eq!(text.matches("src/a.ts:3:3").count(), 1, "{text}");
         assert!(text.contains("src/b.ts:7:3") && text.contains("1 error in 1 file") && text.contains("2 errors in 2 files"), "{text}");
         assert!(text.contains("also: src/a.ts (1)"), "{text}");
+    }
+
+    #[test]
+    fn a_rule_whose_help_needs_another_context_is_split_by_context() {
+        let registry = registry();
+        let findings = vec![
+            finding(&registry, "EFF004", "src/a.ts", 1).with_context(Some("function")),
+            finding(&registry, "EFF004", "src/a.ts", 2).with_context(Some("function")),
+            finding(&registry, "EFF004", "src/b.ts", 1).with_context(Some("effect")),
+            finding(&registry, "EFF003", "src/a.ts", 5).with_context(Some("module")),
+            finding(&registry, "EFF003", "src/c.ts", 5).with_context(Some("function")),
+        ];
+        let input = Input { findings: &findings, registry: &registry, warnings: &[], signals: &[], root: Path::new("/nonexistent"), manifest_loaded: true, manifest_name: ".effect-skill.json", evidence_dir: None, build_id: "test" };
+        let text = render(&input);
+        assert!(text.contains("EFF004 await-keyword · in plain functions · 2 errors in 1 file"), "{text}");
+        assert!(text.contains("EFF004 await-keyword · 1 error in 1 file"), "{text}");
+        // EFF003's help (convert the function) holds anywhere: one group, no guidance line.
+        assert!(text.contains("EFF003 async-arrow · 2 errors in 2 files"), "{text}");
+        assert_eq!(text.matches("where: ").count(), 1, "{text}");
+        // EFF004's help is printed once; its second group refers back to it.
+        assert_eq!(text.matches("const user = await fetchUser(id)").count(), 1, "{text}");
+        assert!(text.contains("help (in Effect programs): as in step"), "{text}");
     }
 
     #[test]

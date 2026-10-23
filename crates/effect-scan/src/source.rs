@@ -60,7 +60,7 @@ pub struct SourceFacts {
     pub parse_failure: Option<ParseFailure>,
     pub imports: Vec<ImportFact>,
     /// Selector hits as 1-based lines (see `rules::SELECTORS`).
-    selectors: BTreeMap<&'static str, Vec<Loc>>,
+    selectors: BTreeMap<&'static str, Vec<(Loc, rules::Context)>>,
     pub module: ModuleFacts,
     line_starts: Vec<u32>,
 }
@@ -71,7 +71,7 @@ impl SourceFacts {
         line_in(&self.line_starts, offset)
     }
 
-    pub fn selector(&self, name: &str) -> Option<&Vec<Loc>> {
+    pub fn selector(&self, name: &str) -> Option<&Vec<(Loc, rules::Context)>> {
         self.selectors.get(name)
     }
 }
@@ -116,7 +116,7 @@ pub fn analyze(path: &str, abs: &Path, source: &str, contract: &Contract, links:
     let mut module = facts::collect(&parsed.program, &resolver, contract);
     module.exports = ExportTable::from_program(&parsed.program);
     let hits = rules::collect(&parsed.program, &resolver);
-    let selectors = hits.into_iter().map(|(name, spans)| (name, spans.into_iter().map(|(s, e)| locate(source, &starts, s, e)).collect())).collect();
+    let selectors = hits.into_iter().map(|(name, spans)| (name, spans.into_iter().map(|(s, e, context)| (locate(source, &starts, s, e), context)).collect())).collect();
     let mut collector = Collector { resolver: &resolver, source, line_starts: &starts, imports: Vec::new() };
     collector.visit_program(&parsed.program);
     let mut imports = collector.imports;

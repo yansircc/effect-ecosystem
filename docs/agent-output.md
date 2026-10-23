@@ -46,14 +46,34 @@ gate-json, its schema and `complianceHash` are unchanged: findings there carry n
 a gate baseline does not move because of this mode. The non-TTY default stays gate-json;
 existing callers that parse stdout keep working, and SKILL.md asks for `--output agent`.
 
-## Not done, and when it becomes required
+## Help by context
 
-Help is per rule, not per instance. A try/catch in a host script and one inside an Effect
-program get the same `help`; the scope action is what routes the first case today. Selecting
-help by the hit's context (module scope, inside `Effect.gen`, inside a boundary region)
-needs the selector hits to carry their enclosing context, which they do not. It becomes
-required when measured agent sessions show a rule group whose single `help` is the wrong
-rewrite for a recurring context.
+A syntax hit carries its **context**, the code world of its innermost enclosing function
+(`rules::Context`, `context` in raw-json):
 
-Messages are Chinese for source rules and English for the rest; unifying them is a content
-change to rules.json and moves no structure.
+| context | where |
+|---|---|
+| `module` | no enclosing function |
+| `function` | a plain function or method, also a plain callback inside `Effect.gen` |
+| `effect` | a generator passed to `Effect.gen`, `Effect.fn(...)`, `Effect.fn("name")(...)` |
+| `boundary` | an `Effect.promise/tryPromise/sync/try` callback region |
+
+Measured on six local repositories, the hits of the rules whose `help` rewrites in place
+(`yield*`, `Effect.try`, `Clock`, ...) sit inside an Effect program almost never:
+
+| rule | hits | module | function | effect | boundary |
+|---|---|---|---|---|---|
+| EFF004 await | 2237 | 168 | 2069 | 0 | 0 |
+| EFF025 throw | 969 | 237 | 704 | 1 | 27 |
+| EFF024 new Error | 878 | 227 | 625 | 5 | 21 |
+| EFF001 try | 441 | 34 | 404 | 3 | 0 |
+| EFF027 process.env | 159 | 59 | 67 | 30 | 3 |
+
+So a single per-rule help was the wrong first step for ~99% of occurrences. The contract now
+says which context a rewrite is written for (`help.in`), and what to do first in every
+context (`contexts.<name>.label/guidance`, one sentence each). The agent rendering splits
+a rule into one action per context only when the hits are not where the help applies;
+rules whose help holds anywhere (EFF002/EFF003: convert the function) stay one group.
+Guidance and help are printed in full at their first step and referenced after that.
+The cost: zeroY3 renders 27 actions instead of 15 (22 KB instead of 12 KB), still bounded
+by rules x contexts.

@@ -19,6 +19,16 @@ pub struct RuleMeta {
 pub struct Help {
     pub before: String,
     pub after: String,
+    /// The context the rewrite is written for (`rules::CONTEXTS`); a hit elsewhere first gets that
+    /// context's guidance. None: the rewrite holds wherever the hit is.
+    pub context: Option<String>,
+}
+
+/// A code-world context of the contract (`contexts`): how it is named and what to do first in it.
+#[derive(Clone, Debug)]
+pub struct ContextMeta {
+    pub label: String,
+    pub guidance: String,
 }
 
 #[derive(Clone, Debug)]
@@ -36,11 +46,18 @@ pub struct Finding {
     /// 1-based column range (Unicode scalar values, end exclusive) of the hit on `line`, for findings
     /// that come from a syntax node; projection findings name a line only.
     pub span: Option<(u32, u32)>,
+    /// The code world of a syntax hit (`rules::Context`); none for imports and projection findings.
+    pub context: Option<&'static str>,
 }
 
 impl Finding {
     pub fn with_span(mut self, span: Option<(u32, u32)>) -> Self {
         self.span = span;
+        self
+    }
+
+    pub fn with_context(mut self, context: Option<&'static str>) -> Self {
+        self.context = context;
         self
     }
 
@@ -56,6 +73,9 @@ impl Finding {
         if let Some((column, end_column)) = self.span {
             m.insert("column".into(), json!(column));
             m.insert("endColumn".into(), json!(end_column));
+        }
+        if let Some(context) = self.context {
+            m.insert("context".into(), json!(context));
         }
         m.insert("ref".into(), json!(self.reference));
         m.insert("package".into(), json!(self.package));
@@ -73,6 +93,8 @@ pub struct Registry {
     /// Rule families in the order their findings are acted on (`actionOrder`): a finding of an earlier
     /// family can change or void those of a later one (a manifest decides which files are source).
     pub action_order: Vec<String>,
+    /// Every `rules::CONTEXTS` entry, as the contract names and guides it (`contexts`).
+    pub contexts: HashMap<String, ContextMeta>,
     by_id: HashMap<String, usize>,
 }
 
@@ -123,8 +145,15 @@ impl Registry {
                 None => None,
                 Some(h) => {
                     let part = |k: &str| h.get(k).and_then(Value::as_str).filter(|s| !s.trim().is_empty()).map(String::from);
+                    let context = match h.get("in") {
+                        None => None,
+                        Some(v) => match v.as_str().filter(|c| crate::rules::CONTEXTS.contains(c)) {
+                            Some(c) => Some(c.to_string()),
+                            None => return Err(at(format!("`help.in` must be one of {}", crate::rules::CONTEXTS.join(", ")))),
+                        },
+                    };
                     match (part("before"), part("after")) {
-                        (Some(before), Some(after)) => Some(Help { before, after }),
+                        (Some(before), Some(after)) => Some(Help { before, after, context }),
                         _ => return Err(at("`help` must have non-empty `before` and `after` strings".into())),
                     }
                 }
@@ -155,8 +184,18 @@ impl Registry {
         if let Some(stray) = action_order.iter().enumerate().find(|(i, f)| action_order[..*i].contains(f) || !rules.iter().any(|r| r.family == **f)) {
             return Err(format!("rules.json actionOrder entry {} is repeated or names no rule family", stray.1));
         }
+        let mut contexts = HashMap::new();
+        let declared = value.get("contexts").and_then(Value::as_object).ok_or("rules.json contexts must be an object")?;
+        for name in crate::rules::CONTEXTS {
+            let entry = declared.get(name).ok_or_else(|| format!("rules.json contexts has no {name}"))?;
+            let text = |k: &str| entry.get(k).and_then(Value::as_str).filter(|s| !s.trim().is_empty()).map(String::from).ok_or_else(|| format!("rules.json contexts.{name}.{k} must be a non-empty string"));
+            contexts.insert(name.to_string(), ContextMeta { label: text("label")?, guidance: text("guidance")? });
+        }
+        if let Some(stray) = declared.keys().find(|k| !crate::rules::CONTEXTS.contains(&k.as_str())) {
+            return Err(format!("rules.json contexts names unknown context {stray}"));
+        }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
-        Ok(Self { rules, scope, action_order, by_id })
+        Ok(Self { rules, scope, action_order, contexts, by_id })
     }
 
     pub fn meta(&self, id: &str) -> Option<&RuleMeta> {
@@ -177,6 +216,7 @@ impl Registry {
             package: package.map(String::from),
             family: meta.map(|m| m.family.clone()).unwrap_or_else(|| "unknown".into()),
             span: None,
+            context: None,
         }
     }
 }
