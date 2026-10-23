@@ -94,12 +94,8 @@ async function ruleRegistry({ env }: SuiteContext): Promise<string[]> {
   } catch (error) {
     failures.push(`rule-registry: ${error.message}`)
   }
-  // The scanner embeds the same rules.json; every rule in the contract must be implemented by it.
-  const listed = spawnSync(env.bin, ["--list-implemented-rules"], { encoding: "utf8" })
-  const implemented = new Set<string>(JSON.parse(listed.stdout || "[]"))
-  for (const rule of readRules(resolve(env.repoRoot, "contracts"))) {
-    if (!implemented.has(rule.id)) failures.push(`rule-registry: ${rule.id} is in contracts/rules.json but the scanner does not implement it`)
-  }
+  // That every contract rule is implemented is proven by behaviour, not by a list the binary declares:
+  // fixture-coverage requires a canonical bad fixture per rule that must report exactly that rule.
   return failures
 }
 

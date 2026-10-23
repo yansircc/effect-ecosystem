@@ -34,7 +34,6 @@ flags:
   --fail-on-suppression-drift    report expired, reason-less and orphan eff-ignore comments
   --profile                      include signals and profile in the raw result
   --timings                      include stage timings in the raw result
-  --list-implemented-rules       print the rule ids this build computes and exit
   --build-info                   print the embedded build provenance and exit
   --rules <file>                 TEST ONLY: replace the embedded rule contract; recorded in warnings
   -h, --help                     print this text and exit 0
@@ -48,7 +47,7 @@ exit codes:
 );
 
 pub const VALUE_FLAGS: [&str; 6] = ["--evidence", "--manifest", "--output", "--rules", "--baseline", "--write-baseline"];
-pub const BOOL_FLAGS: [&str; 6] = ["--strict", "--fail-on-suppression-drift", "--profile", "--timings", "--list-implemented-rules", "--build-info"];
+pub const BOOL_FLAGS: [&str; 5] = ["--strict", "--fail-on-suppression-drift", "--profile", "--timings", "--build-info"];
 
 /// The command line as data: one pass, so every token is a known flag, a flag value or the root.
 #[derive(Debug, Default)]

@@ -233,19 +233,22 @@ impl Registry {
         self.by_id.get(id).map(|&i| &self.rules[i])
     }
 
+    /// A finding of a contract rule. Stage code names the rules it evaluates; a name the contract does not
+    /// define is a disagreement between code and contract, reported as a scanner failure (exit 2), never
+    /// as a finding with invented severity and family.
     pub fn finding(&self, rule_id: &str, file: &str, line: u32, line_text: &str, message: Option<&str>, package: Option<&str>) -> Finding {
-        let meta = self.meta(rule_id);
+        let meta = self.meta(rule_id).unwrap_or_else(|| panic!("rule {rule_id} is reported by the scanner but not defined by the rule contract"));
         Finding {
             file: file.to_string(),
             line,
             line_text: line_text.to_string(),
             rule_id: rule_id.to_string(),
-            rule_name: meta.map(|m| m.name.clone()).unwrap_or_else(|| rule_id.to_string()),
-            severity: meta.map(|m| m.severity.clone()).unwrap_or_else(|| "error".into()),
-            message: message.map(String::from).or_else(|| meta.map(|m| m.message.clone())).unwrap_or_else(|| rule_id.to_string()),
-            reference: meta.and_then(|m| m.reference.clone()),
+            rule_name: meta.name.clone(),
+            severity: meta.severity.clone(),
+            message: message.map_or_else(|| meta.message.clone(), String::from),
+            reference: meta.reference.clone(),
             package: package.map(String::from),
-            family: meta.map(|m| m.family.clone()).unwrap_or_else(|| "unknown".into()),
+            family: meta.family.clone(),
             span: None,
             context: None,
             baselined: false,
@@ -290,5 +293,17 @@ fn validate_scanner(scanner: &Value) -> Result<(), String> {
         }
         "projection" => Ok(()),
         other => Err(format!("unsupported kind {other}; expected one of {}", SCANNER_KINDS.join(", "))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "not defined by the rule contract")]
+    fn a_rule_the_contract_does_not_define_is_a_scanner_failure_not_a_finding() {
+        let rules: Value = serde_json::from_str(crate::RULES_JSON).unwrap();
+        Registry::from_json(&rules).unwrap().finding("EFF999", "a.ts", 1, "", None, None);
     }
 }

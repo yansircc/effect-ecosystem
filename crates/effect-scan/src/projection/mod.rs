@@ -27,9 +27,6 @@ use crate::scan::ScanContext;
 use serde_json::{json, Map, Value};
 use toolchain::{CompilerMeta, ToolchainMeta};
 
-/// This stage implements no rule: it only projects.
-pub const RULES: &[&str] = &[];
-
 /// Optional inputs other stages leave in `extras`; the projection consumes them (they are not output).
 const COMPILER_META_KEY: &str = "compilerMeta";
 const UNPROVEN_FACTS_KEY: &str = "notProvenFacts";

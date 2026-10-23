@@ -20,7 +20,7 @@ mod scan;
 mod source;
 mod util;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use projection::cli::{self, OutputMode, USAGE_EXIT_CODE};
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -77,10 +77,6 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    if parsed.flag("--list-implemented-rules") {
-        println!("{}", json!(scan::implemented_rules(&registry)));
-        return ExitCode::SUCCESS;
-    }
     let root = match parsed.positional.first() {
         Some(p) => PathBuf::from(p),
         None => std::env::current_dir().unwrap_or_default(),

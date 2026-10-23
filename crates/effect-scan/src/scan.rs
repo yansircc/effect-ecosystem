@@ -72,24 +72,11 @@ pub struct ScanResult {
     pub manifest_loaded: bool,
 }
 
-/// Rules whose verdict this build computes; the rest of the contract is not yet ported.
+/// Rule kinds evaluated from a rule's `scanner` data alone; `projection` rules are evaluated by the stage
+/// code that names them. Which rules exist is the contract's; that each is implemented is proven by
+/// behaviour (fixture-coverage: every rule has a canonical bad fixture that must report exactly it),
+/// not by a list a stage declares about itself.
 pub const IMPLEMENTED_KINDS: [&str; 2] = ["source-import", "source-ast"];
-
-pub fn implemented_rules(registry: &Registry) -> Vec<String> {
-    let mut ids: Vec<String> = registry
-        .rules
-        .iter()
-        .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
-        .map(|r| r.id.clone())
-        .collect();
-    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), [SUPPRESSION_DRIFT].as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES, crate::projection::RULES] {
-        ids.extend(stage.iter().map(|s| s.to_string()));
-    }
-    ids
-}
-
-const MANIFEST_RULES: [&str; 2] = ["EFF000", "EFF903"];
-const EDGE_RULES: [&str; 3] = ["EFF400", "EFF403", "EFF404"];
 
 pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanResult, String> {
     let mut timings = Timings::new();

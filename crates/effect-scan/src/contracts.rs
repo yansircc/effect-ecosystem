@@ -17,8 +17,6 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-pub const RULES: &[&str] = &["EFF401", "EFF402"];
-
 /// A verdict the Rust scanner cannot reach without type information.
 #[derive(Debug, Clone)]
 pub struct NotProven {

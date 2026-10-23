@@ -19,11 +19,6 @@ use crate::findings::Finding;
 use crate::manifest::MANIFEST_NAME;
 use crate::scan::ScanContext;
 
-pub const RULES: &[&str] = &[
-    "EFF200", "EFF300", "EFF301", "EFF302", "EFF303", "EFF304", "EFF310", "EFF311", "EFF312", "EFF321", "EFF323", "EFF324", "EFF325", "EFF326",
-    "EFF900", "EFF905", "EFF906", "EFF907", "EFF908",
-];
-
 /// Runs only with a loaded manifest (`scan.rs` gates it). Order matches the TypeScript scanner so
 /// that equal `(file, line, rule)` findings keep their relative order after the stable sort.
 pub fn scan(ctx: &ScanContext) -> Vec<Finding> {

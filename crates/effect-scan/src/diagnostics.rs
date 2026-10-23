@@ -14,8 +14,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::thread::JoinHandle;
 
-pub const RULES: &[&str] = &["EFF500", "EFF501", "EFF502", "EFF503", "EFF504", "EFF901", "EFF902"];
-
 /// Rules declare the facts they consume; compiler diagnostics are computed only when one asks.
 const DIAGNOSTICS_FACT: &str = "compiler.diagnostics";
 
