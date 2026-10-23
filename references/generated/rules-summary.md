@@ -66,6 +66,7 @@ Source of truth: `contracts/rules.json`.
 | EFF906 | ambiguous-worker-shape | error | core | shape worker is ambiguous without a declared runtime fact source such as wranglerPath. |
 | EFF907 | workspace-owner-outside-workspace | error | core | dependencyOwner workspace-root requires the scan target to be a declared workspace package. |
 | EFF908 | unsupported-effect-version | error | core | Effect must satisfy the supported v4 range. |
+| EFF909 | suppression-drift | error | core | eff-ignore comment is invalid: it needs reason="...", must match a finding of its rule on its line, and must not be expired |
 
 ## EFF000 missing-manifest
 
@@ -438,3 +439,9 @@ Rule: dependencyOwner workspace-root requires the scan target to be a declared w
 Profiles: core
 
 Rule: Effect must satisfy the supported v4 range.
+
+## EFF909 suppression-drift
+
+Profiles: core
+
+Rule: eff-ignore comment is invalid: it needs reason="...", must match a finding of its rule on its line, and must not be expired

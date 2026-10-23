@@ -1,0 +1,17 @@
+{
+  "description": "EFF909 bad: an eff-ignore whose rule no longer matches its line is drift",
+  "suites": [
+    "rule-pairs",
+    "suppression-drift"
+  ],
+  "strict": true,
+  "failOnSuppressionDrift": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF909"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:1:EFF909:error"
+  ],
+  "exact": true
+}

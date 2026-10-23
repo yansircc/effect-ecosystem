@@ -1,11 +1,17 @@
 {
-  "description": "suppression-missing-reason-red",
+  "description": "suppression-missing-reason-red: a reason-less eff-ignore does not suppress and is reported once as EFF909",
   "suites": [
     "suppression",
     "evil-fixtures"
   ],
   "expectExit": 1,
   "expectRules": [
-    "EFF001"
-  ]
+    "EFF001",
+    "EFF909"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF001:error",
+    "src/a.ts:1:EFF909:error"
+  ],
+  "exact": true
 }

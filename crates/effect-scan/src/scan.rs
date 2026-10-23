@@ -71,7 +71,7 @@ pub fn implemented_rules(registry: &Registry) -> Vec<String> {
         .filter(|r| r.scanner.get("kind").and_then(Value::as_str).is_some_and(|k| IMPLEMENTED_KINDS.contains(&k)))
         .map(|r| r.id.clone())
         .collect();
-    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES, crate::projection::RULES] {
+    for stage in [MANIFEST_RULES.as_slice(), EDGE_RULES.as_slice(), [SUPPRESSION_DRIFT].as_slice(), crate::contracts::RULES, crate::package::RULES, crate::diagnostics::RULES, crate::projection::RULES] {
         ids.extend(stage.iter().map(|s| s.to_string()));
     }
     ids
@@ -336,8 +336,11 @@ fn parse_line_suppression(text: &str) -> Option<LineSuppression> {
     Some(LineSuppression { rule_id: caps[1].to_string(), reason, expires })
 }
 
+/// The rule that reports invalid `eff-ignore` comments; it is never suppressible itself.
+const SUPPRESSION_DRIFT: &str = "EFF909";
+
 fn is_suppressed(finding: &Finding, manifest: Option<&Manifest>) -> bool {
-    if matches!(finding.rule_id.as_str(), "EFF400" | "EFF401") {
+    if matches!(finding.rule_id.as_str(), "EFF400" | "EFF401" | SUPPRESSION_DRIFT) {
         return false;
     }
     if let Some(parsed) = parse_line_suppression(&finding.line_text) {
@@ -351,14 +354,19 @@ fn is_suppressed(finding: &Finding, manifest: Option<&Manifest>) -> bool {
         || manifest.generated_globs.iter().any(|g| util::glob_to_regex(g).is_match(&file))
 }
 
+/// Drops suppressed findings. A reason-less `eff-ignore` does not suppress, and is itself reported
+/// (EFF909) once per comment that would have applied, in every mode; `suppression_drift` owns only
+/// the `--fail-on-suppression-drift` checks, so no comment is reported twice.
 fn apply_suppressions(findings: Vec<Finding>, manifest: Option<&Manifest>, registry: &Registry) -> Vec<Finding> {
     let mut kept = Vec::new();
-    let mut drift = Vec::new();
+    let mut drift: Vec<Finding> = Vec::new();
     for finding in findings {
         if let Some(parsed) = parse_line_suppression(&finding.line_text) {
             if parsed.rule_id == finding.rule_id && parsed.reason.as_deref().is_none_or(str::is_empty) {
-                let msg = format!("eff-ignore {} requires reason=\"...\"", finding.rule_id);
-                drift.push(registry.finding(&finding.rule_id, &finding.file, finding.line, &finding.line_text, Some(&msg), finding.package.as_deref()));
+                if !drift.iter().any(|d| d.file == finding.file && d.line == finding.line) {
+                    let msg = format!("eff-ignore {} requires reason=\"...\"", finding.rule_id);
+                    drift.push(registry.finding(SUPPRESSION_DRIFT, &finding.file, finding.line, &finding.line_text, Some(&msg), finding.package.as_deref()));
+                }
                 kept.push(finding);
                 continue;
             }
@@ -381,10 +389,7 @@ fn suppression_drift(files: &[SourceFile], manifest: Option<&Manifest>, raw: &[F
             let Some(s) = parse_line_suppression(text) else { continue };
             let line = index as u32 + 1;
             let trimmed = text.trim();
-            let mk = |msg: String| registry.finding(&s.rule_id, &file.relative, line, trimmed, Some(&msg), None);
-            if s.reason.as_deref().is_none_or(str::is_empty) {
-                out.push(mk(format!("eff-ignore {} requires reason=\"...\"", s.rule_id)));
-            }
+            let mk = |msg: String| registry.finding(SUPPRESSION_DRIFT, &file.relative, line, trimmed, Some(&msg), None);
             if let Some(expires) = &s.expires {
                 match crate::expires::parse_expires(expires) {
                     Some(at) if at < now => out.push(mk(format!("eff-ignore {} expired at {}", s.rule_id, expires))),

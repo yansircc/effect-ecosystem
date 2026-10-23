@@ -835,10 +835,11 @@ Manifest path suppression requires owner and reason:
 paths, so one owner entry can cover a coherent adapter family such as
 `src/lib/**/*.test.ts`.
 
-Use `--fail-on-suppression-drift` to reject expired, orphaned, or ownerless
-suppressions. With it, an `eff-ignore` comment yields a finding on its own line when:
+An invalid `eff-ignore` comment is reported as EFF909 (never suppressible), once per
+comment. A comment without `reason="..."` does not suppress and is reported in every
+mode. Use `--fail-on-suppression-drift` to also reject expired or orphaned
+suppressions. With it, an `eff-ignore` comment yields an EFF909 finding on its own line when:
 
-- it has no `reason="..."`;
 - no finding of that rule remains on the line (orphan);
 - `expires="..."` is a past instant (`eff-ignore EFFxxx expired at <value>`), or is not a date at all
   (`eff-ignore expires is not a valid date: <value>`; an unparseable `expires` is never silently accepted).

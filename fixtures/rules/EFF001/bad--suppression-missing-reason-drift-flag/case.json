@@ -1,0 +1,17 @@
+{
+  "description": "a reason-less eff-ignore is reported once as EFF909 also under --fail-on-suppression-drift (it was emitted twice, under the suppressed rule's id)",
+  "suites": [
+    "suppression-drift"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF001",
+    "EFF909"
+  ],
+  "expectFindingKeys": [
+    "src/a.ts:1:EFF001:error",
+    "src/a.ts:1:EFF909:error"
+  ],
+  "exact": true,
+  "failOnSuppressionDrift": true
+}

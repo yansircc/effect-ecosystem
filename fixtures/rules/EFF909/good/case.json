@@ -1,0 +1,12 @@
+{
+  "description": "EFF909 good: a reasoned eff-ignore that still matches a finding of its rule",
+  "suites": [
+    "rule-pairs",
+    "suppression-drift"
+  ],
+  "strict": true,
+  "failOnSuppressionDrift": true,
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}

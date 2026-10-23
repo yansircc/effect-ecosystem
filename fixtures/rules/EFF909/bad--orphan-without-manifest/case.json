@@ -7,6 +7,6 @@
   "failOnSuppressionDrift": true,
   "expectExit": 1,
   "expectRules": [
-    "EFF001"
+    "EFF909"
   ]
 }
