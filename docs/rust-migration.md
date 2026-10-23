@@ -416,7 +416,8 @@ asserts the binary's `--build-info` equals it (`scripts/release/check-binary.mjs
 |---|---|
 | `make tools` | TS dev tools into `dist/tools` and `build-info.json` |
 | `make build` | `tools` + `cargo build --release --locked` with embedded provenance -> `dist/platforms/<host>/` |
-| `make skill` | build, assemble `dist/skill`, run `scripts/check-skill-entry.mjs` |
+| `make skill` | build, assemble a host-only `dist/skill`, run `scripts/check-skill-entry.mjs` (development) |
+| `make skill-release` | fetch CI's `skill-<sha>` for exactly HEAD into `dist/skill`, assert its build-info is HEAD and clean and every platform is present (`scripts/release/fetch-ci-skill.mjs`); what sm publishes |
 | `make verify-offline` | everything without network: provenance, registry/contract checks, the fixture run, Rust self-scan, skill entry, `scripts/verify-skill-runtime.mjs` (the assembled skill's `runtime/effect-scan`: provenance, usage exit code, a strict scan of this repository) |
 | `make verify-online` | networked acceptance + benchmark |
 | `make verify` | offline + online |

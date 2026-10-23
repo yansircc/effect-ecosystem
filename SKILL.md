@@ -78,8 +78,9 @@ For this skill repository:
 make verify
 ```
 
-The generator installs nothing. `make skill` assembles this skill (`dist/skill/`)
-with `runtime/effect-scan` and the per-platform binaries; sm publishes it, and
+The generator installs nothing. `make skill` assembles a host-only skill for
+development; `make skill-release` fetches CI's all-platform skill for exactly
+HEAD, which is what sm publishes, and
 `effect-scan` on PATH is the launcher sm manages for a consumer's
 `executablesTarget`, resolving to the published skill. A local, unpublished
 build runs as `dist/skill/runtime/effect-scan`. The npm package

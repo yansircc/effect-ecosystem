@@ -1,7 +1,8 @@
 # One build output: $(DIST)/ (default dist/).
 #   $(DIST)/platforms/<platform>/effect-scan   the native binary (+ build-info.json it embeds)
 #   $(DIST)/tools/                             TypeScript development tools (self-test, checks, oracle); never shipped
-#   $(DIST)/skill/                             the assembled skill        (make skill)
+#   $(DIST)/skill/                             the assembled skill: host only (make skill), or CI's, every
+#                                              platform, for exactly HEAD (make skill-release; what sm publishes)
 # Nothing is installed from here: the generator writes only under $(DIST). `effect-scan` on PATH is the
 # launcher sm manages for a consumer's `executablesTarget`, resolving to the published skill's runtime;
 # a second installer writing the same path would make that path two-owner (`sm apply` refuses it).
@@ -11,7 +12,7 @@ HOST := $(shell node scripts/release/platforms.mjs host)
 BINARY := $(DIST)/platforms/$(HOST)/effect-scan
 BUILD_INFO := $(TOOLS)/build-info.json
 
-.PHONY: tools build fixtures skill verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
+.PHONY: tools build fixtures skill skill-release verify verify-offline verify-online verify-acceptance verify-performance verify-performance-realworld
 
 tools:
 	rm -rf "$(TOOLS)"
@@ -35,6 +36,10 @@ build: tools
 # Every fixture under fixtures/ (rules/<RULE_ID>/{good,bad}, scenarios/) and the internal suites, through the binary.
 fixtures: build
 	node "$(TOOLS)/scripts/run-fixtures.js" --bin "$(BINARY)" --exact
+
+# The published skill: CI's all-platform skill for HEAD, verified; no fallback to the host-only build.
+skill-release:
+	node scripts/release/fetch-ci-skill.mjs --dist "$(DIST)"
 
 skill: build
 	node scripts/release/assemble-skill.mjs --dist "$(DIST)"
