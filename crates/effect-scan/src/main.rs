@@ -96,7 +96,7 @@ fn main() -> ExitCode {
         profile: parsed.flag("--profile"),
         timings: parsed.flag("--timings"),
         evidence_dir: parsed.value("--evidence"),
-        gate_summary: matches!(mode, OutputMode::GateJson | OutputMode::Human),
+        gate_summary: matches!(mode, OutputMode::GateJson | OutputMode::Human | OutputMode::Agent),
         rules_override,
     };
     let result = match scan::run(&root, &options, &registry) {
@@ -108,8 +108,27 @@ fn main() -> ExitCode {
     };
     let summary = scan::summarize(&result.findings);
     let errors = summary["errors"].as_u64().unwrap_or(0);
-    let doc = cli::raw_document(&result.findings, &summary, &result.warnings, &result.extras);
-    cli::emit(mode, &doc);
+    if mode == OutputMode::Agent {
+        let build_id = projection::build_info::embedded()["buildId"].as_str().unwrap_or("unknown").to_string();
+        let manifest_name = options.manifest_path.clone().unwrap_or_else(|| manifest_name!().to_string());
+        print!(
+            "{}",
+            projection::agent::render(&projection::agent::Input {
+                findings: &result.findings,
+                registry: &registry,
+                warnings: &result.warnings,
+                signals: result.extras.get("signals").and_then(|s| s.as_array()).map(Vec::as_slice).unwrap_or(&[]),
+                root: &root,
+                manifest_loaded: result.manifest_loaded,
+                manifest_name: &manifest_name,
+                evidence_dir: options.evidence_dir.as_deref(),
+                build_id: &build_id,
+            })
+        );
+    } else {
+        let doc = cli::raw_document(&result.findings, &summary, &result.warnings, &result.extras);
+        cli::emit(mode, &doc);
+    }
     ExitCode::from(if errors > 0 { 1 } else { 0 })
 }
 

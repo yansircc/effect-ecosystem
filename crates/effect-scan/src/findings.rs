@@ -11,6 +11,14 @@ pub struct RuleMeta {
     pub reference: Option<String>,
     pub facts: Vec<String>,
     pub scanner: Value,
+    /// A minimal before/after rewrite (`help` in rules.json), shown where the finding is acted on.
+    pub help: Option<Help>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Help {
+    pub before: String,
+    pub after: String,
 }
 
 #[derive(Clone, Debug)]
@@ -25,9 +33,17 @@ pub struct Finding {
     pub reference: Option<String>,
     pub package: Option<String>,
     pub family: String,
+    /// 1-based column range (Unicode scalar values, end exclusive) of the hit on `line`, for findings
+    /// that come from a syntax node; projection findings name a line only.
+    pub span: Option<(u32, u32)>,
 }
 
 impl Finding {
+    pub fn with_span(mut self, span: Option<(u32, u32)>) -> Self {
+        self.span = span;
+        self
+    }
+
     pub fn to_json(&self) -> Value {
         let mut m = Map::new();
         m.insert("file".into(), json!(self.file));
@@ -37,6 +53,10 @@ impl Finding {
         m.insert("ruleName".into(), json!(self.rule_name));
         m.insert("severity".into(), json!(self.severity));
         m.insert("message".into(), json!(self.message));
+        if let Some((column, end_column)) = self.span {
+            m.insert("column".into(), json!(column));
+            m.insert("endColumn".into(), json!(end_column));
+        }
         m.insert("ref".into(), json!(self.reference));
         m.insert("package".into(), json!(self.package));
         m.insert("family".into(), json!(self.family));
@@ -50,6 +70,9 @@ pub struct Registry {
     pub rules: Vec<RuleMeta>,
     /// What is source (`scope`): every file enumeration and classification reads it.
     pub scope: crate::util::Scope,
+    /// Rule families in the order their findings are acted on (`actionOrder`): a finding of an earlier
+    /// family can change or void those of a later one (a manifest decides which files are source).
+    pub action_order: Vec<String>,
     by_id: HashMap<String, usize>,
 }
 
@@ -96,6 +119,16 @@ impl Registry {
                 }
             };
             let scanner = rule.get("scanner").filter(|s| s.is_object()).ok_or_else(|| at("`scanner` must be an object".into()))?;
+            let help = match rule.get("help") {
+                None => None,
+                Some(h) => {
+                    let part = |k: &str| h.get(k).and_then(Value::as_str).filter(|s| !s.trim().is_empty()).map(String::from);
+                    match (part("before"), part("after")) {
+                        (Some(before), Some(after)) => Some(Help { before, after }),
+                        _ => return Err(at("`help` must have non-empty `before` and `after` strings".into())),
+                    }
+                }
+            };
             validate_scanner(scanner).map_err(|m| at(format!("scanner: {m}")))?;
             rules.push(RuleMeta {
                 name: required("name")?,
@@ -104,12 +137,26 @@ impl Registry {
                 reference: strings("references")?.into_iter().next(),
                 facts: strings("facts")?,
                 scanner: scanner.clone(),
+                help,
                 severity,
                 id,
             });
         }
+        let action_order: Vec<String> = value
+            .get("actionOrder")
+            .and_then(Value::as_array)
+            .and_then(|a| a.iter().map(|x| x.as_str().map(String::from)).collect::<Option<Vec<_>>>())
+            .ok_or("rules.json actionOrder must be an array of family names")?;
+        for family in rules.iter().map(|r| &r.family) {
+            if !action_order.contains(family) {
+                return Err(format!("rules.json actionOrder does not order family {family}"));
+            }
+        }
+        if let Some(stray) = action_order.iter().enumerate().find(|(i, f)| action_order[..*i].contains(f) || !rules.iter().any(|r| r.family == **f)) {
+            return Err(format!("rules.json actionOrder entry {} is repeated or names no rule family", stray.1));
+        }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
-        Ok(Self { rules, scope, by_id })
+        Ok(Self { rules, scope, action_order, by_id })
     }
 
     pub fn meta(&self, id: &str) -> Option<&RuleMeta> {
@@ -129,6 +176,7 @@ impl Registry {
             reference: meta.and_then(|m| m.reference.clone()),
             package: package.map(String::from),
             family: meta.map(|m| m.family.clone()).unwrap_or_else(|| "unknown".into()),
+            span: None,
         }
     }
 }

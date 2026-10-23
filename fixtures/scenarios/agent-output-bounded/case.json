@@ -1,0 +1,51 @@
+{
+  "description": "--output agent: scope first without a manifest, one group per rule in actionOrder, examples located with a caret span, the rest named by count and truncated; raw-json carries the column range",
+  "suites": [
+    "cli-output"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF003",
+    "EFF004"
+  ],
+  "extraRuns": [
+    {
+      "args": [
+        "--output",
+        "agent"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "effect-scan FAIL: 16 errors, 0 warnings in 8 files",
+        "next actions, in order:",
+        "1. [scope] no .effect-skill.json",
+        "2. EFF003 async-arrow · 8 errors in 8 files",
+        "3. EFF004 await-keyword · 8 errors in 8 files",
+        "help: - const user = await fetchUser(id)",
+        "src/a.ts:2:10",
+        "2 |   return await fetch(\"/a\")",
+        "|          ^^^^^^^^^^^^^^^^^",
+        "src/a.ts:1:20",
+        "|                    ^^^^^^^^^^^^",
+        "also: src/c.ts (1), src/d.ts (1), src/e.ts (1), src/f.ts (1), src/g.ts (1), +1 files",
+        "full list: rerun with --output raw-json"
+      ],
+      "expectStdoutExcludes": [
+        "src/h.ts"
+      ]
+    },
+    {
+      "args": [
+        "--output",
+        "raw-json"
+      ],
+      "expectExit": 1,
+      "expectStdoutIncludes": [
+        "\"column\": 10",
+        "\"endColumn\": 27",
+        "\"column\": 20",
+        "\"endColumn\": 32"
+      ]
+    }
+  ]
+}

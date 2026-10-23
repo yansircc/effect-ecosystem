@@ -59,6 +59,8 @@ pub struct ScanResult {
     pub warnings: Vec<String>,
     /// Projection outputs (signals, profile, gateSummary, evidence...), merged into the raw result.
     pub extras: serde_json::Map<String, Value>,
+    /// A manifest was found and valid (the scan knows which files are application source).
+    pub manifest_loaded: bool,
 }
 
 /// Rules whose verdict this build computes; the rest of the contract is not yet ported.
@@ -90,6 +92,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         warnings.insert(0, format!("rule contract replaced by --rules {path} (test-only override); results are not comparable with the embedded contract"));
     }
     let manifest = loaded.manifest;
+    let manifest_loaded = manifest.is_some();
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
     let (files, skipped_symlinks, discovered) = collect_source_files(root, manifest.as_ref(), &contract, &registry.scope)?;
     if let Some(m) = manifest.as_ref() {
@@ -139,7 +142,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
         Value::Array(not_proven_facts.iter().map(|f| json!({ "id": format!("{}:{}:{}", f.rule_id, f.file, f.line), "reason": f.reason })).collect()),
     );
     crate::projection::build(&ctx, &findings, &warnings, &mut extras, &mut timings)?;
-    Ok(ScanResult { findings, warnings, extras })
+    Ok(ScanResult { findings, warnings, extras, manifest_loaded })
 }
 
 /// The directory a hostTooling glob of the form `<literal dir>/**` excludes whole: discovery prunes it.
@@ -284,7 +287,8 @@ fn skip_file(file: &SourceFile, scanner: &Value) -> bool {
     file.roles.test
 }
 
-/// `source-import` and `source-ast` rules: every hit of a rule is a finding, one per line.
+/// `source-import` and `source-ast` rules: every hit of a rule is a finding, one per line, located at
+/// the line's first hit.
 fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> {
     let mut findings = Vec::new();
     for rule in &registry.rules {
@@ -298,15 +302,16 @@ fn scan_source_rules(files: &[SourceFile], registry: &Registry) -> Vec<Finding> 
             if skip_file(file, &rule.scanner) {
                 continue;
             }
-            let mut lines: Vec<u32> = match &matcher {
-                Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| i.line).collect(),
+            let mut locs: Vec<crate::source::Loc> = match &matcher {
+                Some(m) => file.facts.imports.iter().filter(|i| m.matches(&i.specifier)).map(|i| i.loc).collect(),
                 None => file.facts.selector(selector).expect("Registry::from_json validated the selector").clone(),
             };
-            lines.sort_unstable();
-            lines.dedup();
-            for line in lines {
-                let text = file.lines.get(line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
-                findings.push(registry.finding(&rule.id, &file.relative, line, &text, None, file.package.as_deref()));
+            locs.sort_unstable_by_key(|l| (l.line, l.column));
+            locs.dedup_by_key(|l| l.line);
+            for loc in locs {
+                let text = file.lines.get(loc.line as usize - 1).map(|l| l.trim().to_string()).unwrap_or_default();
+                let finding = registry.finding(&rule.id, &file.relative, loc.line, &text, None, file.package.as_deref());
+                findings.push(finding.with_span(Some((loc.column, loc.end_column))));
             }
         }
     }

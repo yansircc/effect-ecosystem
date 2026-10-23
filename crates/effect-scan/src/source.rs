@@ -16,7 +16,30 @@ pub struct ImportFact {
     pub specifier: String,
     pub dynamic: bool,
     pub start: u32,
+    /// Where the specifier literal sits.
+    pub loc: Loc,
+}
+
+/// Where a hit sits: its 1-based line and its column range on that line, in Unicode scalar values,
+/// 1-based, end exclusive, clipped to the line (a node spanning lines is located by its first line).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Loc {
     pub line: u32,
+    pub column: u32,
+    pub end_column: u32,
+}
+
+fn locate(source: &str, starts: &[u32], start: u32, end: u32) -> Loc {
+    let line = line_in(starts, start);
+    let line_start = starts[line as usize - 1] as usize;
+    let mut line_end = starts.get(line as usize).map_or(source.len(), |next| *next as usize - 1);
+    if line_end > line_start && source.as_bytes()[line_end - 1] == b'\r' {
+        line_end -= 1;
+    }
+    let s = (start as usize).min(line_end.max(line_start));
+    let e = (end as usize).clamp(s, line_end.max(s));
+    let column = source[line_start..s].chars().count() as u32 + 1;
+    Loc { line, column, end_column: column + source[s..e].chars().count() as u32 }
 }
 
 /// The file does not parse. Its facts are empty: nothing is guessed from a recovered tree, and the
@@ -32,7 +55,7 @@ pub struct SourceFacts {
     pub parse_failure: Option<ParseFailure>,
     pub imports: Vec<ImportFact>,
     /// Selector hits as 1-based lines (see `rules::SELECTORS`).
-    selectors: BTreeMap<&'static str, Vec<u32>>,
+    selectors: BTreeMap<&'static str, Vec<Loc>>,
     pub module: ModuleFacts,
     line_starts: Vec<u32>,
 }
@@ -43,7 +66,7 @@ impl SourceFacts {
         line_in(&self.line_starts, offset)
     }
 
-    pub fn selector(&self, name: &str) -> Option<&Vec<u32>> {
+    pub fn selector(&self, name: &str) -> Option<&Vec<Loc>> {
         self.selectors.get(name)
     }
 }
@@ -88,8 +111,8 @@ pub fn analyze(path: &str, abs: &Path, source: &str, contract: &Contract, links:
     let mut module = facts::collect(&parsed.program, &resolver, contract);
     module.exports = ExportTable::from_program(&parsed.program);
     let hits = rules::collect(&parsed.program, &resolver);
-    let selectors = hits.into_iter().map(|(name, offsets)| (name, offsets.into_iter().map(|o| line_in(&starts, o)).collect())).collect();
-    let mut collector = Collector { resolver: &resolver, line_starts: &starts, imports: Vec::new() };
+    let selectors = hits.into_iter().map(|(name, spans)| (name, spans.into_iter().map(|(s, e)| locate(source, &starts, s, e)).collect())).collect();
+    let mut collector = Collector { resolver: &resolver, source, line_starts: &starts, imports: Vec::new() };
     collector.visit_program(&parsed.program);
     let mut imports = collector.imports;
     imports.sort_by_key(|i| i.start);
@@ -110,6 +133,7 @@ fn js(value: oxc_str::JSStr<'_>) -> String {
 
 struct Collector<'a> {
     resolver: &'a facts::Resolver<'a>,
+    source: &'a str,
     line_starts: &'a [u32],
     imports: Vec<ImportFact>,
 }
@@ -123,7 +147,7 @@ impl Collector<'_> {
             specifier: specifier.to_string(),
             dynamic,
             start: span.start,
-            line: line_in(self.line_starts, span.start),
+            loc: locate(self.source, self.line_starts, span.start, span.end),
         });
     }
 }

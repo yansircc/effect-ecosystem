@@ -20,6 +20,12 @@ export function validateRegistry(registry) {
   // `scope` is read by the scanner, which validates its shape at load (exit 2); here only its presence.
   if (registry.scope === null || typeof registry.scope !== "object" || Array.isArray(registry.scope)) errors.push("scope must be an object")
   if ("defaults" in registry) errors.push("defaults is retired: the scanner's source scope is `scope`")
+  // actionOrder orders every rule family exactly once (the scanner rejects the contract otherwise).
+  const families = new Set((registry.rules ?? []).map((rule) => rule.family))
+  const order = registry.actionOrder
+  if (!Array.isArray(order) || new Set(order).size !== order.length || order.length !== families.size || order.some((family) => !families.has(family))) {
+    errors.push(`actionOrder must list each rule family exactly once: ${[...families].sort().join(", ")}`)
+  }
   if (!Array.isArray(registry.rules)) errors.push("rules must be an array")
   if (!Array.isArray(registry.retiredRuleIds)) errors.push("retiredRuleIds must be an array")
   const ids = new Set()
@@ -39,6 +45,12 @@ export function validateRegistry(registry) {
     if (!Array.isArray(rule.references)) errors.push(`${rule.id}.references must be an array`)
     if (!Array.isArray(rule.facts) || rule.facts.length === 0) errors.push(`${rule.id}.facts is required`)
     if (!rule.scanner || !["source-import", "source-ast", "projection"].includes(rule.scanner.kind)) errors.push(`${rule.id}.scanner.kind is invalid`)
+    if (rule.help !== undefined) {
+      const { before, after, ...rest } = rule.help ?? {}
+      if (typeof before !== "string" || !before.trim() || typeof after !== "string" || !after.trim() || Object.keys(rest).length > 0) {
+        errors.push(`${rule.id}.help must be { before, after } non-empty strings`)
+      }
+    }
     if (rule.coverage !== undefined) {
       const { proves, blindSpots, ...rest } = rule.coverage ?? {}
       if (typeof proves !== "string" || proves.trim() === "") errors.push(`${rule.id}.coverage.proves is required`)

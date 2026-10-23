@@ -5,6 +5,7 @@
 //! info); it never recomputes a rule verdict or a resolver fact. Outputs are byte-compatible with
 //! the TypeScript scanner (`stable_json` + SHA-256), apart from the build-provenance fields
 //! (`scanner.*`) that identify the artifact, and the documented v4 detection fixes in `signals`.
+pub mod agent;
 pub mod build_info;
 pub mod cli;
 mod collate;

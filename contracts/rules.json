@@ -46,6 +46,14 @@
       "dist"
     ]
   },
+  "actionOrder": [
+    "infra",
+    "package",
+    "edge",
+    "file-pair",
+    "lsp",
+    "source"
+  ],
   "rules": [
     {
       "id": "EFF000",
@@ -80,6 +88,10 @@
       },
       "family": "source",
       "message": "禁用原生 try/catch。改用 Effect.try / Effect.tryPromise 包裹副作用,失败通道用 Schema.TaggedError",
+      "help": {
+        "before": "try { return JSON.parse(text) } catch { return null }",
+        "after": "Effect.try({ try: () => JSON.parse(text), catch: (cause) => new ParseError({ cause }) })"
+      },
       "facts": [
         "source.code"
       ],
@@ -107,6 +119,10 @@
       },
       "family": "source",
       "message": "禁用 async function。改写为 Effect.gen(function* () { ... }) + yield*",
+      "help": {
+        "before": "async function load(id: string) { return await repo.get(id) }",
+        "after": "const load = Effect.fn(\"load\")(function* (id: string) { return yield* repo.get(id) })"
+      },
       "facts": [
         "source.syntax"
       ],
@@ -133,6 +149,10 @@
       },
       "family": "source",
       "message": "禁用 async 箭头函数。改写为 Effect.gen + yield*",
+      "help": {
+        "before": "const load = async (id: string) => await repo.get(id)",
+        "after": "const load = (id: string) => Effect.gen(function* () { return yield* repo.get(id) })"
+      },
       "facts": [
         "source.syntax"
       ],
@@ -159,6 +179,10 @@
       },
       "family": "source",
       "message": "禁用 await。Effect 内部用 yield*; 在边界用 Effect.runPromise / NodeRuntime.runMain",
+      "help": {
+        "before": "const user = await fetchUser(id)",
+        "after": "const user = yield* Effect.tryPromise({ try: () => fetchUser(id), catch: (cause) => new FetchError({ cause }) })"
+      },
       "facts": [
         "source.syntax"
       ],
@@ -185,6 +209,10 @@
       },
       "family": "source",
       "message": "禁用 Promise 静态方法。改用 Effect.all({ concurrency }) / Effect.race / Effect.partition",
+      "help": {
+        "before": "await Promise.all([a(), b()])",
+        "after": "yield* Effect.all([a, b], { concurrency: \"unbounded\" })"
+      },
       "facts": [
         "source.code"
       ],
@@ -566,6 +594,10 @@
       },
       "family": "source",
       "message": "禁用 setTimeout。改用 Effect.sleep(Duration 字面量)",
+      "help": {
+        "before": "setTimeout(tick, 1000)",
+        "after": "yield* Effect.sleep(\"1 second\").pipe(Effect.andThen(tick))"
+      },
       "facts": [
         "source.code"
       ],
@@ -592,6 +624,10 @@
       },
       "family": "source",
       "message": "禁用 setInterval。改用 Effect.repeat + Schedule.spaced / Schedule.fixed,配合 Effect.forkScoped",
+      "help": {
+        "before": "setInterval(tick, 1000)",
+        "after": "yield* tick.pipe(Effect.repeat(Schedule.spaced(\"1 second\")))"
+      },
       "facts": [
         "source.code"
       ],
@@ -617,6 +653,10 @@
       },
       "family": "source",
       "message": "禁止 new Error。所有领域错误用 Schema.TaggedError class 声明",
+      "help": {
+        "before": "new Error(\"not found\")",
+        "after": "class NotFound extends Schema.TaggedError<NotFound>()(\"NotFound\", { id: Schema.String }) {}  // new NotFound({ id })"
+      },
       "facts": [
         "source.code"
       ],
@@ -642,6 +682,10 @@
       },
       "family": "source",
       "message": "禁用 throw。失败用 yield* new MyTaggedError({ ... }) 或 Effect.fail",
+      "help": {
+        "before": "throw new Error(\"not found\")",
+        "after": "return yield* new NotFound({ id })"
+      },
       "facts": [
         "source.code"
       ],
@@ -667,6 +711,10 @@
       },
       "family": "source",
       "message": "业务代码禁用 Date.now()。改用 Clock.currentTimeMillis (可测试)",
+      "help": {
+        "before": "const now = Date.now()",
+        "after": "const now = yield* Clock.currentTimeMillis"
+      },
       "facts": [
         "source.code"
       ],
@@ -692,6 +740,10 @@
       },
       "family": "source",
       "message": "禁止直读 process.env。改用 Config.String / Config.Redacted + Layer 注入",
+      "help": {
+        "before": "const port = process.env.PORT",
+        "after": "const port = yield* Config.Int(\"PORT\")"
+      },
       "facts": [
         "source.code"
       ],
@@ -832,6 +884,10 @@
       },
       "family": "source",
       "message": "业务代码避免 new Date()。读时间用 Clock,日历计算用 DateTime;存时间戳用 number/ISO string",
+      "help": {
+        "before": "const now = new Date()",
+        "after": "const now = yield* DateTime.now"
+      },
       "facts": [
         "source.code"
       ],

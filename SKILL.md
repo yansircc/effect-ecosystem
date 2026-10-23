@@ -33,12 +33,14 @@ compatibility guess.
    Effect failure; it is not a mandatory opening step:
 
    ```bash
-   <skill-root>/runtime/effect-scan <repo> --strict --output gate-json --evidence <dir>
+   <skill-root>/runtime/effect-scan <repo> --strict --output agent --evidence <dir>
    ```
 
-3. Record `<dir>/gate-summary.json` as the Effect mechanical compliance gate.
-   Keep `<dir>/scan-result.json` as an artifact path instead of pasting raw JSON
-   into task evidence.
+3. Work the printed next actions in order: scope (when no manifest) first,
+   then each rule group; `help` is the rewrite, examples are `file:line:column`.
+   The printout is bounded; the complete list is `<dir>/scan-result.json`.
+   Record `<dir>/gate-summary.json` as the Effect mechanical compliance gate
+   and keep both as artifact paths instead of pasting JSON into task evidence.
 4. Treat error findings as mechanical blockers. Warning findings are report-only.
    Fix blockers or add an owned, reasoned suppression.
 5. Treat signals as review prompts, not verdicts.

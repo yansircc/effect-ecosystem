@@ -47,8 +47,9 @@ pub const SELECTORS: [&str; 12] = [
     "process-env",
 ];
 
-/// Byte offsets of every hit, per selector.
-pub type Hits = BTreeMap<&'static str, Vec<u32>>;
+/// Byte span `(start, end)` of every hit, per selector: the node the selector names, narrowed to its
+/// head where the node is a whole body (a function up to its body, `try` to its keyword).
+pub type Hits = BTreeMap<&'static str, Vec<(u32, u32)>>;
 
 const GLOBAL_OBJECTS: [&str; 4] = ["globalThis", "window", "self", "global"];
 const PROMISE_COMBINATORS: [&str; 4] = ["all", "allSettled", "race", "any"];
@@ -197,8 +198,8 @@ struct Collector<'r, 's> {
 }
 
 impl Collector<'_, '_> {
-    fn hit(&mut self, selector: &'static str, offset: u32) {
-        self.hits.get_mut(selector).expect("selector registered").push(offset);
+    fn hit(&mut self, selector: &'static str, span: oxc_span::Span) {
+        self.hits.get_mut(selector).expect("selector registered").push((span.start, span.end));
     }
 
     /// The boundary region the next nested function sits in.
@@ -250,12 +251,12 @@ impl Collector<'_, '_> {
         self.root_symbol(member.object())
     }
 
-    fn check_reference(&mut self, path: &Path, root: Option<SymbolId>, offset: u32) -> bool {
+    fn check_reference(&mut self, path: &Path, root: Option<SymbolId>, span: oxc_span::Span) -> bool {
         let Some(selector) = reference_selector(path) else { return false };
         if root.is_some_and(|s| self.marked.contains(&s)) {
             return false;
         }
-        self.hit(selector, offset);
+        self.hit(selector, span);
         true
     }
 }
@@ -273,7 +274,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
         let boundary = self.boundary_fns.get(&(func.span.start, func.span.end)).copied().or_else(|| self.enclosing_boundary());
         if func.r#async && !boundary.is_some_and(Boundary::admits_async) {
-            self.hit("async-function", func.span.start);
+            let head_end = func.body.as_ref().map_or(func.span.end, |b| b.span.start);
+            self.hit("async-function", oxc_span::Span::new(func.span.start, head_end));
         }
         self.frames.push(Frame { boundary, is_async: func.r#async });
         walk::walk_function(self, func, flags);
@@ -283,7 +285,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
         let boundary = self.boundary_fns.get(&(arrow.span.start, arrow.span.end)).copied().or_else(|| self.enclosing_boundary());
         if arrow.r#async && !boundary.is_some_and(Boundary::admits_async) {
-            self.hit("async-arrow", arrow.span.start);
+            self.hit("async-arrow", oxc_span::Span::new(arrow.span.start, arrow.body.span().start));
         }
         self.frames.push(Frame { boundary, is_async: arrow.r#async });
         walk::walk_arrow_function_expression(self, arrow);
@@ -292,34 +294,34 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
 
     fn visit_await_expression(&mut self, expr: &AwaitExpression<'a>) {
         if !self.awaits_exempt() {
-            self.hit("await", expr.span.start);
+            self.hit("await", expr.span);
         }
         walk::walk_await_expression(self, expr);
     }
 
     fn visit_for_of_statement(&mut self, stmt: &ForOfStatement<'a>) {
         if stmt.r#await && !self.awaits_exempt() {
-            self.hit("await", stmt.span.start);
+            self.hit("await", oxc_span::Span::new(stmt.span.start, stmt.body.span().start));
         }
         walk::walk_for_of_statement(self, stmt);
     }
 
     fn visit_variable_declaration(&mut self, decl: &VariableDeclaration<'a>) {
         if decl.kind == VariableDeclarationKind::AwaitUsing && !self.awaits_exempt() {
-            self.hit("await", decl.span.start);
+            self.hit("await", decl.span);
         }
         walk::walk_variable_declaration(self, decl);
     }
 
     fn visit_try_statement(&mut self, stmt: &TryStatement<'a>) {
         if !self.try_exempt() {
-            self.hit("try-statement", stmt.span.start);
+            self.hit("try-statement", oxc_span::Span::new(stmt.span.start, stmt.block.span.start));
         }
         walk::walk_try_statement(self, stmt);
     }
 
     fn visit_throw_statement(&mut self, stmt: &ThrowStatement<'a>) {
-        self.hit("throw-statement", stmt.span.start);
+        self.hit("throw-statement", stmt.span);
         walk::walk_throw_statement(self, stmt);
     }
 
@@ -336,7 +338,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
             if init_selector.is_none() {
                 // `const { env } = process`: the reference is only completed by the pattern.
                 if let Some(selector) = aliased.first().and_then(|s| resolver.alias_of(*s)).and_then(reference_selector) {
-                    self.hit(selector, init.span().start);
+                    self.hit(selector, init.span());
                 }
             }
             self.marked.extend(aliased);
@@ -346,7 +348,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
 
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
         if let Some(selector) = self.resolver.path_of(&call.callee).and_then(|p| call_selector(&p)) {
-            self.hit(selector, call.span.start);
+            self.hit(selector, call.span);
         }
         if let Some((kind, options)) = self.boundary_of(&call.callee) {
             for arg in &call.arguments {
@@ -372,21 +374,21 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
 
     fn visit_new_expression(&mut self, expr: &NewExpression<'a>) {
         if let Some(selector) = self.resolver.path_of(&expr.callee).and_then(|p| new_selector(&p)) {
-            self.hit(selector, expr.span.start);
+            self.hit(selector, expr.span);
         }
         walk::walk_new_expression(self, expr);
     }
 
     fn visit_identifier_reference(&mut self, ident: &IdentifierReference<'a>) {
         if let Some(path) = self.resolver.identifier_path(ident) {
-            self.check_reference(&path, self.resolver.symbol_of(ident), ident.span.start);
+            self.check_reference(&path, self.resolver.symbol_of(ident), ident.span);
         }
     }
 
     fn visit_member_expression(&mut self, member: &MemberExpression<'a>) {
         if let Some(path) = self.resolver.member_path(member) {
             let root = self.root_symbol_of_member(member);
-            if self.check_reference(&path, root, member.span().start) {
+            if self.check_reference(&path, root, member.span()) {
                 // The chain is one reference; its sub-paths are not references of their own.
                 return;
             }

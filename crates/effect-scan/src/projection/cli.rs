@@ -9,6 +9,8 @@ pub const USAGE_EXIT_CODE: u8 = 64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
     Human,
+    /// Ordered actions with bounded examples (`projection::agent`).
+    Agent,
     GateJson,
     RawJson,
 }
@@ -24,7 +26,8 @@ flags:
   --manifest <file>              manifest path (default: <root>/",
     manifest_name!(),
     ")
-  --output <mode>                human | gate-json | raw-json (default: human on a TTY, else gate-json)
+  --output <mode>                human | agent | gate-json | raw-json (default: human on a TTY, else gate-json)
+                                 agent: ordered next actions, size bounded by distinct rules, not occurrences
   --evidence <dir>               write the evidence bundle to <dir>
   --fail-on-suppression-drift    report expired, reason-less and orphan eff-ignore comments
   --profile                      include signals and profile in the raw result
@@ -100,9 +103,10 @@ pub fn resolve_output_mode(output: Option<&str>, stdout_is_tty: bool) -> Result<
     match output {
         None => Ok(if stdout_is_tty { OutputMode::Human } else { OutputMode::GateJson }),
         Some("human") => Ok(OutputMode::Human),
+        Some("agent") => Ok(OutputMode::Agent),
         Some("gate-json") => Ok(OutputMode::GateJson),
         Some("raw-json") => Ok(OutputMode::RawJson),
-        Some(other) => Err(format!("invalid --output {other}; expected human, gate-json, or raw-json")),
+        Some(other) => Err(format!("invalid --output {other}; expected human, agent, gate-json, or raw-json")),
     }
 }
 
@@ -124,6 +128,7 @@ pub fn emit(mode: OutputMode, doc: &Map<String, Value>) {
         OutputMode::GateJson => println!("{}", stable_json(&doc["gateSummary"])),
         OutputMode::RawJson => println!("{}", serde_json::to_string_pretty(doc).expect("a JSON value always serialises")),
         OutputMode::Human => human(doc),
+        OutputMode::Agent => unreachable!("agent output is rendered from findings by projection::agent"),
     }
 }
 

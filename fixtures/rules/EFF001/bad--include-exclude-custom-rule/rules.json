@@ -40,6 +40,9 @@
       "dist"
     ]
   },
+  "actionOrder": [
+    "source"
+  ],
   "rules": [
     {
       "id": "EFF001",
