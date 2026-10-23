@@ -158,10 +158,19 @@ impl Contract {
 pub fn build_resolver<'s>(program: &Program, scoping: &'s Scoping, link: Option<Link<'s>>) -> Resolver<'s> {
     let mut pre = Prepass { imports: HashMap::new(), link: link.as_ref() };
     pre.visit_program(program);
-    let mut resolver = Resolver { scoping, imports: pre.imports, aliases: HashMap::new(), link };
+    let mut resolver = Resolver { scoping, imports: pre.imports, aliases: HashMap::new(), module_loaders: HashSet::new(), link };
     // Fixpoint over `const x = <runner path>` declarations: aliases of aliases resolve on later passes.
     loop {
         let mut pass = Deriver { resolver: &mut resolver, changed: false };
+        pass.visit_program(program);
+        if !pass.changed {
+            break;
+        }
+    }
+    // Then the bindings that hold a `require` function (`createRequire(...)` results and their aliases),
+    // on the finished import/alias identity.
+    loop {
+        let mut pass = LoaderDeriver { resolver: &mut resolver, changed: false };
         pass.visit_program(program);
         if !pass.changed {
             break;
@@ -241,8 +250,13 @@ pub struct Resolver<'s> {
     scoping: &'s Scoping,
     imports: HashMap<SymbolId, Origin>,
     aliases: HashMap<SymbolId, Path>,
+    /// Bindings whose value is a `require` function (see `is_module_loader`).
+    module_loaders: HashSet<SymbolId>,
     link: Option<Link<'s>>,
 }
+
+/// Modules exporting `createRequire` (Node's `module` builtin, either specifier form).
+const CREATE_REQUIRE_MODULES: [&str; 2] = ["node:module", "module"];
 
 pub fn unwrap<'e, 'a>(mut expr: &'e Expression<'a>) -> &'e Expression<'a> {
     loop {
@@ -290,6 +304,29 @@ impl<'s> Resolver<'s> {
     /// The import binding an identifier reference resolves to, if any.
     pub fn import_of(&self, ident: &IdentifierReference) -> Option<&Origin> {
         self.imports.get(&self.symbol_of(ident)?)
+    }
+
+    /// The callee loads a module by specifier: the CommonJS global `require`, a binding that holds the
+    /// `require` returned by `createRequire(...)` (any import form of `node:module`, any alias), or such a
+    /// call applied directly (`createRequire(url)("x")`). The one module-load predicate: source-import
+    /// rules and the edge rule's dynamic-load fact both ask it, so the two cannot disagree on what loads.
+    pub fn is_module_loader(&self, callee: &Expression) -> bool {
+        match unwrap(callee) {
+            Expression::Identifier(ident) => match self.symbol_of(ident) {
+                None => ident.name == "require",
+                Some(symbol) => self.module_loaders.contains(&symbol),
+            },
+            Expression::CallExpression(call) => self.is_create_require(&call.callee),
+            _ => false,
+        }
+    }
+
+    /// `createRequire` itself (not a call result): `import { createRequire } from "node:module"`,
+    /// `module.createRequire` of a default or namespace import, or a `const` alias of either.
+    fn is_create_require(&self, callee: &Expression) -> bool {
+        self.path_of(callee).filter(|p| !p.via_call).and_then(|p| p.export_ref()).is_some_and(|e| {
+            CREATE_REQUIRE_MODULES.iter().any(|m| e.is(m, &["createRequire"]) || e.is(m, &["default", "createRequire"]))
+        })
     }
 
     pub fn path_of(&self, input: &Expression) -> Option<Path> {
@@ -389,6 +426,28 @@ impl<'a> Visit<'a> for Deriver<'_, '_> {
             self.changed = self.resolver.derive_declarator(declarator, is_const) || self.changed;
         }
         walk::walk_variable_declaration(self, decl);
+    }
+}
+
+struct LoaderDeriver<'r, 's> {
+    resolver: &'r mut Resolver<'s>,
+    changed: bool,
+}
+
+impl<'a> Visit<'a> for LoaderDeriver<'_, '_> {
+    fn visit_variable_declarator(&mut self, decl: &VariableDeclarator<'a>) {
+        if let (BindingPattern::BindingIdentifier(id), Some(init)) = (&decl.id, &decl.init) {
+            // `const req = createRequire(url)` or `const r = req` / `const r = require`
+            let holds_require = match unwrap(init) {
+                Expression::CallExpression(call) => self.resolver.is_create_require(&call.callee),
+                other @ Expression::Identifier(_) => self.resolver.is_module_loader(other),
+                _ => false,
+            };
+            if let Some(symbol) = id.symbol_id.get().filter(|_| holds_require) {
+                self.changed = self.resolver.module_loaders.insert(symbol) || self.changed;
+            }
+        }
+        walk::walk_variable_declarator(self, decl);
     }
 }
 
@@ -622,11 +681,8 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
             };
             self.facts.call_heads.extend(head);
         }
-        if let Expression::Identifier(ident) = &call.callee {
-            // The CommonJS global only: a locally bound `require` is not a module load.
-            if ident.name == "require" && self.resolver.symbol_of(ident).is_none() {
-                self.facts.dynamic_loads.push(call.span.start);
-            }
+        if self.resolver.is_module_loader(&call.callee) {
+            self.facts.dynamic_loads.push(call.span.start);
         }
         walk::walk_call_expression(self, call);
     }

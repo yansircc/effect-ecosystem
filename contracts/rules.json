@@ -216,7 +216,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 axios 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -243,7 +243,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 zod 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -270,7 +270,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 yup 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -297,7 +297,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 arktype 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -324,7 +324,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 io-ts 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -351,7 +351,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 lodash* 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -378,7 +378,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 ramda 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -405,7 +405,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 ts-pattern 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -434,7 +434,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 @tanstack/react-query / @tanstack/query-core / swr 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -461,7 +461,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 zustand* 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -488,7 +488,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 jotai* 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -516,7 +516,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 node:fs / fs-extra 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -543,7 +543,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 node:path 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -722,7 +722,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 node-cron 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -751,7 +751,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 @trpc/* 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -780,7 +780,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 @prisma/client 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -809,7 +809,7 @@
       "coverage": {
         "proves": "扫描范围内没有对 moment/dayjs/date-fns* 的字面量 import/require",
         "blindSpots": [
-          "只匹配字面量 import/export-from/import()/require() 说明符;非字面量说明符与经第三方包二次封装的同名库不可见",
+          "只匹配字面量 import/export-from/import()/require() 说明符(require 含 createRequire 返回值及其别名);经函数参数传入的 require、非字面量说明符与经第三方包二次封装的同名库不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -1341,9 +1341,10 @@
         "kind": "projection"
       },
       "coverage": {
-        "proves": "源码文件没有 require() 与模块作用域 import()",
+        "proves": "源码文件没有 require()(含 createRequire 返回值及其别名)与模块作用域 import()",
         "blindSpots": [
           "函数体内的 import() 按规则允许;非字面量说明符与打包器魔法注释不被分析",
+          "经函数参数传入的 require 不可见",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }

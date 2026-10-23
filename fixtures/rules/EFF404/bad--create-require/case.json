@@ -1,0 +1,15 @@
+{
+  "description": "EFF404 bad: a require obtained from createRequire is a module load in source, like the CommonJS global",
+  "suites": [
+    "rule-pairs"
+  ],
+  "strict": true,
+  "expectExit": 1,
+  "expectRules": [
+    "EFF404"
+  ],
+  "expectFindingKeys": [
+    "src/index.ts:3:EFF404:error"
+  ],
+  "exact": true
+}

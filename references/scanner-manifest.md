@@ -37,7 +37,9 @@ skips `walkIgnoredDirectories`; `build` and `out` are scanned. In both modes
 `generatedPaths` or `hostTooling`.
 
 CommonJS source is inspected, but `require()` is not proof of an approved ESM
-runtime import and remains subject to EFF404. Unsupported or unresolved bindings
+runtime import and remains subject to EFF404. A `require` obtained from
+`createRequire(...)` (`node:module`, any import form or alias) is the same module load:
+source-import rules and EFF404 report it exactly like the CommonJS global. Unsupported or unresolved bindings
 do not acquire execution permission merely by matching a runner name.
 
 ## Manifest

@@ -1,0 +1,16 @@
+{
+  "description": "EFF020 bad: a require obtained from createRequire (named or default import of node:module, and an alias of it) loads node:fs like the CommonJS global",
+  "suites": [
+    "rule-pairs"
+  ],
+  "expectExit": 1,
+  "expectRules": [
+    "EFF020"
+  ],
+  "expectFindingKeys": [
+    "src/index.mjs:5:EFF020:error",
+    "src/index.mjs:7:EFF020:error",
+    "src/index.mjs:9:EFF020:error"
+  ],
+  "exact": true
+}

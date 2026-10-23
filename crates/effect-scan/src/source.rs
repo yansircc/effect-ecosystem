@@ -2,7 +2,6 @@
 use oxc_allocator::Allocator;
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
-use oxc_semantic::Scoping;
 use std::collections::BTreeMap;
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
@@ -90,7 +89,7 @@ pub fn analyze(path: &str, abs: &Path, source: &str, contract: &Contract, links:
     module.exports = ExportTable::from_program(&parsed.program);
     let hits = rules::collect(&parsed.program, &resolver);
     let selectors = hits.into_iter().map(|(name, offsets)| (name, offsets.into_iter().map(|o| line_in(&starts, o)).collect())).collect();
-    let mut collector = Collector { scoping: semantic.scoping(), line_starts: &starts, imports: Vec::new() };
+    let mut collector = Collector { resolver: &resolver, line_starts: &starts, imports: Vec::new() };
     collector.visit_program(&parsed.program);
     let mut imports = collector.imports;
     imports.sort_by_key(|i| i.start);
@@ -110,7 +109,7 @@ fn js(value: oxc_str::JSStr<'_>) -> String {
 }
 
 struct Collector<'a> {
-    scoping: &'a Scoping,
+    resolver: &'a facts::Resolver<'a>,
     line_starts: &'a [u32],
     imports: Vec<ImportFact>,
 }
@@ -127,20 +126,13 @@ impl Collector<'_> {
             line: line_in(self.line_starts, span.start),
         });
     }
-
-    /// `require` that is not bound in any scope: the CommonJS global, not a local of that name.
-    fn is_global_require(&self, ident: &IdentifierReference) -> bool {
-        ident.name == "require" && ident.reference_id.get().is_some_and(|id| self.scoping.get_reference(id).symbol_id().is_none())
-    }
 }
 
 impl<'a> Visit<'a> for Collector<'_> {
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
-        if let Expression::Identifier(ident) = &call.callee {
-            if self.is_global_require(ident) {
-                if let Some(Expression::StringLiteral(lit)) = call.arguments.first().and_then(Argument::as_expression) {
-                    self.add_import(lit.span, &js(lit.value), false);
-                }
+        if self.resolver.is_module_loader(&call.callee) {
+            if let Some(Expression::StringLiteral(lit)) = call.arguments.first().and_then(Argument::as_expression) {
+                self.add_import(lit.span, &js(lit.value), false);
             }
         }
         walk::walk_call_expression(self, call);

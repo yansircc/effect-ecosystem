@@ -1,0 +1,9 @@
+{
+  "description": "EFF020 good: calling what a createRequire require returned is not a module load, whatever its string argument",
+  "suites": [
+    "rule-pairs"
+  ],
+  "expectExit": 0,
+  "expectRules": [],
+  "exact": true
+}
