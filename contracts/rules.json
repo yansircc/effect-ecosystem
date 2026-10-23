@@ -84,10 +84,11 @@
         "source.code"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 try 语句(Effect.promise/tryPromise 回调内与非 async 的 Effect.sync/try 回调内除外)",
+        "proves": "扫描范围内没有 try 语句(Effect.promise/tryPromise 回调内与非 async 的 Effect.sync/try 回调内除外;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
         "blindSpots": [
           "Promise 的 .catch()/.then() 错误处理不被检查",
           "经变量间接传给 Effect 边界的回调按普通函数处理(可能误报,不会漏报)",
+          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -110,9 +111,10 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async function/方法声明(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告)",
+        "proves": "扫描范围内没有 async function/方法声明(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
         "blindSpots": [
           "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
+          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -135,9 +137,10 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 async 箭头函数(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告)",
+        "proves": "扫描范围内没有 async 箭头函数(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调是同步边界,async 仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
         "blindSpots": [
           "不带 async 关键字却返回 Promise 的函数(new Promise、.then 链)不被识别",
+          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }
@@ -160,9 +163,10 @@
         "source.syntax"
       ],
       "coverage": {
-        "proves": "扫描范围内没有 await/for await/await using(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调内仍报告)",
+        "proves": "扫描范围内没有 await/for await/await using(Effect.promise/tryPromise 的 Promise 回调内除外;Effect.sync/try 回调内仍报告;边界按词法区域计:回调内嵌套的函数继承该边界,最内层边界决定)",
         "blindSpots": [
           "Promise .then() 链式等待不被识别",
+          "Promise 边界区域内经 Effect.run* 重新进入 Effect 的代码仍按 Promise 区域豁免;该重入点由 EFF400 管辖",
           "测试/生成/hostTooling/.d.ts 文件与非 JS/TS 扩展名文件不在扫描范围"
         ]
       }

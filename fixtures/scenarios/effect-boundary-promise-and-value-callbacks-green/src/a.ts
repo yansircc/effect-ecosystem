@@ -11,3 +11,16 @@ export const b = Effect.tryPromise({
 })
 export const c = Effect.sync(() => { try { work() } catch {} })
 export const d = Effect.try({ try: () => { try { work() } catch {} }, catch: (e) => e })
+declare const storage: { transaction<T>(run: (tx: { put(k: string): Promise<void> }) => Promise<T>): Promise<T> }
+export const e = Effect.promise(() =>
+  storage.transaction(async (tx) => {
+    await tx.put("k")
+    try { work() } catch {}
+  }),
+)
+export const g = Effect.sync(() => {
+  const nested = () => {
+    try { return 1 } catch { return 2 }
+  }
+  return nested()
+})

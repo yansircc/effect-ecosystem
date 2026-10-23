@@ -1,5 +1,5 @@
 {
-  "description": "effect-boundary-callbacks-red",
+  "description": "effect-boundary-callbacks-red: outside every boundary, in a non-Effect lookalike, or in a value boundary region (Effect.sync/try, innermost wins even inside Effect.promise) async/await/try are reported",
   "suites": [
     "async-ast-rules"
   ],
@@ -17,6 +17,7 @@
     "src/a.ts:13:EFF004:error",
     "src/a.ts:14:EFF003:error",
     "src/a.ts:14:EFF004:error",
+    "src/a.ts:16:EFF003:error",
     "src/a.ts:17:EFF001:error",
     "src/a.ts:5:EFF003:error",
     "src/a.ts:5:EFF004:error"

@@ -1,5 +1,5 @@
 {
-  "description": "effect-boundary-promise-and-value-callbacks-green",
+  "description": "effect-boundary-promise-and-value-callbacks-green: boundary callbacks and functions nested in their lexical region (a Promise API's async callback inside Effect.promise, a sync helper inside Effect.sync) are exempt",
   "suites": [
     "async-ast-rules"
   ],

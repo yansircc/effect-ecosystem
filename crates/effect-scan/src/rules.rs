@@ -14,8 +14,14 @@
 //! `promise`/`tryPromise` callbacks return a Promise, so `async`, `await` and `try` are all exempt
 //! (EFF002/003/004/001); `sync`/`try` callbacks return a value, so only `try` is exempt, and only in
 //! a callback that is not `async` (an async callback there returns a dangling Promise: a bug, still
-//! reported with its `await`s and `try`s). The exemption belongs to the nearest enclosing function
-//! only; functions nested deeper are not exempt.
+//! reported with its `await`s and `try`s).
+//!
+//! A boundary is a lexical region, not one function: code is Promise-world or Effect-world, and the
+//! world changes only at a boundary. Effect enters Promise-world through these callbacks; Promise-world
+//! re-enters Effect only through a runner (`Effect.run*`), which EFF400 owns. So a function nested in a
+//! boundary callback inherits that boundary (`storage.transaction(async (tx) => ...)` inside
+//! `Effect.promise` has no Effect-world rewrite), and the innermost boundary decides
+//! (`Effect.sync` nested in `Effect.promise` admits only what a value callback admits).
 use crate::facts::{effect_member, unwrap, OriginKind, Path, Resolver};
 use oxc_ast::ast::*;
 use oxc_ast_visit::{walk, Visit};
@@ -76,7 +82,8 @@ impl Boundary {
     }
 }
 
-/// The exemptions of one enclosing function (none for an ordinary function).
+/// The exemptions of one enclosing function: its own boundary if it is a boundary callback, else the
+/// boundary of the region it is nested in (none outside every boundary).
 #[derive(Clone, Copy)]
 struct Frame {
     boundary: Option<Boundary>,
@@ -194,12 +201,17 @@ impl Collector<'_, '_> {
         self.hits.get_mut(selector).expect("selector registered").push(offset);
     }
 
-    /// Is `await` exempt here: the nearest enclosing function is a Promise callback.
+    /// The boundary region the next nested function sits in.
+    fn enclosing_boundary(&self) -> Option<Boundary> {
+        self.frames.last().and_then(|f| f.boundary)
+    }
+
+    /// Is `await` exempt here: the enclosing function lies in a Promise boundary region.
     fn awaits_exempt(&self) -> bool {
         self.frames.last().is_some_and(|f| f.boundary.is_some_and(Boundary::admits_async))
     }
 
-    /// Is `try` exempt here, per the nearest enclosing function.
+    /// Is `try` exempt here, per the enclosing function's region and its own `async`.
     fn try_exempt(&self) -> bool {
         self.frames.last().is_some_and(|f| f.boundary.is_some_and(|b| b.admits_try(f.is_async)))
     }
@@ -259,7 +271,7 @@ fn binding_symbols(pattern: &BindingPattern, out: &mut Vec<SymbolId>) {
 
 impl<'a> Visit<'a> for Collector<'_, '_> {
     fn visit_function(&mut self, func: &Function<'a>, flags: ScopeFlags) {
-        let boundary = self.boundary_fns.get(&(func.span.start, func.span.end)).copied();
+        let boundary = self.boundary_fns.get(&(func.span.start, func.span.end)).copied().or_else(|| self.enclosing_boundary());
         if func.r#async && !boundary.is_some_and(Boundary::admits_async) {
             self.hit("async-function", func.span.start);
         }
@@ -269,7 +281,7 @@ impl<'a> Visit<'a> for Collector<'_, '_> {
     }
 
     fn visit_arrow_function_expression(&mut self, arrow: &ArrowFunctionExpression<'a>) {
-        let boundary = self.boundary_fns.get(&(arrow.span.start, arrow.span.end)).copied();
+        let boundary = self.boundary_fns.get(&(arrow.span.start, arrow.span.end)).copied().or_else(|| self.enclosing_boundary());
         if arrow.r#async && !boundary.is_some_and(Boundary::admits_async) {
             self.hit("async-arrow", arrow.span.start);
         }
