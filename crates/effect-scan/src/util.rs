@@ -6,34 +6,89 @@ use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{LazyLock, Mutex};
 
-pub const TEXT_EXTENSIONS: [&str; 8] = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
-
-/// Test classification when a manifest does not declare `testGlobs` (an explicit list replaces this one):
-/// `.test` / `.spec` before every source extension, and every file under a `__tests__`, `test` or `tests`
-/// directory at any depth.
-pub fn default_test_globs() -> Vec<String> {
-    TEXT_EXTENSIONS
-        .iter()
-        .flat_map(|ext| [format!("**/*.test{ext}"), format!("**/*.spec{ext}")])
-        .chain(TEST_DIRECTORIES.iter().map(|dir| format!("**/{dir}/**")))
-        .collect()
+/// What is source: the `scope` object of the rule contract (contracts/rules.json), its one owner. File
+/// enumeration, declaration-file exclusion and default test classification all read this value; nothing
+/// else in the scanner names an extension or a directory.
+///
+/// - `ignoredDirectories` are never source, in either enumeration mode (version-control metadata, installed
+///   dependencies, the scanner's own build outputs).
+/// - `walkIgnoredDirectories` are skipped only by the directory walk, the fallback outside a Git repository.
+///   Inside one, `git ls-files --cached --others --exclude-standard` decides (a tracked or unignored `dist/` is
+///   the project's own). Without Git only generated-output names that are unambiguous are skipped; `build` and
+///   `out` are also source directory names, and hiding source from a gate is worse than scanning generated code
+///   (which `generatedPaths` / `hostTooling` exclude visibly).
+/// - `defaultTests` is a role, not an exclusion: a test file is still scanned by test-scoped rules (EFF200), and
+///   a manifest's explicit `testGlobs` replaces the default.
+#[derive(Debug, Clone)]
+pub struct Scope {
+    source_extensions: Vec<String>,
+    declaration_suffixes: Vec<String>,
+    test_infixes: Vec<String>,
+    test_directories: Vec<String>,
+    ignored_directories: Vec<String>,
+    walk_ignored_directories: Vec<String>,
 }
 
-const TEST_DIRECTORIES: [&str; 3] = ["__tests__", "test", "tests"];
+impl Scope {
+    pub fn from_json(value: &serde_json::Value) -> Result<Self, String> {
+        let list = |path: &[&str], dotted: bool| -> Result<Vec<String>, String> {
+            let key = path.join(".");
+            let items = path
+                .iter()
+                .try_fold(value, |v, k| v.get(k))
+                .and_then(serde_json::Value::as_array)
+                .and_then(|a| a.iter().map(|x| x.as_str().map(String::from)).collect::<Option<Vec<_>>>())
+                .ok_or_else(|| format!("`{key}` must be an array of strings"))?;
+            if items.is_empty() || items.iter().any(|i| i.trim().is_empty() || i.contains('/')) {
+                return Err(format!("`{key}` must be a non-empty list of names without `/`"));
+            }
+            if dotted && items.iter().any(|i| !i.starts_with('.')) {
+                return Err(format!("`{key}` entries must start with `.`"));
+            }
+            if items.iter().enumerate().any(|(i, x)| items[..i].contains(x)) {
+                return Err(format!("`{key}` has a duplicate entry"));
+            }
+            Ok(items)
+        };
+        Ok(Self {
+            source_extensions: list(&["sourceExtensions"], true)?,
+            declaration_suffixes: list(&["declarationSuffixes"], true)?,
+            test_infixes: list(&["defaultTests", "infixes"], true)?,
+            test_directories: list(&["defaultTests", "directories"], false)?,
+            ignored_directories: list(&["ignoredDirectories"], false)?,
+            walk_ignored_directories: list(&["walkIgnoredDirectories"], false)?,
+        })
+    }
 
-/// Never target source, in either enumeration mode: version-control metadata, installed dependencies, and the
-/// scanner's own build outputs (`make build` / `make install`).
-const ALWAYS_IGNORED_DIRS: [&str; 5] = [".git", ".cst", "node_modules", "dist-dev", "dist-installed"];
+    fn is_declaration(&self, path: &str) -> bool {
+        let base = path.rsplit(['/', '\\']).next().unwrap_or("");
+        self.declaration_suffixes.iter().any(|s| base.ends_with(s.as_str()))
+    }
 
-/// Skipped only by the directory walk, which is the fallback when the target is not inside a Git repository.
-/// Inside a repository `git ls-files --cached --others --exclude-standard` is the authority for what is source
-/// (build output is excluded by `.gitignore`, a tracked or unignored `build/` or `dist/` is the project's own),
-/// so none of these names is special there. Without Git there is no ignore information, so the walk skips only
-/// generated-output directories whose names are unambiguous: `.next` (framework cache), `coverage` (test
-/// reports) and `dist` (the conventional compiler output of this ecosystem). `build` and `out` are also common
-/// source directory names (scripts, static exports); skipping one silently hides source from a gate, scanning
-/// generated code is visible and is excluded with `generatedPaths` / `hostTooling`, so they are scanned.
-const WALK_FALLBACK_IGNORED_DIRS: [&str; 3] = [".next", "coverage", "dist"];
+    /// A source file: a supported extension after a non-empty stem, and not a declaration file.
+    pub fn is_source(&self, path: &str) -> bool {
+        let base = path.rsplit(['/', '\\']).next().unwrap_or("");
+        !self.is_declaration(base) && self.source_extensions.iter().any(|e| base.len() > e.len() && base.ends_with(e.as_str()))
+    }
+
+    /// Test classification when a manifest does not declare `testGlobs`: every infix before every source
+    /// extension, and every file under a test directory at any depth.
+    pub fn default_test_globs(&self) -> Vec<String> {
+        self.source_extensions
+            .iter()
+            .flat_map(|ext| self.test_infixes.iter().map(move |infix| format!("**/*{infix}{ext}")))
+            .chain(self.test_directories.iter().map(|dir| format!("**/{dir}/**")))
+            .collect()
+    }
+
+    fn always_ignored(&self, name: &str) -> bool {
+        self.ignored_directories.iter().any(|d| d == name)
+    }
+
+    fn walk_ignored(&self, name: &str) -> bool {
+        self.always_ignored(name) || self.walk_ignored_directories.iter().any(|d| d == name)
+    }
+}
 
 /// JSON text as Node's `JSON.parse(readFileSync(path, "utf8"))` sees a manifest: a leading byte-order mark
 /// is not part of the document (editors on Windows write one; a BOM must not read as "no dependencies").
@@ -55,22 +110,6 @@ pub fn rel(root: &Path, file: &Path) -> String {
         Ok(p) if !p.as_os_str().is_empty() => to_posix(&p.to_string_lossy()),
         _ => to_posix(&file.to_string_lossy()),
     }
-}
-
-/// Extension used for source inclusion; declaration files are their own class.
-pub fn extname(path: &str) -> String {
-    let base = path.rsplit(['/', '\\']).next().unwrap_or("");
-    if base.ends_with(".d.ts") || base.ends_with(".d.mts") || base.ends_with(".d.cts") {
-        return ".declaration".into();
-    }
-    match base.rfind('.') {
-        Some(i) if i > 0 => base[i..].to_string(),
-        _ => String::new(),
-    }
-}
-
-fn is_source(path: &str) -> bool {
-    TEXT_EXTENSIONS.contains(&extname(path).as_str())
 }
 
 pub fn find_up(name: &str, start: &Path) -> Option<PathBuf> {
@@ -101,17 +140,17 @@ pub struct Collected {
 
 /// Files under `root`: the git working tree when inside a repository, otherwise a directory walk. Neither
 /// mode follows symlinks, and an enumeration error is an error, never a shorter file list.
-pub fn collect_files(root: &Path, ignore_relative_dirs: &[String]) -> Result<Collected, String> {
+pub fn collect_files(root: &Path, ignore_relative_dirs: &[String], scope: &Scope) -> Result<Collected, String> {
     if find_up(".git", root).is_some() {
-        git_files(root, ignore_relative_dirs)
+        git_files(root, ignore_relative_dirs, scope)
     } else {
         let mut out = Collected::default();
-        walk(root, root, ignore_relative_dirs, &mut out)?;
+        walk(root, root, ignore_relative_dirs, scope, &mut out)?;
         Ok(out)
     }
 }
 
-fn walk(root: &Path, dir: &Path, ignored: &[String], out: &mut Collected) -> Result<(), String> {
+fn walk(root: &Path, dir: &Path, ignored: &[String], scope: &Scope, out: &mut Collected) -> Result<(), String> {
     let failure = |what: &str, path: &Path, e: std::io::Error| format!("cannot {what} {}: {e}", rel(root, path));
     let mut entries = fs::read_dir(dir).map_err(|e| failure("read directory", dir, e))?.collect::<Result<Vec<_>, _>>().map_err(|e| failure("read directory", dir, e))?;
     entries.sort_by_key(|e| e.file_name());
@@ -121,22 +160,22 @@ fn walk(root: &Path, dir: &Path, ignored: &[String], out: &mut Collected) -> Res
         let kind = entry.file_type().map_err(|e| failure("stat", &path, e))?;
         let name = entry.file_name().to_string_lossy().to_string();
         if kind.is_symlink() {
-            if is_source(&name) || path.is_dir() {
+            if scope.is_source(&name) || path.is_dir() {
                 out.skipped_symlinks.push(rel(root, &path));
             }
         } else if kind.is_dir() {
-            if ALWAYS_IGNORED_DIRS.contains(&name.as_str()) || WALK_FALLBACK_IGNORED_DIRS.contains(&name.as_str()) {
+            if scope.walk_ignored(&name) {
                 continue;
             }
             let relative = rel(root, &path);
             if ignored.iter().any(|d| *d == relative) {
-                if contains_source(root, &path)? {
+                if contains_source(root, &path, scope)? {
                     out.pruned_with_source.push(relative);
                 }
                 continue;
             }
-            walk(root, &path, ignored, out)?;
-        } else if kind.is_file() && is_source(&name) {
+            walk(root, &path, ignored, scope, out)?;
+        } else if kind.is_file() && scope.is_source(&name) {
             out.files.push(path);
         }
     }
@@ -144,24 +183,24 @@ fn walk(root: &Path, dir: &Path, ignored: &[String], out: &mut Collected) -> Res
 }
 
 /// Whether the walk would find a source file under `dir` (same skips, symlinks not followed); stops at the first.
-fn contains_source(root: &Path, dir: &Path) -> Result<bool, String> {
+fn contains_source(root: &Path, dir: &Path, scope: &Scope) -> Result<bool, String> {
     let failure = |path: &Path, e: std::io::Error| format!("cannot read directory {}: {e}", rel(root, path));
     for entry in fs::read_dir(dir).map_err(|e| failure(dir, e))? {
         let entry = entry.map_err(|e| failure(dir, e))?;
         let kind = entry.file_type().map_err(|e| failure(&entry.path(), e))?;
         let name = entry.file_name().to_string_lossy().to_string();
-        if kind.is_dir() && !ALWAYS_IGNORED_DIRS.contains(&name.as_str()) && !WALK_FALLBACK_IGNORED_DIRS.contains(&name.as_str()) {
-            if contains_source(root, &entry.path())? {
+        if kind.is_dir() && !scope.walk_ignored(&name) {
+            if contains_source(root, &entry.path(), scope)? {
                 return Ok(true);
             }
-        } else if kind.is_file() && is_source(&name) {
+        } else if kind.is_file() && scope.is_source(&name) {
             return Ok(true);
         }
     }
     Ok(false)
 }
 
-fn git_files(root: &Path, ignored: &[String]) -> Result<Collected, String> {
+fn git_files(root: &Path, ignored: &[String], scope: &Scope) -> Result<Collected, String> {
     let output = Command::new("git")
         .args(["-C"])
         .arg(root)
@@ -183,13 +222,13 @@ fn git_files(root: &Path, ignored: &[String]) -> Result<Collected, String> {
         .map(to_posix)
         .filter(|p| {
             let segments: Vec<&str> = p.split('/').collect();
-            !segments[..segments.len() - 1].iter().any(|s| ALWAYS_IGNORED_DIRS.contains(s))
+            !segments[..segments.len() - 1].iter().any(|s| scope.always_ignored(s))
         })
         .collect::<Vec<_>>();
     for relative in listed {
         if let Some(r) = roots.iter().find(|r| relative == **r || relative.starts_with(&format!("{r}/"))) {
             let is_file = fs::symlink_metadata(root.join(&relative)).is_ok_and(|m| m.is_file());
-            if is_file && is_source(&relative) && !out.pruned_with_source.contains(r) {
+            if is_file && scope.is_source(&relative) && !out.pruned_with_source.contains(r) {
                 out.pruned_with_source.push(r.clone());
             }
             continue;
@@ -198,10 +237,10 @@ fn git_files(root: &Path, ignored: &[String]) -> Result<Collected, String> {
         // A listed path that is gone (tracked, deleted in the working tree) is not a file of the tree.
         let Ok(meta) = fs::symlink_metadata(&path) else { continue };
         if meta.file_type().is_symlink() {
-            if is_source(&relative) || path.is_dir() {
+            if scope.is_source(&relative) || path.is_dir() {
                 out.skipped_symlinks.push(relative);
             }
-        } else if meta.is_file() && is_source(&relative) {
+        } else if meta.is_file() && scope.is_source(&relative) {
             out.files.push(path);
         }
     }
@@ -294,9 +333,36 @@ pub fn local_tsc_version(root: &Path) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// The embedded contract's scope: tests exercise the same value the binary runs with.
+    fn scope() -> Scope {
+        let rules: serde_json::Value = serde_json::from_str(crate::RULES_JSON).unwrap();
+        Scope::from_json(&rules["scope"]).unwrap()
+    }
+
+    #[test]
+    fn scope_classifies_source_and_declarations() {
+        let scope = scope();
+        for source in ["a.ts", "src/a.tsx", "a.mjs", "x/b.cjs", "a.test.ts"] {
+            assert!(scope.is_source(source), "{source} is source");
+        }
+        for other in ["a.d.ts", "src/a.d.mts", "a.d.cts", ".ts", "a.json", "a.tsx.map", "README.md"] {
+            assert!(!scope.is_source(other), "{other} is not source");
+        }
+    }
+
+    #[test]
+    fn scope_rejects_a_malformed_contract() {
+        let mut rules: serde_json::Value = serde_json::from_str(crate::RULES_JSON).unwrap();
+        rules["scope"]["sourceExtensions"] = serde_json::json!(["ts"]);
+        assert!(Scope::from_json(&rules["scope"]).unwrap_err().contains("sourceExtensions"));
+        rules["scope"]["sourceExtensions"] = serde_json::json!([]);
+        assert!(Scope::from_json(&rules["scope"]).is_err());
+        assert!(Scope::from_json(&serde_json::json!({})).is_err());
+    }
+
     #[test]
     fn default_test_globs_recognise_test_directories_at_any_depth() {
-        let globs = default_test_globs();
+        let globs = scope().default_test_globs();
         for test in ["src/a.test.ts", "a.spec.mjs", "__tests__/a.ts", "src/__tests__/deep/a.js", "test/a.ts", "packages/x/tests/a.tsx", "src/test/helpers/a.cjs"] {
             assert!(matches_any(test, &globs), "{test} is a test file");
         }
@@ -313,7 +379,7 @@ mod tests {
             fs::create_dir_all(root.join(dir)).unwrap();
             fs::write(root.join(dir).join("a.ts"), "export const a = 1\n").unwrap();
         }
-        let mut found: Vec<String> = collect_files(&root, &[]).unwrap().files.iter().map(|p| rel(&root, p)).collect();
+        let mut found: Vec<String> = collect_files(&root, &[], &scope()).unwrap().files.iter().map(|p| rel(&root, p)).collect();
         found.sort();
         let _ = fs::remove_dir_all(&root);
         assert_eq!(found, ["build/a.ts", "out/a.ts", "src/a.ts"]);
@@ -342,7 +408,7 @@ mod tests {
             }
             symlink("a/x.ts", root.join("alias.ts")).unwrap();
             symlink("missing.ts", root.join("broken.ts")).unwrap();
-            let collected = collect_files(&root, &[]).unwrap();
+            let collected = collect_files(&root, &[], &scope()).unwrap();
             let mut files: Vec<String> = collected.files.iter().map(|p| rel(&root, p)).collect();
             files.sort();
             let _ = fs::remove_dir_all(&root);
@@ -357,7 +423,7 @@ mod tests {
             fs::write(root.join("src/a.ts"), "export const a = 1\n").unwrap();
             fs::set_permissions(root.join("src"), fs::Permissions::from_mode(0o000)).unwrap();
             let unreadable = fs::read_dir(root.join("src")).is_err(); // root ignores modes: nothing to assert then
-            let result = collect_files(&root, &[]);
+            let result = collect_files(&root, &[], &scope());
             fs::set_permissions(root.join("src"), fs::Permissions::from_mode(0o755)).unwrap();
             let _ = fs::remove_dir_all(&root);
             if unreadable {
@@ -375,7 +441,7 @@ mod tests {
             fs::write(root.join("a/x.ts"), "export const x = 1\n").unwrap();
             symlink("..", root.join("a/up")).unwrap();
             symlink("a/x.ts", root.join("alias.ts")).unwrap();
-            let collected = collect_files(&root, &[]).unwrap();
+            let collected = collect_files(&root, &[], &scope()).unwrap();
             let files: Vec<String> = collected.files.iter().map(|p| rel(&root, p)).collect();
             let _ = fs::remove_dir_all(&root);
             assert_eq!(files, ["a/x.ts"]);

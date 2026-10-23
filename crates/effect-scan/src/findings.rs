@@ -48,6 +48,8 @@ impl Finding {
 #[derive(Clone)]
 pub struct Registry {
     pub rules: Vec<RuleMeta>,
+    /// What is source (`scope`): every file enumeration and classification reads it.
+    pub scope: crate::util::Scope,
     by_id: HashMap<String, usize>,
 }
 
@@ -59,6 +61,7 @@ impl Registry {
             Some(RULES_SCHEMA_VERSION) => {}
             other => return Err(format!("rules.json schemaVersion must be {RULES_SCHEMA_VERSION}, got {}", other.map_or("none".into(), |v| v.to_string()))),
         }
+        let scope = crate::util::Scope::from_json(value.get("scope").ok_or("rules.json has no scope object")?).map_err(|m| format!("rules.json scope: {m}"))?;
         let list = value.get("rules").and_then(Value::as_array).ok_or("rules.json has no rules array")?;
         if list.is_empty() {
             return Err("rules.json has an empty rules array".into());
@@ -106,7 +109,7 @@ impl Registry {
             });
         }
         let by_id = rules.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect();
-        Ok(Self { rules, by_id })
+        Ok(Self { rules, scope, by_id })
     }
 
     pub fn meta(&self, id: &str) -> Option<&RuleMeta> {
@@ -130,9 +133,10 @@ impl Registry {
     }
 }
 
-/// Revision of `contracts/rules.json`: 3 removed `scanner.pattern` (regex kinds) in favour of `selector` /
-/// `packages` / `packagePrefixes`; revision 2 contracts are rejected, not reinterpreted.
-const RULES_SCHEMA_VERSION: u64 = 3;
+/// Revision of `contracts/rules.json`: 4 replaced the unread `defaults` include/exclude lists with the
+/// `scope` object the scanner enumerates from; 3 removed `scanner.pattern` (regex kinds) in favour of
+/// `selector` / `packages` / `packagePrefixes`. Older revisions are rejected, not reinterpreted.
+const RULES_SCHEMA_VERSION: u64 = 4;
 
 /// Scanner kinds of the rule contract. `line-regex` was retired with the TypeScript scanner:
 /// a text match is not a fact about the program, so it is rejected rather than skipped.

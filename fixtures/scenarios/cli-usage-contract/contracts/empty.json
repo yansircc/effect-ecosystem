@@ -1,1 +1,1 @@
-{"schemaVersion":3,"rules":[]}
+{"schemaVersion":4,"scope":{"sourceExtensions":[".ts",".tsx",".mts",".cts",".js",".jsx",".mjs",".cjs"],"declarationSuffixes":[".d.ts",".d.mts",".d.cts"],"defaultTests":{"infixes":[".test",".spec"],"directories":["__tests__","test","tests"]},"ignoredDirectories":[".git",".cst","node_modules","dist-dev","dist-installed"],"walkIgnoredDirectories":[".next","coverage","dist"]},"rules":[]}

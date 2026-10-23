@@ -16,7 +16,10 @@ export function readRegistry(path = RULES_PATH) {
 
 export function validateRegistry(registry) {
   const errors = []
-  if (registry.schemaVersion !== 3) errors.push("schemaVersion must be 3")
+  if (registry.schemaVersion !== 4) errors.push("schemaVersion must be 4")
+  // `scope` is read by the scanner, which validates its shape at load (exit 2); here only its presence.
+  if (registry.scope === null || typeof registry.scope !== "object" || Array.isArray(registry.scope)) errors.push("scope must be an object")
+  if ("defaults" in registry) errors.push("defaults is retired: the scanner's source scope is `scope`")
   if (!Array.isArray(registry.rules)) errors.push("rules must be an array")
   if (!Array.isArray(registry.retiredRuleIds)) errors.push("retiredRuleIds must be an array")
   const ids = new Set()

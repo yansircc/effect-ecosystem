@@ -117,7 +117,27 @@
       ],
       "expectExit": 2,
       "expectStderrIncludes": [
-        "schemaVersion must be 3, got 2"
+        "schemaVersion must be 4, got 2"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/missing-scope.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "rules.json has no scope object"
+      ]
+    },
+    {
+      "args": [
+        "--rules",
+        "{work}/tree/contracts/malformed-scope.json"
+      ],
+      "expectExit": 2,
+      "expectStderrIncludes": [
+        "rules.json scope: `sourceExtensions` entries must start with `.`"
       ]
     },
     {

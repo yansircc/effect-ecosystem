@@ -1,42 +1,49 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "retiredRuleIds": [
     "EFF017",
     "EFF018",
     "EFF019",
     "EFF315"
   ],
-  "defaults": {
-    "include": [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.mts",
-      "**/*.cts",
-      "**/*.js",
-      "**/*.jsx",
-      "**/*.mjs",
-      "**/*.cjs"
+  "scope": {
+    "sourceExtensions": [
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs"
     ],
-    "exclude": [
-      "**/*.test.ts",
-      "**/*.spec.ts",
-      "**/*.test.tsx",
-      "**/*.spec.tsx",
-      "**/*.test.mts",
-      "**/*.spec.mts",
-      "**/*.test.cts",
-      "**/*.spec.cts",
-      "**/*.test.js",
-      "**/*.spec.js",
-      "**/*.test.jsx",
-      "**/*.spec.jsx",
-      "**/*.test.mjs",
-      "**/*.spec.mjs",
-      "**/*.test.cjs",
-      "**/*.spec.cjs",
-      "**/*.d.ts",
-      "**/*.d.mts",
-      "**/*.d.cts"
+    "declarationSuffixes": [
+      ".d.ts",
+      ".d.mts",
+      ".d.cts"
+    ],
+    "defaultTests": {
+      "infixes": [
+        ".test",
+        ".spec"
+      ],
+      "directories": [
+        "__tests__",
+        "test",
+        "tests"
+      ]
+    },
+    "ignoredDirectories": [
+      ".git",
+      ".cst",
+      "node_modules",
+      "dist-dev",
+      "dist-installed"
+    ],
+    "walkIgnoredDirectories": [
+      ".next",
+      "coverage",
+      "dist"
     ]
   },
   "rules": [

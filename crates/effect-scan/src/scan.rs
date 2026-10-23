@@ -91,7 +91,7 @@ pub fn run(root: &Path, options: &Options, registry: &Registry) -> Result<ScanRe
     }
     let manifest = loaded.manifest;
     let contract = Contract::from_manifest_schema(&manifest::schema_value()).with_platform_constructors(crate::contracts::platform_constructors(registry));
-    let (files, skipped_symlinks, discovered) = collect_source_files(root, manifest.as_ref(), &contract)?;
+    let (files, skipped_symlinks, discovered) = collect_source_files(root, manifest.as_ref(), &contract, &registry.scope)?;
     if let Some(m) = manifest.as_ref() {
         let manifest_file = util::to_posix(options.manifest_path.as_deref().unwrap_or(MANIFEST_NAME));
         findings.extend(stale_selector_findings(root, m, &manifest_file, &files, &discovered, registry));
@@ -196,18 +196,15 @@ fn stale_selector_findings(root: &Path, manifest: &Manifest, manifest_file: &str
         .collect()
 }
 
-fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract) -> Result<(Vec<SourceFile>, Vec<String>, Discovered), String> {
+fn collect_source_files(root: &Path, manifest: Option<&Manifest>, contract: &Contract, scope: &util::Scope) -> Result<(Vec<SourceFile>, Vec<String>, Discovered), String> {
     let prune = host_tooling_prune_dirs(manifest);
-    let collected = util::collect_files(root, &prune)?;
+    let collected = util::collect_files(root, &prune, scope)?;
     let paths = collected.files;
     let mut discovered = Discovered { files: Vec::new(), pruned_with_source: collected.pruned_with_source };
-    let default_tests = util::default_test_globs();
+    let default_tests = scope.default_test_globs();
     let mut files = Vec::new();
     for path in paths {
         let relative = rel(root, &path);
-        if relative.ends_with(".d.ts") || relative.ends_with(".d.mts") || relative.ends_with(".d.cts") {
-            continue;
-        }
         discovered.files.push(relative.clone());
         // Lossy decoding: a source file in another encoding (latin-1 comments) still has facts; a file that is
         // not valid UTF-8 must not abort the scan of every other file.

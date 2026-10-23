@@ -18,20 +18,23 @@ Gate actionability is fixed: error findings are `BLOCK`, warning findings are
 
 ## Source languages
 
-Source discovery covers `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and
-`.cjs`. The oxc parser and semantic model supply AST and binding facts for all of them
-(no type checker is involved in source rules); a JavaScript extension does not bypass source rules or terminal ownership.
-Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are not executable source. Default
-test classification recognizes `.test` and `.spec` before every supported
-extension, and every file under a `__tests__/`, `test/` or `tests/` directory at any
-depth; explicit `testGlobs` still replaces that default.
+What is source is owned by the `scope` object of `contracts/rules.json`; the scanner
+enumerates and classifies files from it and from nothing else. `sourceExtensions` are
+the supported extensions (TypeScript and JavaScript, ESM and CommonJS). The oxc parser
+and semantic model supply AST and binding facts for all of them (no type checker is
+involved in source rules); a JavaScript extension does not bypass source rules or
+terminal ownership. `declarationSuffixes` name declaration files, which are not
+executable source. `defaultTests` is a role, not an exclusion: a file matching an infix
+before a source extension, or under one of its directories at any depth, is test code
+(source rules skip it, test-scoped rules such as EFF200 read it); explicit `testGlobs`
+still replaces that default.
 
 Discovery: inside a Git repository the file list is `git ls-files --cached --others
 --exclude-standard`, so `.gitignore` decides what is source (an unignored `build/` or a
-tracked `dist/` is scanned). Outside a repository the scanner walks the directory and skips
-only `dist`, `coverage` and `.next`; `build` and `out` are scanned. In both modes `.git`,
-`.cst`, `node_modules`, `dist-dev` and `dist-installed` are never source. Exclude generated
-code explicitly with `generatedPaths` or `hostTooling`.
+tracked `dist/` is scanned). Outside a repository the scanner walks the directory and also
+skips `walkIgnoredDirectories`; `build` and `out` are scanned. In both modes
+`ignoredDirectories` are never source. Exclude generated code explicitly with
+`generatedPaths` or `hostTooling`.
 
 CommonJS source is inspected, but `require()` is not proof of an approved ESM
 runtime import and remains subject to EFF404. Unsupported or unresolved bindings

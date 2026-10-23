@@ -1,5 +1,5 @@
 use crate::findings::{Finding, Registry};
-use crate::util::{default_test_globs, to_posix};
+use crate::util::{to_posix, Scope};
 use crate::package::workspace::{self, WorkspaceContext};
 use serde_json::{Map, Value};
 use std::fs;
@@ -116,7 +116,7 @@ pub fn load(root: &Path, strict: bool, manifest_path: Option<&str>, registry: &R
     }
     let workspace = workspace::discover(root);
     let mut warnings = Vec::new();
-    let manifest = normalize(root, &raw, workspace, &mut warnings);
+    let manifest = normalize(root, &raw, workspace, &registry.scope, &mut warnings);
     let findings = if strict && manifest.packages.iter().all(|p| p.shape.is_empty()) {
         vec![registry.finding("EFF903", &relative, 1, "", None, None)]
     } else {
@@ -198,7 +198,7 @@ fn owned(value: Option<&Value>, key: &str) -> Vec<OwnedPattern> {
         .collect()
 }
 
-fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &mut Vec<String>) -> Manifest {
+fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, scope: &Scope, warnings: &mut Vec<String>) -> Manifest {
     let mut package = |pkg: &Value| {
         let path = to_posix(pkg.get("path").and_then(Value::as_str).unwrap_or("."));
         let path = path.strip_suffix('/').unwrap_or(&path);
@@ -251,7 +251,7 @@ fn normalize(root: &Path, raw: &Value, workspace: WorkspaceContext, warnings: &m
             .collect(),
         generated_globs: path_items(raw.get("generatedPaths")).iter().filter_map(|i| i.get("glob").and_then(Value::as_str).map(String::from)).collect(),
         host_tooling_paths: path_items(raw.get("hostTooling")).iter().filter_map(|i| i.get("path").and_then(Value::as_str).map(String::from)).collect(),
-        test_globs: raw.get("testGlobs").map(|v| strings(Some(v))).unwrap_or_else(default_test_globs),
+        test_globs: raw.get("testGlobs").map(|v| strings(Some(v))).unwrap_or_else(|| scope.default_test_globs()),
         workspace,
         ai_provider_transport_paths: paths("aiProviderTransports"),
         native_dependency_boundaries: path_items(raw.get("nativeDependencyBoundaries"))
